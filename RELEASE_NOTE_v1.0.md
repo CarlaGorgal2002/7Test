@@ -48,7 +48,16 @@
 
 ---
 
-## Instrucciones para QA — levantar el ambiente localmente con Docker
+## Instrucciones para QA — acceso a la aplicación
+
+El equipo de QA accede a la aplicación directamente desde el navegador, sin necesidad de instalar nada.
+
+- **Aplicación:** `https://<URL-RAILWAY-FRONTEND>` *(se comunicará por WhatsApp una vez completado el deploy)*
+- **API / Swagger UI:** `https://<URL-RAILWAY>/swagger-ui/index.html`
+
+---
+
+## Instrucciones para Devs/PMs — levantar el ambiente localmente con Docker
 
 Requisitos previos: tener **Docker Desktop** instalado y corriendo.
 
