@@ -30,13 +30,13 @@ export default function AdminLanding() {
   const [formSuccess, setFormSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const [policy, setPolicy] = useState({ minLength: 8, requireUppercase: true, requireNumber: true, requireSpecialChar: true, maxLoginAttempts: 5 })
+  const [policy, setPolicy] = useState({ minLength: 8, maxLength: 100, requireUppercase: false, requireLowercase: false, requireNumbers: false, requireSpecialChars: false })
   const [policyMsg, setPolicyMsg] = useState('')
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
-      const params = searchEmail ? { email: searchEmail } : {}
+      const params = searchEmail ? { search: searchEmail } : {}
       const res = await api.get('/users', { params })
       setUsers(res.data.content ?? res.data ?? [])
     } catch {
@@ -87,12 +87,20 @@ export default function AdminLanding() {
     setSubmitting(true)
     try {
       if (editingId) {
-        const body = { fullName: form.fullName, email: form.email, role: form.role }
-        if (form.password) body.password = form.password
-        await api.put(`/users/${editingId}`, body)
+        await api.put(`/users/${editingId}`, {
+          fullName: form.fullName,
+          email: form.email,
+          role: form.role,
+          newPassword: form.password || null,
+        })
         setFormSuccess('Usuario actualizado correctamente.')
       } else {
-        await api.post('/users', form)
+        await api.post('/users', {
+          fullName: form.fullName,
+          email: form.email,
+          role: form.role,
+          initialPassword: form.password,
+        })
         setFormSuccess('Usuario creado correctamente.')
       }
       fetchUsers()
@@ -150,7 +158,7 @@ export default function AdminLanding() {
             <div style={styles.toolbar}>
               <div style={styles.searchRow}>
                 <input
-                  placeholder="Buscar por email..."
+                  placeholder="Buscar por nombre o email..."
                   value={searchEmail}
                   onChange={(e) => setSearchEmail(e.target.value)}
                   style={styles.searchInput}
@@ -238,25 +246,31 @@ export default function AdminLanding() {
           <div style={styles.policyCard}>
             <h3 style={styles.formTitle}>Política de contraseñas</h3>
             <form onSubmit={savePolicy} style={styles.policyForm}>
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Longitud mínima</label>
-                <input type="number" min={6} max={30} value={policy.minLength} onChange={(e) => setPolicy({ ...policy, minLength: parseInt(e.target.value) })} style={{ ...styles.input, width: 80 }} />
+              <div style={{ display: 'flex', gap: 16 }}>
+                <div style={styles.fieldGroup}>
+                  <label style={styles.label}>Longitud mínima</label>
+                  <input type="number" min={1} max={policy.maxLength} value={policy.minLength} onChange={(e) => setPolicy({ ...policy, minLength: parseInt(e.target.value) })} style={{ ...styles.input, width: 80 }} />
+                </div>
+                <div style={styles.fieldGroup}>
+                  <label style={styles.label}>Longitud máxima</label>
+                  <input type="number" min={policy.minLength} max={200} value={policy.maxLength} onChange={(e) => setPolicy({ ...policy, maxLength: parseInt(e.target.value) })} style={{ ...styles.input, width: 80 }} />
+                </div>
               </div>
               <div style={styles.checkRow}>
                 <input type="checkbox" id="upper" checked={policy.requireUppercase} onChange={(e) => setPolicy({ ...policy, requireUppercase: e.target.checked })} />
                 <label htmlFor="upper" style={styles.checkLabel}>Requerir mayúscula</label>
               </div>
               <div style={styles.checkRow}>
-                <input type="checkbox" id="num" checked={policy.requireNumber} onChange={(e) => setPolicy({ ...policy, requireNumber: e.target.checked })} />
+                <input type="checkbox" id="lower" checked={policy.requireLowercase} onChange={(e) => setPolicy({ ...policy, requireLowercase: e.target.checked })} />
+                <label htmlFor="lower" style={styles.checkLabel}>Requerir minúscula</label>
+              </div>
+              <div style={styles.checkRow}>
+                <input type="checkbox" id="num" checked={policy.requireNumbers} onChange={(e) => setPolicy({ ...policy, requireNumbers: e.target.checked })} />
                 <label htmlFor="num" style={styles.checkLabel}>Requerir número</label>
               </div>
               <div style={styles.checkRow}>
-                <input type="checkbox" id="special" checked={policy.requireSpecialChar} onChange={(e) => setPolicy({ ...policy, requireSpecialChar: e.target.checked })} />
+                <input type="checkbox" id="special" checked={policy.requireSpecialChars} onChange={(e) => setPolicy({ ...policy, requireSpecialChars: e.target.checked })} />
                 <label htmlFor="special" style={styles.checkLabel}>Requerir carácter especial</label>
-              </div>
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Máximo de intentos de login fallidos</label>
-                <input type="number" min={1} max={20} value={policy.maxLoginAttempts} onChange={(e) => setPolicy({ ...policy, maxLoginAttempts: parseInt(e.target.value) })} style={{ ...styles.input, width: 80 }} />
               </div>
               {policyMsg && <p style={policyMsg.includes('Error') ? styles.error : styles.success}>{policyMsg}</p>}
               <button type="submit" style={styles.btnPrimary}>Guardar política</button>
