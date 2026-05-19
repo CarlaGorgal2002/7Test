@@ -79,7 +79,7 @@ export default function LoginPage() {
               {error && <p style={styles.error}>{error}</p>}
 
               <button type="submit" disabled={loading} style={styles.button}>
-                {loading ? 'Loading...' : 'Ingresar'}
+                {loading ? 'Loading...' : 'Login'}
               </button>
             </form>
 
