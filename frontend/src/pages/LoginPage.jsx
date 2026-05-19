@@ -52,6 +52,16 @@ export default function LoginPage() {
   const dm = darkMode
 
   return (
+    <>
+    {dm && (
+      <style>{`
+        .dm-input {
+          background-color: #2a2a3e !important;
+          -webkit-box-shadow: 0 0 0 30px #2a2a3e inset !important;
+          color: #000 !important;
+        }
+      `}</style>
+    )}
     <div style={{
       display: 'flex',
       alignItems: 'center',
@@ -107,14 +117,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="usuario@uade.edu.ar"
                 required
+                className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
                   border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
-                  background: dm ? '#2a2a3e' : '#fff',
-                  color: '#000', // BUG: texto queda negro en modo oscuro
                 }}
               />
 
@@ -128,6 +137,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  className={dm ? 'dm-input' : ''}
                   style={{
                     width: '100%',
                     padding: '10px 40px 10px 14px',
@@ -135,8 +145,6 @@ export default function LoginPage() {
                     borderRadius: 8,
                     fontSize: 15,
                     outline: 'none',
-                    background: dm ? '#2a2a3e' : '#fff',
-                    color: '#000', // BUG: texto queda negro en modo oscuro
                     boxSizing: 'border-box',
                   }}
                 />
@@ -206,14 +214,13 @@ export default function LoginPage() {
                 onChange={(e) => setRecoveryEmail(e.target.value)}
                 placeholder="Juan Pérez"
                 required
+                className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
                   border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
-                  background: dm ? '#2a2a3e' : '#fff',
-                  color: '#000', // BUG: texto queda negro en modo oscuro
                 }}
               />
               {recoveryMsg && (
@@ -253,5 +260,6 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+    </>
   )
 }
