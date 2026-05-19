@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -69,7 +70,9 @@ class AuthServiceTest {
     @Test
     void loginExitoso_retornaTokenYRol() {
         User user = activeUser(0, null);
+        var page = new com.seventest.domain.model.PageResult<>(List.of(user), 1L, 1, 0);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(page);
         when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
         when(jwtProvider.generate("test@test.com", "ALUMNO")).thenReturn("jwt-token");
 
@@ -77,6 +80,37 @@ class AuthServiceTest {
 
         assertThat(result.token()).isEqualTo("jwt-token");
         assertThat(result.role()).isEqualTo(Role.ALUMNO);
+    }
+
+    @Test
+    void loginAdmin_soloAceptaSuPropiaContraseña() {
+        User admin = User.builder()
+                .id(UUID.randomUUID()).fullName("Admin").email("admin@test.com")
+                .role(Role.ADMINISTRADOR).status(UserStatus.ACTIVO)
+                .passwordHash("adminHash").failedLoginAttempts(0).lockedUntil(null).build();
+        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(passwordEncoder.matches("adminPass", "adminHash")).thenReturn(true);
+        when(jwtProvider.generate("admin@test.com", "ADMINISTRADOR")).thenReturn("admin-token");
+
+        LoginResult result = authService.login("admin@test.com", "adminPass");
+
+        assertThat(result.token()).isEqualTo("admin-token");
+        verify(userRepository, never()).findAll(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void loginAdmin_conContraseñaDeOtroUsuario_falla() {
+        User admin = User.builder()
+                .id(UUID.randomUUID()).fullName("Admin").email("admin@test.com")
+                .role(Role.ADMINISTRADOR).status(UserStatus.ACTIVO)
+                .passwordHash("adminHash").failedLoginAttempts(0).lockedUntil(null).build();
+        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
+        when(passwordEncoder.matches("otroPassword", "adminHash")).thenReturn(false);
+        when(appProperties.getSecurity()).thenReturn(securityConfig);
+
+        assertThatThrownBy(() -> authService.login("admin@test.com", "otroPassword"))
+                .isInstanceOf(InvalidCredentialsException.class);
+        verify(userRepository, never()).findAll(any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
@@ -112,7 +146,9 @@ class AuthServiceTest {
     @Test
     void loginConContraseñaIncorrecta_incrementaIntentos() {
         User user = activeUser(0, null);
+        var page = new com.seventest.domain.model.PageResult<>(List.of(user), 1L, 1, 0);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(page);
         when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login("test@test.com", "mala"))
@@ -124,7 +160,9 @@ class AuthServiceTest {
     @Test
     void loginAlLlegarAlLimiteDeIntentos_bloqueaLaCuenta() {
         User user = activeUser(4, null);
+        var page = new com.seventest.domain.model.PageResult<>(List.of(user), 1L, 1, 0);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(page);
         when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login("test@test.com", "mala"))
@@ -137,7 +175,9 @@ class AuthServiceTest {
     @Test
     void loginExitoso_reseteaIntentosFallidos() {
         User user = activeUser(3, null);
+        var page = new com.seventest.domain.model.PageResult<>(List.of(user), 1L, 1, 0);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(page);
         when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
         when(jwtProvider.generate(anyString(), anyString())).thenReturn("token");
 

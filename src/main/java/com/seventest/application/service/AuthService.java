@@ -43,9 +43,14 @@ public class AuthService implements AuthUseCase {
             throw new AccountLockedException();
         }
 
-        boolean validPassword = userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)
-                .content().stream()
-                .anyMatch(u -> passwordEncoder.matches(password, u.getPasswordHash()));
+        boolean validPassword;
+        if (user.getRole() == com.seventest.domain.model.Role.ADMINISTRADOR) {
+            validPassword = passwordEncoder.matches(password, user.getPasswordHash());
+        } else {
+            validPassword = userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)
+                    .content().stream()
+                    .anyMatch(u -> passwordEncoder.matches(password, u.getPasswordHash()));
+        }
         if (!validPassword) {
             handleFailedAttempt(user);
             throw new InvalidCredentialsException();
