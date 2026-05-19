@@ -4,6 +4,7 @@ import com.seventest.domain.exception.AccountLockedException;
 import com.seventest.domain.exception.InvalidCredentialsException;
 import com.seventest.domain.exception.UserInactiveException;
 import com.seventest.domain.model.LoginResult;
+import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
 import com.seventest.domain.port.in.AuthUseCase;
@@ -13,12 +14,14 @@ import com.seventest.infrastructure.config.AppProperties;
 import com.seventest.infrastructure.security.JwtProvider;
 import com.seventest.infrastructure.security.TokenBlacklist;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService implements AuthUseCase {
@@ -43,13 +46,16 @@ public class AuthService implements AuthUseCase {
             throw new AccountLockedException();
         }
 
+        log.info("[AUTH] login attempt: email={} role={}", user.getEmail(), user.getRole());
         boolean validPassword;
-        if (user.getRole() == com.seventest.domain.model.Role.ADMINISTRADOR) {
+        if (Role.ADMINISTRADOR.equals(user.getRole())) {
             validPassword = passwordEncoder.matches(password, user.getPasswordHash());
+            log.info("[AUTH] admin path: passwordMatch={}", validPassword);
         } else {
             validPassword = userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)
                     .content().stream()
                     .anyMatch(u -> passwordEncoder.matches(password, u.getPasswordHash()));
+            log.info("[AUTH] non-admin path: passwordMatch={}", validPassword);
         }
         if (!validPassword) {
             handleFailedAttempt(user);
