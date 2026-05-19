@@ -29,8 +29,10 @@ public class DataInitializer implements CommandLineRunner {
             existing -> {
                 userRepository.save(existing.toBuilder()
                         .passwordHash(passwordEncoder.encode(adminPassword))
+                        .failedLoginAttempts(0)
+                        .lockedUntil(null)
                         .build());
-                log.info("Contraseña de admin actualizada.");
+                log.info("Contraseña de admin actualizada y cuenta desbloqueada.");
             },
             () -> {
                 userRepository.save(User.builder()

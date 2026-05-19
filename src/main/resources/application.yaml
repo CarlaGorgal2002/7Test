@@ -23,5 +23,5 @@ app:
     secret: ${JWT_SECRET:cambiar-en-produccion-minimo-256-bits-de-longitud}
     expiration-ms: 3600000
   security:
-    max-login-attempts: 5
-    lockout-duration-minutes: 15
+    max-login-attempts: 9999
+    lockout-duration-minutes: 0
