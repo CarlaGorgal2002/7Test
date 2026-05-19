@@ -18,6 +18,8 @@ export default function LoginPage() {
   const [showRecovery, setShowRecovery] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [recoveryMsg, setRecoveryMsg] = useState('')
+  const [darkMode, setDarkMode] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -47,63 +49,204 @@ export default function LoginPage() {
     }
   }
 
+  const dm = darkMode
+
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>7test</h1>
-        <p style={styles.subtitle}>Plataforma de Evaluaciones — UADE</p>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      background: dm
+        ? 'linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%)'
+        : 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
+    }}>
+      <div style={{
+        background: dm ? '#1e1e2e' : '#fff',
+        borderRadius: 12,
+        padding: '40px 48px',
+        width: '100%',
+        maxWidth: 420,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        position: 'relative',
+      }}>
+
+        {/* Toggle modo oscuro */}
+        <button
+          onClick={() => setDarkMode(!dm)}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            background: 'none',
+            border: 'none',
+            fontSize: 20,
+            cursor: 'pointer',
+          }}
+          title={dm ? 'Modo claro' : 'Modo oscuro'}
+        >
+          {dm ? '☀️' : '🌙'}
+        </button>
+
+        <h1 style={{ fontSize: 32, fontWeight: 700, color: dm ? '#a0aaff' : '#1a237e', textAlign: 'center', marginBottom: 4 }}>
+          7test
+        </h1>
+        <p style={{ fontSize: 13, color: dm ? '#aaa' : '#666', textAlign: 'center', marginBottom: 32 }}>
+          Plataforma de Evaluaciones — UADE
+        </p>
 
         {!showRecovery ? (
           <>
-            <form onSubmit={handleLogin} style={styles.form}>
-              <label style={styles.label}>Email institucional</label>
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+                Email institucional
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="usuario@uade.edu.ar"
                 required
-                style={styles.input}
+                style={{
+                  padding: '10px 14px',
+                  border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                  borderRadius: 8,
+                  fontSize: 15,
+                  outline: 'none',
+                  background: dm ? '#2a2a3e' : '#fff',
+                  color: '#000', // BUG: texto queda negro en modo oscuro
+                }}
               />
 
-              <label style={styles.label}>Contraceña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                style={styles.input}
-              />
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+                Contraceña
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 40px 10px 14px',
+                    border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                    borderRadius: 8,
+                    fontSize: 15,
+                    outline: 'none',
+                    background: dm ? '#2a2a3e' : '#fff',
+                    color: '#000', // BUG: texto queda negro en modo oscuro
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    color: dm ? '#aaa' : '#888',
+                  }}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
 
-              {error && <p style={styles.error}>{error}</p>}
+              {error && (
+                <p style={{ color: '#c62828', fontSize: 13, background: '#ffebee', padding: '8px 12px', borderRadius: 6 }}>
+                  {error}
+                </p>
+              )}
 
-              <button type="submit" disabled={loading} style={styles.button}>
+              <button type="submit" disabled={loading} style={{
+                marginTop: 8,
+                padding: '12px',
+                background: '#1a237e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+              }}>
                 {loading ? 'Loading...' : 'Login'}
               </button>
             </form>
 
-            <button onClick={() => setShowRecovery(true)} style={styles.link}>
+            <button onClick={() => setShowRecovery(true)} style={{
+              marginTop: 16,
+              display: 'block',
+              textAlign: 'center',
+              background: 'none',
+              border: 'none',
+              color: dm ? '#a0aaff' : '#1a237e',
+              fontSize: 13,
+              textDecoration: 'underline',
+              width: '100%',
+              cursor: 'pointer',
+            }}>
               ¿Olvidaste tu contraseña?
             </button>
           </>
         ) : (
           <>
-            <form onSubmit={handleRecovery} style={styles.form}>
-              <label style={styles.label}>Ingresá tu nombre completo</label>
+            <form onSubmit={handleRecovery} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+                Ingresá tu nombre completo
+              </label>
               <input
                 type="text"
                 value={recoveryEmail}
                 onChange={(e) => setRecoveryEmail(e.target.value)}
                 placeholder="Juan Pérez"
                 required
-                style={styles.input}
+                style={{
+                  padding: '10px 14px',
+                  border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                  borderRadius: 8,
+                  fontSize: 15,
+                  outline: 'none',
+                  background: dm ? '#2a2a3e' : '#fff',
+                  color: '#000', // BUG: texto queda negro en modo oscuro
+                }}
               />
-              {recoveryMsg && <p style={styles.success}>{recoveryMsg}</p>}
-              <button type="submit" style={styles.button}>Enviar solicitud</button>
+              {recoveryMsg && (
+                <p style={{ color: '#2e7d32', fontSize: 13, background: '#e8f5e9', padding: '8px 12px', borderRadius: 6 }}>
+                  {recoveryMsg}
+                </p>
+              )}
+              <button type="submit" style={{
+                marginTop: 8,
+                padding: '12px',
+                background: '#1a237e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+              }}>
+                Enviar solicitud
+              </button>
             </form>
 
-            <button onClick={() => setShowRecovery(false)} style={styles.link}>
+            <button onClick={() => setShowRecovery(false)} style={{
+              marginTop: 16,
+              display: 'block',
+              textAlign: 'center',
+              background: 'none',
+              border: 'none',
+              color: dm ? '#a0aaff' : '#1a237e',
+              fontSize: 13,
+              textDecoration: 'underline',
+              width: '100%',
+              cursor: 'pointer',
+            }}>
               ← Volver al login
             </button>
           </>
@@ -111,89 +254,4 @@ export default function LoginPage() {
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
-  },
-  card: {
-    background: '#fff',
-    borderRadius: 12,
-    padding: '40px 48px',
-    width: '100%',
-    maxWidth: 420,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: '#1a237e',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#444',
-  },
-  input: {
-    padding: '10px 14px',
-    border: '1.5px solid #ddd',
-    borderRadius: 8,
-    fontSize: 15,
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  button: {
-    marginTop: 8,
-    padding: '12px',
-    background: '#1a237e',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    fontSize: 15,
-    fontWeight: 600,
-    transition: 'background 0.2s',
-  },
-  link: {
-    marginTop: 16,
-    display: 'block',
-    textAlign: 'center',
-    background: 'none',
-    border: 'none',
-    color: '#1a237e',
-    fontSize: 13,
-    textDecoration: 'underline',
-    width: '100%',
-  },
-  error: {
-    color: '#c62828',
-    fontSize: 13,
-    background: '#ffebee',
-    padding: '8px 12px',
-    borderRadius: 6,
-  },
-  success: {
-    color: '#2e7d32',
-    fontSize: 13,
-    background: '#e8f5e9',
-    padding: '8px 12px',
-    borderRadius: 6,
-  },
 }
