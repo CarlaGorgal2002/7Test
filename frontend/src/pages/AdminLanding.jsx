@@ -29,6 +29,8 @@ export default function AdminLanding() {
   const [form, setForm] = useState(emptyForm())
   const [formError, setFormError] = useState('')
 
+  const [totalUsers, setTotalUsers] = useState(0)
+
   const [tokenModal, setTokenModal] = useState(null)
   const [tokenInput, setTokenInput] = useState('')
   const [tokenError, setTokenError] = useState('')
@@ -43,7 +45,9 @@ export default function AdminLanding() {
     try {
       const params = searchEmail ? { search: searchEmail } : {}
       const res = await api.get('/users', { params })
-      setUsers(res.data.content ?? res.data ?? [])
+      const list = res.data.content ?? res.data ?? []
+      setUsers(list)
+      setTotalUsers(res.data.totalElements ?? list.length)
     } catch {
       setUsers([])
     } finally {
@@ -70,6 +74,12 @@ export default function AdminLanding() {
   }
 
   function openCreate() {
+    if (totalUsers >= 25) {
+      setTokenInput('')
+      setTokenError('')
+      setTokenModal('create')
+      return
+    }
     setEditingId(null)
     setForm(emptyForm())
     setFormError('')
@@ -136,18 +146,27 @@ export default function AdminLanding() {
     }
   }
 
-  async function confirmDeactivate() {
+  async function confirmToken() {
     if (tokenInput !== '4989') {
       setTokenError('Token de Dev incorrecto.')
       return
     }
-    try {
-      await api.patch(`/users/${tokenModal.id}/deactivate`)
+    if (tokenModal === 'create') {
       setTokenModal(null)
-      fetchUsers()
-    } catch (err) {
-      setTokenModal(null)
-      alert(err.response?.data?.message || 'Error al desactivar.')
+      setEditingId(null)
+      setForm(emptyForm())
+      setFormError('')
+      setFormSuccess('')
+      setShowForm(true)
+    } else {
+      try {
+        await api.patch(`/users/${tokenModal.id}/deactivate`)
+        setTokenModal(null)
+        fetchUsers()
+      } catch (err) {
+        setTokenModal(null)
+        alert(err.response?.data?.message || 'Error al desactivar.')
+      }
     }
   }
 
@@ -311,9 +330,14 @@ export default function AdminLanding() {
       {tokenModal && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
-            <h3 style={styles.modalTitle}>Confirmar desactivación</h3>
+            <h3 style={styles.modalTitle}>
+              {tokenModal === 'create' ? 'Límite de usuarios alcanzado' : 'Confirmar desactivación'}
+            </h3>
             <p style={styles.modalText}>
-              Para desactivar a <strong>{tokenModal.fullName}</strong> ingresá el token de Dev:
+              {tokenModal === 'create'
+                ? `Hay ${totalUsers} usuarios registrados (límite: 25). Ingresá el token de Dev para continuar:`
+                : <span>Para desactivar a <strong>{tokenModal.fullName}</strong> ingresá el token de Dev:</span>
+              }
             </p>
             <input
               type="password"
@@ -326,7 +350,7 @@ export default function AdminLanding() {
             />
             {tokenError && <p style={styles.tokenError}>{tokenError}</p>}
             <div style={styles.modalActions}>
-              <button onClick={confirmDeactivate} style={styles.btnPrimary}>Confirmar</button>
+              <button onClick={confirmToken} style={styles.btnPrimary}>Confirmar</button>
               <button onClick={() => setTokenModal(null)} style={styles.btnSecondary}>Cancelar</button>
             </div>
           </div>
