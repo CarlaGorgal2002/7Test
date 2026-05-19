@@ -41,7 +41,7 @@ export default function LoginPage() {
     setRecoveryMsg('')
     try {
       const res = await api.post('/auth/recover-by-name', { name: recoveryEmail })
-      setRecoveryMsg(`Tu email registrado es: ${res.data.email}`)
+      setRecoveryMsg(`Se ha enviado un correo de recuperación a: ${res.data.email}`)
     } catch {
       setRecoveryMsg('No se encontró ningún usuario con ese nombre.')
     }
