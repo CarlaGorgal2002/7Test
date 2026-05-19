@@ -79,11 +79,10 @@ export default function LoginPage() {
         padding: '40px 48px',
         width: '100%',
         maxWidth: 420,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        boxShadow: '0 8px 32px rgba(9,34,42,0.28)',
         position: 'relative',
       }}>
 
-        {/* Toggle modo oscuro */}
         <button
           onClick={() => setDarkMode(!dm)}
           style={{
@@ -100,21 +99,20 @@ export default function LoginPage() {
           {dm ? '☀️' : '🌙'}
         </button>
 
-        {/* Logo + título */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
           <Logo dark={dm} size={52} />
           <h1 style={{ fontSize: 32, fontWeight: 700, color: dm ? '#03BB83' : '#09222A', textAlign: 'center', marginTop: 8 }}>
             7test
           </h1>
         </div>
-        <p style={{ fontSize: 13, color: dm ? '#CBEEF3' : '#666', textAlign: 'center', marginBottom: 32 }}>
+        <p style={{ fontSize: 13, color: dm ? '#CBEEF3' : '#1956D8', textAlign: 'center', marginBottom: 32 }}>
           Plataforma de Evaluaciones — UADE
         </p>
 
         {!showRecovery ? (
           <>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#09222A' }}>
                 Email institucional
               </label>
               <input
@@ -126,14 +124,15 @@ export default function LoginPage() {
                 className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
-                  border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
+                  border: `1.5px solid ${dm ? '#1a3545' : '#CBEEF3'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
+                  color: '#09222A',
                 }}
               />
 
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#09222A' }}>
                 Contraceña
               </label>
               <div style={{ position: 'relative' }}>
@@ -147,11 +146,12 @@ export default function LoginPage() {
                   style={{
                     width: '100%',
                     padding: '10px 40px 10px 14px',
-                    border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
+                    border: `1.5px solid ${dm ? '#1a3545' : '#CBEEF3'}`,
                     borderRadius: 8,
                     fontSize: 15,
                     outline: 'none',
                     boxSizing: 'border-box',
+                    color: '#09222A',
                   }}
                 />
                 <button
@@ -166,7 +166,7 @@ export default function LoginPage() {
                     border: 'none',
                     cursor: 'pointer',
                     fontSize: 16,
-                    color: dm ? '#CBEEF3' : '#888',
+                    color: dm ? '#CBEEF3' : '#09222A',
                   }}
                 >
                   {showPassword ? '🙈' : '👁'}
@@ -174,7 +174,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p style={{ color: '#c62828', fontSize: 13, background: '#ffebee', padding: '8px 12px', borderRadius: 6 }}>
+                <p style={{ color: '#09222A', fontSize: 13, background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, borderLeft: '3px solid #FFC012' }}>
                   {error}
                 </p>
               )}
@@ -211,7 +211,7 @@ export default function LoginPage() {
         ) : (
           <>
             <form onSubmit={handleRecovery} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#09222A' }}>
                 Ingresá tu nombre completo
               </label>
               <input
@@ -223,14 +223,15 @@ export default function LoginPage() {
                 className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
-                  border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
+                  border: `1.5px solid ${dm ? '#1a3545' : '#CBEEF3'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
+                  color: '#09222A',
                 }}
               />
               {recoveryMsg && (
-                <p style={{ color: '#2e7d32', fontSize: 13, background: '#e8f5e9', padding: '8px 12px', borderRadius: 6 }}>
+                <p style={{ color: '#09222A', fontSize: 13, background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, borderLeft: '3px solid #03BB83' }}>
                   {recoveryMsg}
                 </p>
               )}

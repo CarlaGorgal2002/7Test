@@ -205,7 +205,7 @@ export default function AdminLanding() {
             )}
 
             {loadingUsers ? (
-              <p style={{ padding: 24, color: '#888' }}>Cargando usuarios...</p>
+              <p style={{ padding: 24, color: '#09222A', opacity: 0.5 }}>Cargando usuarios...</p>
             ) : (
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
@@ -220,7 +220,7 @@ export default function AdminLanding() {
                   </thead>
                   <tbody>
                     {users.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#aaa' }}>No se encontraron usuarios.</td></tr>
+                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#09222A', opacity: 0.4 }}>No se encontraron usuarios.</td></tr>
                     ) : users.map(u => (
                       <tr key={u.id} style={u.status === 'INACTIVO' ? styles.inactiveRow : {}}>
                         <td style={styles.td}>{u.fullName}</td>
@@ -233,7 +233,7 @@ export default function AdminLanding() {
                         </td>
                         <td style={styles.td}>
                           <button onClick={() => openEdit(u)} style={styles.actionBtn}>Editar</button>
-                          <button onClick={() => toggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#c62828' : '#03BB83' }}>
+                          <button onClick={() => toggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#FFC012' : '#03BB83' }}>
                             {u.status === 'ACTIVO' ? 'Desactivar' : 'Reactivar'}
                           </button>
                         </td>
@@ -290,37 +290,37 @@ const styles = {
   page: { minHeight: '100vh', background: '#CBEEF3' },
   header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: 700, marginBottom: 4 },
-  headerUser: { fontSize: 13, opacity: 0.8, marginRight: 8 },
-  badge: { background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 },
-  logoutBtn: { padding: '8px 18px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 8, fontWeight: 600, fontSize: 13 },
-  tabBar: { background: '#fff', borderBottom: '1px solid #b2dde6', display: 'flex', padding: '0 32px' },
-  tab: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid transparent', color: '#666', fontSize: 14, fontWeight: 500 },
-  tabActive: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid #1956D8', color: '#1956D8', fontSize: 14, fontWeight: 700 },
+  headerUser: { fontSize: 13, opacity: 0.7, marginRight: 8 },
+  badge: { background: 'rgba(203,238,243,0.2)', color: '#CBEEF3', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 },
+  logoutBtn: { padding: '8px 18px', background: 'rgba(203,238,243,0.1)', border: '1px solid rgba(203,238,243,0.4)', color: '#CBEEF3', borderRadius: 8, fontWeight: 600, fontSize: 13 },
+  tabBar: { background: '#fff', borderBottom: '2px solid #CBEEF3', display: 'flex', padding: '0 32px' },
+  tab: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid transparent', color: '#09222A', opacity: 0.5, fontSize: 14, fontWeight: 500, cursor: 'pointer' },
+  tabActive: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid #1956D8', color: '#1956D8', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   main: { padding: 32, maxWidth: 1100, margin: '0 auto' },
   toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   searchRow: { display: 'flex', gap: 8 },
-  searchInput: { padding: '8px 14px', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14, width: 260 },
-  btnPrimary: { padding: '9px 20px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 },
-  btnSecondary: { padding: '9px 16px', background: '#fff', color: '#444', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14, fontWeight: 500 },
-  formCard: { background: '#fff', borderRadius: 10, padding: 24, marginBottom: 24, border: '1px solid #b2dde6' },
+  searchInput: { padding: '8px 14px', border: '1.5px solid #CBEEF3', borderRadius: 8, fontSize: 14, width: 260, color: '#09222A', outline: 'none' },
+  btnPrimary: { padding: '9px 20px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  btnSecondary: { padding: '9px 16px', background: '#fff', color: '#09222A', border: '1.5px solid #CBEEF3', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' },
+  formCard: { background: '#fff', borderRadius: 10, padding: 24, marginBottom: 24, border: '1.5px solid #CBEEF3' },
   formTitle: { fontSize: 16, fontWeight: 700, color: '#1956D8', marginBottom: 16 },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: 4 },
-  label: { fontSize: 12, fontWeight: 600, color: '#555' },
-  input: { padding: '8px 12px', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14 },
+  label: { fontSize: 12, fontWeight: 600, color: '#09222A' },
+  input: { padding: '8px 12px', border: '1.5px solid #CBEEF3', borderRadius: 8, fontSize: 14, color: '#09222A', outline: 'none' },
   formActions: { gridColumn: '1 / -1', display: 'flex', gap: 10 },
-  error: { gridColumn: '1 / -1', color: '#c62828', background: '#ffebee', padding: '8px 12px', borderRadius: 6, fontSize: 13 },
-  success: { gridColumn: '1 / -1', color: '#03BB83', background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, fontSize: 13 },
-  tableWrapper: { background: '#fff', borderRadius: 10, overflow: 'hidden', border: '1px solid #b2dde6' },
+  error: { gridColumn: '1 / -1', color: '#09222A', background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, fontSize: 13, borderLeft: '3px solid #FFC012' },
+  success: { gridColumn: '1 / -1', color: '#09222A', background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, fontSize: 13, borderLeft: '3px solid #03BB83' },
+  tableWrapper: { background: '#fff', borderRadius: 10, overflow: 'hidden', border: '1.5px solid #CBEEF3' },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { background: '#CBEEF3', padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#09222A', borderBottom: '1px solid #b2dde6' },
-  td: { padding: '12px 16px', fontSize: 14, borderBottom: '1px solid #e8f7fa', verticalAlign: 'middle' },
-  inactiveRow: { opacity: 0.6 },
-  statusActive: { background: '#CBEEF3', color: '#03BB83', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
-  statusInactive: { background: '#fce4ec', color: '#c62828', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
+  th: { background: '#CBEEF3', padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#09222A', borderBottom: '2px solid #CBEEF3' },
+  td: { padding: '12px 16px', fontSize: 14, color: '#09222A', borderBottom: '1px solid #CBEEF3' },
+  inactiveRow: { opacity: 0.5 },
+  statusActive: { background: '#CBEEF3', color: '#03BB83', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  statusInactive: { background: '#CBEEF3', color: '#FFC012', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   actionBtn: { background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#1956D8', marginRight: 8, cursor: 'pointer', textDecoration: 'underline' },
-  policyCard: { background: '#fff', borderRadius: 10, padding: 32, maxWidth: 480, border: '1px solid #b2dde6' },
+  policyCard: { background: '#fff', borderRadius: 10, padding: 32, maxWidth: 480, border: '1.5px solid #CBEEF3' },
   policyForm: { display: 'flex', flexDirection: 'column', gap: 16 },
   checkRow: { display: 'flex', alignItems: 'center', gap: 10 },
-  checkLabel: { fontSize: 14, color: '#333' },
+  checkLabel: { fontSize: 14, color: '#09222A' },
 }

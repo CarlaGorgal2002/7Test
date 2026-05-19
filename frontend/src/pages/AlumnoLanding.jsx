@@ -40,12 +40,12 @@ export default function AlumnoLanding() {
 
 const styles = {
   container: { minHeight: '100vh', background: '#CBEEF3', padding: 24 },
-  card: { maxWidth: 800, margin: '0 auto', background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 12px rgba(9,34,42,0.10)' },
+  card: { maxWidth: 800, margin: '0 auto', background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 12px rgba(9,34,42,0.10)', border: '1.5px solid #CBEEF3' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 },
   title: { fontSize: 22, fontWeight: 700, color: '#09222A', marginBottom: 6 },
-  badge: { display: 'inline-block', background: '#CBEEF3', color: '#03BB83', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
-  logoutBtn: { padding: '8px 18px', background: '#fff', border: '1.5px solid #09222A', color: '#09222A', borderRadius: 8, fontWeight: 600, fontSize: 13 },
+  badge: { display: 'inline-block', background: '#CBEEF3', color: '#03BB83', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  logoutBtn: { padding: '8px 18px', background: '#fff', border: '1.5px solid #09222A', color: '#09222A', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' },
   content: { textAlign: 'center', padding: '40px 0' },
-  placeholder: { fontSize: 16, color: '#555', marginBottom: 8 },
-  note: { fontSize: 13, color: '#999' },
+  placeholder: { fontSize: 16, color: '#09222A', marginBottom: 8 },
+  note: { fontSize: 13, color: '#09222A', opacity: 0.5 },
 }
