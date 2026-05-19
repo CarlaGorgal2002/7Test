@@ -74,7 +74,7 @@ export default function AdminLanding() {
   }
 
   function openCreate() {
-    if (totalUsers >= 25) {
+    if (totalUsers >= 60) {
       setTokenInput('')
       setTokenError('')
       setTokenModal('create')
@@ -335,7 +335,7 @@ export default function AdminLanding() {
             </h3>
             <p style={styles.modalText}>
               {tokenModal === 'create'
-                ? `Hay ${totalUsers} usuarios registrados (límite: 25). Ingresá el token de Dev para continuar:`
+                ? `Hay ${totalUsers} usuarios registrados (límite: 60). Ingresá el token de Dev para continuar:`
                 : <span>Para desactivar a <strong>{tokenModal.fullName}</strong> ingresá el token de Dev:</span>
               }
             </p>
