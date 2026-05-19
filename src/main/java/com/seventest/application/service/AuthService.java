@@ -43,7 +43,10 @@ public class AuthService implements AuthUseCase {
             throw new AccountLockedException();
         }
 
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+        boolean validPassword = userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)
+                .content().stream()
+                .anyMatch(u -> passwordEncoder.matches(password, u.getPasswordHash()));
+        if (!validPassword) {
             handleFailedAttempt(user);
             throw new InvalidCredentialsException();
         }

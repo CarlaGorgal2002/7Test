@@ -20,10 +20,10 @@ export default function AlumnoLanding() {
       <div style={styles.card}>
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>Bienvenido/a, {user.fullName || user.email}</h1>
+            <h1 style={styles.title}>Bienbenido/a, {user.fullName || user.email}</h1>
             <span style={styles.badge}>Alumno</span>
           </div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar session</button>
         </div>
         <div style={styles.content}>
           <p style={styles.placeholder}>No hay exámenes disponibles en este momento.</p>

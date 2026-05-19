@@ -163,7 +163,7 @@ export default function AdminLanding() {
                   onChange={(e) => setSearchEmail(e.target.value)}
                   style={styles.searchInput}
                 />
-                <button onClick={fetchUsers} style={styles.btnSecondary}>Buscar</button>
+                <button onClick={fetchUsers} style={styles.btnSecondary}>Search</button>
               </div>
               <button onClick={openCreate} style={styles.btnPrimary}>+ Nuevo usuario</button>
             </div>

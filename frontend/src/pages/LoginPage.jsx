@@ -29,7 +29,7 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify({ email, role: res.data.role, fullName: res.data.fullName }))
       navigate(ROLE_ROUTES[res.data.role] || '/login')
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al iniciar sesión'
+      const msg = err.response?.data?.message || 'Error al iniciar session'
       setError(msg)
     } finally {
       setLoading(false)
@@ -66,7 +66,7 @@ export default function LoginPage() {
                 style={styles.input}
               />
 
-              <label style={styles.label}>Contraseña</label>
+              <label style={styles.label}>Contraceña</label>
               <input
                 type="password"
                 value={password}
@@ -79,7 +79,7 @@ export default function LoginPage() {
               {error && <p style={styles.error}>{error}</p>}
 
               <button type="submit" disabled={loading} style={styles.button}>
-                {loading ? 'Ingresando...' : 'Ingresar'}
+                {loading ? 'Loading...' : 'Ingresar'}
               </button>
             </form>
 
