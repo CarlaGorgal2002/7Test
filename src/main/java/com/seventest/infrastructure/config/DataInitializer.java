@@ -22,18 +22,28 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (userRepository.existsByEmail("admin@seventest.local")) {
-            return;
-        }
-        userRepository.save(User.builder()
-                .id(UUID.randomUUID())
-                .fullName("Administrador")
-                .email("admin@seventest.local")
-                .role(Role.ADMINISTRADOR)
-                .status(UserStatus.ACTIVO)
-                .passwordHash(passwordEncoder.encode("admin1234"))
-                .failedLoginAttempts(0)
-                .build());
-        log.info("Usuario admin inicial creado: admin@seventest.local / admin1234");
+        String adminEmail = "admin@seventest.local";
+        String adminPassword = "Admin#7T$2026";
+
+        userRepository.findByEmail(adminEmail).ifPresentOrElse(
+            existing -> {
+                userRepository.save(existing.toBuilder()
+                        .passwordHash(passwordEncoder.encode(adminPassword))
+                        .build());
+                log.info("Contraseña de admin actualizada.");
+            },
+            () -> {
+                userRepository.save(User.builder()
+                        .id(UUID.randomUUID())
+                        .fullName("Administrador")
+                        .email(adminEmail)
+                        .role(Role.ADMINISTRADOR)
+                        .status(UserStatus.ACTIVO)
+                        .passwordHash(passwordEncoder.encode(adminPassword))
+                        .failedLoginAttempts(0)
+                        .build());
+                log.info("Usuario admin inicial creado: {}", adminEmail);
+            }
+        );
     }
 }
