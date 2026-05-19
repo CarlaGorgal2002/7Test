@@ -40,10 +40,10 @@ export default function LoginPage() {
     e.preventDefault()
     setRecoveryMsg('')
     try {
-      await api.post('/auth/password-recovery', { email: recoveryEmail })
-      setRecoveryMsg('Si el email existe, recibirás instrucciones para restablecer tu contraseña.')
+      const res = await api.post('/auth/recover-by-name', { name: recoveryEmail })
+      setRecoveryMsg(`Tu email registrado es: ${res.data.email}`)
     } catch {
-      setRecoveryMsg('Si el email existe, recibirás instrucciones para restablecer tu contraseña.')
+      setRecoveryMsg('No se encontró ningún usuario con ese nombre.')
     }
   }
 
@@ -90,12 +90,12 @@ export default function LoginPage() {
         ) : (
           <>
             <form onSubmit={handleRecovery} style={styles.form}>
-              <label style={styles.label}>Ingresá tu email para recuperar la contraseña</label>
+              <label style={styles.label}>Ingresá tu nombre completo</label>
               <input
-                type="email"
+                type="text"
                 value={recoveryEmail}
                 onChange={(e) => setRecoveryEmail(e.target.value)}
-                placeholder="usuario@uade.edu.ar"
+                placeholder="Juan Pérez"
                 required
                 style={styles.input}
               />

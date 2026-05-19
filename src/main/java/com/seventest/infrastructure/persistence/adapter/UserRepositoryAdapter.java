@@ -53,6 +53,11 @@ public class UserRepositoryAdapter implements UserRepository {
     }
 
     @Override
+    public Optional<User> findByFullName(String fullName) {
+        return jpaRepository.findByFullNameIgnoreCase(fullName).map(UserMapper::toDomain);
+    }
+
+    @Override
     public boolean existsByEmail(String email) {
         return jpaRepository.existsByEmail(email);
     }

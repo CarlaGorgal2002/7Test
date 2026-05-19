@@ -77,6 +77,13 @@ public class AuthService implements AuthUseCase {
         // Respuesta siempre igual para no revelar si el email existe (HU-08)
     }
 
+    @Override
+    public String recoverByName(String name) {
+        return userRepository.findByFullName(name)
+                .map(User::getEmail)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
+
     private void handleFailedAttempt(User user) {
         int attempts = user.getFailedLoginAttempts() + 1;
         int max = appProperties.getSecurity().getMaxLoginAttempts();

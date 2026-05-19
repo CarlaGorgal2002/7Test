@@ -4,6 +4,7 @@ import com.seventest.domain.model.LoginResult;
 import com.seventest.domain.port.in.AuthUseCase;
 import com.seventest.infrastructure.web.dto.request.LoginRequest;
 import com.seventest.infrastructure.web.dto.request.PasswordRecoveryRequest;
+import com.seventest.infrastructure.web.dto.request.RecoverByNameRequest;
 import com.seventest.infrastructure.web.dto.response.ErrorResponse;
 import com.seventest.infrastructure.web.dto.response.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,5 +76,11 @@ public class AuthController {
     public ResponseEntity<Void> requestPasswordRecovery(@Valid @RequestBody PasswordRecoveryRequest request) {
         authUseCase.requestPasswordRecovery(request.email());
         return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/recover-by-name")
+    public ResponseEntity<java.util.Map<String, String>> recoverByName(@Valid @RequestBody RecoverByNameRequest request) {
+        String email = authUseCase.recoverByName(request.name());
+        return ResponseEntity.ok(java.util.Map.of("email", email));
     }
 }

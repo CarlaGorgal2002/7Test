@@ -6,4 +6,5 @@ public interface AuthUseCase {
     LoginResult login(String email, String password);
     void logout(String token);
     void requestPasswordRecovery(String email);
+    String recoverByName(String name);
 }

@@ -12,6 +12,7 @@ public interface UserRepository {
     User save(User user);
     Optional<User> findById(UUID id);
     Optional<User> findByEmail(String email);
+    Optional<User> findByFullName(String fullName);
     boolean existsByEmail(String email);
     boolean existsByEmailAndIdNot(String email, UUID id);
     PageResult<User> findAll(String search, Role role, UserStatus status, int page, int size);
