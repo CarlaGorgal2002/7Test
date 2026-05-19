@@ -58,7 +58,8 @@ export default function LoginPage() {
         .dm-input {
           background-color: #2a2a3e !important;
           -webkit-box-shadow: 0 0 0 30px #2a2a3e inset !important;
-          color: #000 !important;
+          color: #2a2a3e !important;
+          -webkit-text-fill-color: #2a2a3e !important;
         }
       `}</style>
     )}
