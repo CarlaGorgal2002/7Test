@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
+import Logo from '../components/Logo.jsx'
 
 const ROLES = ['ALUMNO', 'PROFESOR', 'DIRECTOR_DE_CATEDRA', 'ADMINISTRADOR']
 const ROLE_LABELS = {
@@ -139,10 +140,13 @@ export default function AdminLanding() {
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <div>
-          <h1 style={styles.headerTitle}>7test — Panel de Administración</h1>
-          <span style={styles.headerUser}>{user.fullName || user.email}</span>
-          <span style={styles.badge}>Administrador</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Logo dark size={36} />
+          <div>
+            <h1 style={styles.headerTitle}>7test — Panel de Administración</h1>
+            <span style={styles.headerUser}>{user.fullName || user.email}</span>
+            <span style={styles.badge}>Administrador</span>
+          </div>
         </div>
         <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
       </header>
@@ -229,7 +233,7 @@ export default function AdminLanding() {
                         </td>
                         <td style={styles.td}>
                           <button onClick={() => openEdit(u)} style={styles.actionBtn}>Editar</button>
-                          <button onClick={() => toggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#e53935' : '#2e7d32' }}>
+                          <button onClick={() => toggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#c62828' : '#03BB83' }}>
                             {u.status === 'ACTIVO' ? 'Desactivar' : 'Reactivar'}
                           </button>
                         </td>
@@ -283,39 +287,39 @@ export default function AdminLanding() {
 }
 
 const styles = {
-  page: { minHeight: '100vh', background: '#f5f5f5' },
-  header: { background: '#1a237e', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  page: { minHeight: '100vh', background: '#CBEEF3' },
+  header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: 700, marginBottom: 4 },
   headerUser: { fontSize: 13, opacity: 0.8, marginRight: 8 },
   badge: { background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 },
   logoutBtn: { padding: '8px 18px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 8, fontWeight: 600, fontSize: 13 },
-  tabBar: { background: '#fff', borderBottom: '1px solid #e0e0e0', display: 'flex', padding: '0 32px' },
+  tabBar: { background: '#fff', borderBottom: '1px solid #b2dde6', display: 'flex', padding: '0 32px' },
   tab: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid transparent', color: '#666', fontSize: 14, fontWeight: 500 },
-  tabActive: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid #1a237e', color: '#1a237e', fontSize: 14, fontWeight: 700 },
+  tabActive: { padding: '14px 20px', background: 'none', border: 'none', borderBottom: '3px solid #1956D8', color: '#1956D8', fontSize: 14, fontWeight: 700 },
   main: { padding: 32, maxWidth: 1100, margin: '0 auto' },
   toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   searchRow: { display: 'flex', gap: 8 },
-  searchInput: { padding: '8px 14px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, width: 260 },
-  btnPrimary: { padding: '9px 20px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 },
-  btnSecondary: { padding: '9px 16px', background: '#fff', color: '#444', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, fontWeight: 500 },
-  formCard: { background: '#fff', borderRadius: 10, padding: 24, marginBottom: 24, border: '1px solid #e0e0e0' },
-  formTitle: { fontSize: 16, fontWeight: 700, color: '#1a237e', marginBottom: 16 },
+  searchInput: { padding: '8px 14px', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14, width: 260 },
+  btnPrimary: { padding: '9px 20px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600 },
+  btnSecondary: { padding: '9px 16px', background: '#fff', color: '#444', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14, fontWeight: 500 },
+  formCard: { background: '#fff', borderRadius: 10, padding: 24, marginBottom: 24, border: '1px solid #b2dde6' },
+  formTitle: { fontSize: 16, fontWeight: 700, color: '#1956D8', marginBottom: 16 },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: 4 },
   label: { fontSize: 12, fontWeight: 600, color: '#555' },
-  input: { padding: '8px 12px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14 },
+  input: { padding: '8px 12px', border: '1.5px solid #b2dde6', borderRadius: 8, fontSize: 14 },
   formActions: { gridColumn: '1 / -1', display: 'flex', gap: 10 },
   error: { gridColumn: '1 / -1', color: '#c62828', background: '#ffebee', padding: '8px 12px', borderRadius: 6, fontSize: 13 },
-  success: { gridColumn: '1 / -1', color: '#2e7d32', background: '#e8f5e9', padding: '8px 12px', borderRadius: 6, fontSize: 13 },
-  tableWrapper: { background: '#fff', borderRadius: 10, overflow: 'hidden', border: '1px solid #e0e0e0' },
+  success: { gridColumn: '1 / -1', color: '#03BB83', background: '#CBEEF3', padding: '8px 12px', borderRadius: 6, fontSize: 13 },
+  tableWrapper: { background: '#fff', borderRadius: 10, overflow: 'hidden', border: '1px solid #b2dde6' },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { background: '#f5f5f5', padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#555', borderBottom: '1px solid #e0e0e0' },
-  td: { padding: '12px 16px', fontSize: 14, borderBottom: '1px solid #f0f0f0', verticalAlign: 'middle' },
+  th: { background: '#CBEEF3', padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#09222A', borderBottom: '1px solid #b2dde6' },
+  td: { padding: '12px 16px', fontSize: 14, borderBottom: '1px solid #e8f7fa', verticalAlign: 'middle' },
   inactiveRow: { opacity: 0.6 },
-  statusActive: { background: '#e8f5e9', color: '#2e7d32', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
+  statusActive: { background: '#CBEEF3', color: '#03BB83', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
   statusInactive: { background: '#fce4ec', color: '#c62828', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 },
-  actionBtn: { background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#1a237e', marginRight: 8, cursor: 'pointer', textDecoration: 'underline' },
-  policyCard: { background: '#fff', borderRadius: 10, padding: 32, maxWidth: 480, border: '1px solid #e0e0e0' },
+  actionBtn: { background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#1956D8', marginRight: 8, cursor: 'pointer', textDecoration: 'underline' },
+  policyCard: { background: '#fff', borderRadius: 10, padding: 32, maxWidth: 480, border: '1px solid #b2dde6' },
   policyForm: { display: 'flex', flexDirection: 'column', gap: 16 },
   checkRow: { display: 'flex', alignItems: 'center', gap: 10 },
   checkLabel: { fontSize: 14, color: '#333' },

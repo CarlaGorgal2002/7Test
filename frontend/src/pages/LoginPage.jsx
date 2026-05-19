@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
+import Logo from '../components/Logo.jsx'
 
 const ROLE_ROUTES = {
   ADMINISTRADOR: '/admin',
@@ -56,10 +57,10 @@ export default function LoginPage() {
     {dm && (
       <style>{`
         .dm-input {
-          background-color: #2a2a3e !important;
-          -webkit-box-shadow: 0 0 0 30px #2a2a3e inset !important;
-          color: #2a2a3e !important;
-          -webkit-text-fill-color: #2a2a3e !important;
+          background-color: #122430 !important;
+          -webkit-box-shadow: 0 0 0 30px #122430 inset !important;
+          color: #122430 !important;
+          -webkit-text-fill-color: #122430 !important;
         }
       `}</style>
     )}
@@ -69,11 +70,11 @@ export default function LoginPage() {
       justifyContent: 'center',
       minHeight: '100vh',
       background: dm
-        ? 'linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%)'
-        : 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
+        ? 'linear-gradient(135deg, #050f14 0%, #09222A 100%)'
+        : 'linear-gradient(135deg, #09222A 0%, #1956D8 100%)',
     }}>
       <div style={{
-        background: dm ? '#1e1e2e' : '#fff',
+        background: dm ? '#0d1e28' : '#fff',
         borderRadius: 12,
         padding: '40px 48px',
         width: '100%',
@@ -99,17 +100,21 @@ export default function LoginPage() {
           {dm ? '☀️' : '🌙'}
         </button>
 
-        <h1 style={{ fontSize: 32, fontWeight: 700, color: dm ? '#a0aaff' : '#1a237e', textAlign: 'center', marginBottom: 4 }}>
-          7test
-        </h1>
-        <p style={{ fontSize: 13, color: dm ? '#aaa' : '#666', textAlign: 'center', marginBottom: 32 }}>
+        {/* Logo + título */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
+          <Logo dark={dm} size={52} />
+          <h1 style={{ fontSize: 32, fontWeight: 700, color: dm ? '#03BB83' : '#09222A', textAlign: 'center', marginTop: 8 }}>
+            7test
+          </h1>
+        </div>
+        <p style={{ fontSize: 13, color: dm ? '#CBEEF3' : '#666', textAlign: 'center', marginBottom: 32 }}>
           Plataforma de Evaluaciones — UADE
         </p>
 
         {!showRecovery ? (
           <>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
                 Email institucional
               </label>
               <input
@@ -121,14 +126,14 @@ export default function LoginPage() {
                 className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
-                  border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                  border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
                 }}
               />
 
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
                 Contraceña
               </label>
               <div style={{ position: 'relative' }}>
@@ -142,7 +147,7 @@ export default function LoginPage() {
                   style={{
                     width: '100%',
                     padding: '10px 40px 10px 14px',
-                    border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                    border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
                     borderRadius: 8,
                     fontSize: 15,
                     outline: 'none',
@@ -161,7 +166,7 @@ export default function LoginPage() {
                     border: 'none',
                     cursor: 'pointer',
                     fontSize: 16,
-                    color: dm ? '#aaa' : '#888',
+                    color: dm ? '#CBEEF3' : '#888',
                   }}
                 >
                   {showPassword ? '🙈' : '👁'}
@@ -177,7 +182,7 @@ export default function LoginPage() {
               <button type="submit" disabled={loading} style={{
                 marginTop: 8,
                 padding: '12px',
-                background: '#1a237e',
+                background: '#1956D8',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 8,
@@ -194,7 +199,7 @@ export default function LoginPage() {
               textAlign: 'center',
               background: 'none',
               border: 'none',
-              color: dm ? '#a0aaff' : '#1a237e',
+              color: dm ? '#CBEEF3' : '#1956D8',
               fontSize: 13,
               textDecoration: 'underline',
               width: '100%',
@@ -206,7 +211,7 @@ export default function LoginPage() {
         ) : (
           <>
             <form onSubmit={handleRecovery} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#ccc' : '#444' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#444' }}>
                 Ingresá tu nombre completo
               </label>
               <input
@@ -218,7 +223,7 @@ export default function LoginPage() {
                 className={dm ? 'dm-input' : ''}
                 style={{
                   padding: '10px 14px',
-                  border: `1.5px solid ${dm ? '#444' : '#ddd'}`,
+                  border: `1.5px solid ${dm ? '#1a3545' : '#ddd'}`,
                   borderRadius: 8,
                   fontSize: 15,
                   outline: 'none',
@@ -232,7 +237,7 @@ export default function LoginPage() {
               <button type="submit" style={{
                 marginTop: 8,
                 padding: '12px',
-                background: '#1a237e',
+                background: '#1956D8',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 8,
@@ -249,7 +254,7 @@ export default function LoginPage() {
               textAlign: 'center',
               background: 'none',
               border: 'none',
-              color: dm ? '#a0aaff' : '#1a237e',
+              color: dm ? '#CBEEF3' : '#1956D8',
               fontSize: 13,
               textDecoration: 'underline',
               width: '100%',
