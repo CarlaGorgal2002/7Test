@@ -15,6 +15,9 @@ spring:
     show-sql: false
     database-platform: org.hibernate.dialect.H2Dialect
 
+server:
+  port: ${PORT:8080}
+
 app:
   jwt:
     secret: ${JWT_SECRET:cambiar-en-produccion-minimo-256-bits-de-longitud}
