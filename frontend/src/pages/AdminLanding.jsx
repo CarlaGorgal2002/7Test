@@ -28,6 +28,10 @@ export default function AdminLanding() {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [formError, setFormError] = useState('')
+
+  const [tokenModal, setTokenModal] = useState(null)
+  const [tokenInput, setTokenInput] = useState('')
+  const [tokenError, setTokenError] = useState('')
   const [formSuccess, setFormSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -113,16 +117,37 @@ export default function AdminLanding() {
     }
   }
 
-  async function toggleStatus(u) {
+  function requestToggleStatus(u) {
+    if (u.status === 'ACTIVO') {
+      setTokenInput('')
+      setTokenError('')
+      setTokenModal(u)
+    } else {
+      doReactivate(u)
+    }
+  }
+
+  async function doReactivate(u) {
     try {
-      if (u.status === 'ACTIVO') {
-        await api.patch(`/users/${u.id}/deactivate`)
-      } else {
-        await api.patch(`/users/${u.id}/reactivate`)
-      }
+      await api.patch(`/users/${u.id}/reactivate`)
       fetchUsers()
     } catch (err) {
-      alert(err.response?.data?.message || 'Error al cambiar estado.')
+      alert(err.response?.data?.message || 'Error al reactivar.')
+    }
+  }
+
+  async function confirmDeactivate() {
+    if (tokenInput !== '4989') {
+      setTokenError('Token de Dev incorrecto.')
+      return
+    }
+    try {
+      await api.patch(`/users/${tokenModal.id}/deactivate`)
+      setTokenModal(null)
+      fetchUsers()
+    } catch (err) {
+      setTokenModal(null)
+      alert(err.response?.data?.message || 'Error al desactivar.')
     }
   }
 
@@ -233,7 +258,7 @@ export default function AdminLanding() {
                         </td>
                         <td style={styles.td}>
                           <button onClick={() => openEdit(u)} style={styles.actionBtn}>Editar</button>
-                          <button onClick={() => toggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#FFC012' : '#03BB83' }}>
+                          <button onClick={() => requestToggleStatus(u)} style={{ ...styles.actionBtn, color: u.status === 'ACTIVO' ? '#FFC012' : '#03BB83' }}>
                             {u.status === 'ACTIVO' ? 'Desactivar' : 'Reactivar'}
                           </button>
                         </td>
@@ -282,6 +307,31 @@ export default function AdminLanding() {
           </div>
         )}
       </main>
+
+      {tokenModal && (
+        <div style={styles.overlay}>
+          <div style={styles.modal}>
+            <h3 style={styles.modalTitle}>Confirmar desactivación</h3>
+            <p style={styles.modalText}>
+              Para desactivar a <strong>{tokenModal.fullName}</strong> ingresá el token de Dev:
+            </p>
+            <input
+              type="password"
+              maxLength={4}
+              value={tokenInput}
+              onChange={e => { setTokenInput(e.target.value); setTokenError('') }}
+              placeholder="• • • •"
+              autoFocus
+              style={styles.tokenInput}
+            />
+            {tokenError && <p style={styles.tokenError}>{tokenError}</p>}
+            <div style={styles.modalActions}>
+              <button onClick={confirmDeactivate} style={styles.btnPrimary}>Confirmar</button>
+              <button onClick={() => setTokenModal(null)} style={styles.btnSecondary}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -323,4 +373,11 @@ const styles = {
   policyForm: { display: 'flex', flexDirection: 'column', gap: 16 },
   checkRow: { display: 'flex', alignItems: 'center', gap: 10 },
   checkLabel: { fontSize: 14, color: '#09222A' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modal: { background: '#fff', borderRadius: 12, padding: '32px 36px', width: 340, boxShadow: '0 8px 32px rgba(9,34,42,0.22)', border: '1.5px solid #CBEEF3' },
+  modalTitle: { fontSize: 17, fontWeight: 700, color: '#09222A', marginBottom: 12 },
+  modalText: { fontSize: 14, color: '#09222A', marginBottom: 16, lineHeight: 1.5 },
+  tokenInput: { width: '100%', padding: '12px', border: '1.5px solid #CBEEF3', borderRadius: 8, fontSize: 22, textAlign: 'center', letterSpacing: 8, color: '#09222A', outline: 'none', boxSizing: 'border-box' },
+  tokenError: { color: '#FFC012', fontSize: 13, fontWeight: 600, marginTop: 8 },
+  modalActions: { display: 'flex', gap: 10, marginTop: 20 },
 }
