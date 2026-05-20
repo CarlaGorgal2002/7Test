@@ -23,11 +23,6 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         ensureUser("Administrador", "admin@seventest.local", Role.ADMINISTRADOR, "Admin#7T$2026");
-        ensureUser("Carla Gorgal", "CarlaGorgal@email.com", Role.ALUMNO, "CarlaGorgal123");
-        ensureUser("Mario Besednjak", "MarioBesednjak@email.com", Role.ALUMNO, "MarioBesednjak123");
-        ensureUser("Martin Gueler", "MartinGueler@email.com", Role.ALUMNO, "MartinGueler123");
-        ensureUser("Claudio Godio", "ClaudioGodio@email.com", Role.DIRECTOR_DE_CATEDRA, "ClaudioGodio123");
-        ensureUser("Pablo Farias", "PabloFarias@email.com", Role.PROFESOR, "PabloFarias123");
     }
 
     private void ensureUser(String fullName, String email, Role role, String password) {
