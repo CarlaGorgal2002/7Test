@@ -12,7 +12,7 @@ const ROLE_ROUTES = {
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => sessionStorage.getItem('lastLoginEmail') || '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -26,10 +26,12 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    sessionStorage.setItem('lastLoginEmail', email)
     try {
       const res = await api.post('/auth/login', { email, password })
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('user', JSON.stringify({ email, role: res.data.role, fullName: res.data.fullName }))
+      sessionStorage.removeItem('lastLoginEmail')
       navigate(ROLE_ROUTES[res.data.role] || '/login')
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al iniciar session'
@@ -118,7 +120,10 @@ export default function LoginPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  sessionStorage.setItem('lastLoginEmail', e.target.value)
+                }}
                 placeholder="usuario@uade.edu.ar"
                 required
                 className={dm ? 'dm-input' : ''}
