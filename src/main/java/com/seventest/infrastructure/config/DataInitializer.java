@@ -22,30 +22,40 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String adminEmail = "admin@seventest.local";
-        String adminPassword = "Admin#7T$2026";
+        ensureUser("Administrador", "admin@seventest.local", Role.ADMINISTRADOR, "Admin#7T$2026");
+        ensureUser("Carla Gorgal", "CarlaGorgal@email.com", Role.ALUMNO, "CarlaGorgal123");
+        ensureUser("Mario Besednjak", "MarioBesednjak@email.com", Role.ALUMNO, "MarioBesednjak123");
+        ensureUser("Martin Gueler", "MartinGueler@email.com", Role.ALUMNO, "MartinGueler123");
+        ensureUser("Claudio Godio", "ClaudioGodio@email.com", Role.DIRECTOR_DE_CATEDRA, "ClaudioGodio123");
+        ensureUser("Pablo Farias", "PabloFarias@email.com", Role.PROFESOR, "PabloFarias123");
+    }
 
-        userRepository.findByEmail(adminEmail).ifPresentOrElse(
-            existing -> {
-                userRepository.save(existing.toBuilder()
-                        .passwordHash(passwordEncoder.encode(adminPassword))
-                        .failedLoginAttempts(0)
-                        .lockedUntil(null)
-                        .build());
-                log.info("Contraseña de admin actualizada y cuenta desbloqueada.");
-            },
-            () -> {
-                userRepository.save(User.builder()
-                        .id(UUID.randomUUID())
-                        .fullName("Administrador")
-                        .email(adminEmail)
-                        .role(Role.ADMINISTRADOR)
-                        .status(UserStatus.ACTIVO)
-                        .passwordHash(passwordEncoder.encode(adminPassword))
-                        .failedLoginAttempts(0)
-                        .build());
-                log.info("Usuario admin inicial creado: {}", adminEmail);
-            }
+    private void ensureUser(String fullName, String email, Role role, String password) {
+        userRepository.findByEmail(email).ifPresentOrElse(
+                existing -> {
+                    userRepository.save(existing.toBuilder()
+                            .fullName(fullName)
+                            .role(role)
+                            .status(UserStatus.ACTIVO)
+                            .passwordHash(passwordEncoder.encode(password))
+                            .failedLoginAttempts(0)
+                            .lockedUntil(null)
+                            .build());
+                    log.info("Usuario semilla actualizado y activo: {}", email);
+                },
+                () -> {
+                    userRepository.save(User.builder()
+                            .id(UUID.randomUUID())
+                            .fullName(fullName)
+                            .email(email)
+                            .role(role)
+                            .status(UserStatus.ACTIVO)
+                            .passwordHash(passwordEncoder.encode(password))
+                            .failedLoginAttempts(0)
+                            .lockedUntil(null)
+                            .build());
+                    log.info("Usuario semilla creado: {}", email);
+                }
         );
     }
 }
