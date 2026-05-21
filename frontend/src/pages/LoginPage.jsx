@@ -34,7 +34,7 @@ export default function LoginPage() {
       sessionStorage.removeItem('lastLoginEmail')
       navigate(ROLE_ROUTES[res.data.role] || '/login')
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al iniciar session'
+      const msg = err.response?.data?.message || err.message || 'Error al iniciar sesion'
       setError(msg)
     } finally {
       setLoading(false)
