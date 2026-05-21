@@ -1,0 +1,318 @@
+package com.seventest.application.service;
+
+import com.seventest.domain.exception.ExamNotFoundException;
+import com.seventest.domain.exception.UserNotFoundException;
+import com.seventest.domain.model.Exam;
+import com.seventest.domain.model.ExamQuestion;
+import com.seventest.domain.model.ExamStatus;
+import com.seventest.domain.model.ExamTopic;
+import com.seventest.domain.model.Role;
+import com.seventest.domain.model.User;
+import com.seventest.domain.port.in.ExamManagementUseCase;
+import com.seventest.domain.port.out.ExamRepository;
+import com.seventest.domain.port.out.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class ExamService implements ExamManagementUseCase {
+
+    private static final BigDecimal REQUIRED_TOPIC_TOTAL = BigDecimal.TEN;
+
+    private final ExamRepository examRepository;
+    private final UserRepository userRepository;
+
+    @Override
+    public Exam create(String teacherEmail, String title, String description, Instant availableFrom, Integer durationMinutes) {
+        User teacher = requireTeacher(teacherEmail);
+        Instant now = Instant.now();
+        Exam exam = Exam.builder()
+                .id(UUID.randomUUID())
+                .title(cleanRequired(title, "El titulo del examen es obligatorio"))
+                .description(cleanOptional(description))
+                .teacherId(teacher.getId())
+                .teacherName(teacher.getFullName())
+                .status(ExamStatus.BORRADOR)
+                .availableFrom(availableFrom)
+                .durationMinutes(durationMinutes)
+                .topics(List.of())
+                .createdAt(now)
+                .updatedAt(now)
+                .publishedAt(null)
+                .build();
+        return examRepository.save(exam);
+    }
+
+    @Override
+    public Exam update(String teacherEmail, UUID examId, String title, String description, Instant availableFrom, Integer durationMinutes) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        return examRepository.save(exam.toBuilder()
+                .title(cleanRequired(title, "El titulo del examen es obligatorio"))
+                .description(cleanOptional(description))
+                .availableFrom(availableFrom)
+                .durationMinutes(durationMinutes)
+                .updatedAt(Instant.now())
+                .build());
+    }
+
+    @Override
+    public Exam addTopic(String teacherEmail, UUID examId, String name) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = new ArrayList<>(safeTopics(exam));
+        topics.add(ExamTopic.builder()
+                .id(UUID.randomUUID())
+                .name(cleanRequired(name, "El nombre del tema es obligatorio"))
+                .questions(List.of())
+                .build());
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam updateTopic(String teacherEmail, UUID examId, UUID topicId, String name) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = safeTopics(exam).stream()
+                .map(topic -> topic.getId().equals(topicId)
+                        ? topic.toBuilder().name(cleanRequired(name, "El nombre del tema es obligatorio")).build()
+                        : topic)
+                .toList();
+        ensureTopicExists(topics, topicId);
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam removeTopic(String teacherEmail, UUID examId, UUID topicId) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = safeTopics(exam).stream()
+                .filter(topic -> !topic.getId().equals(topicId))
+                .toList();
+        if (topics.size() == safeTopics(exam).size()) {
+            throw new IllegalArgumentException("Tema no encontrado");
+        }
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, BigDecimal points) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = safeTopics(exam).stream()
+                .map(topic -> topic.getId().equals(topicId)
+                        ? topic.toBuilder().questions(addQuestion(topic, prompt, modelAnswer, points)).build()
+                        : topic)
+                .toList();
+        ensureTopicExists(topics, topicId);
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, BigDecimal points) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = safeTopics(exam).stream()
+                .map(topic -> {
+                    if (!topic.getId().equals(topicId)) {
+                        return topic;
+                    }
+                    List<ExamQuestion> questions = safeQuestions(topic).stream()
+                            .map(question -> question.getId().equals(questionId)
+                                    ? question.toBuilder()
+                                        .prompt(cleanRequired(prompt, "El enunciado es obligatorio"))
+                                        .modelAnswer(cleanRequired(modelAnswer, "La respuesta modelo es obligatoria"))
+                                        .points(validPoints(points))
+                                        .build()
+                                    : question)
+                            .toList();
+                    ensureQuestionExists(questions, questionId);
+                    return topic.toBuilder().questions(questions).build();
+                })
+                .toList();
+        ensureTopicExists(topics, topicId);
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam removeQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        List<ExamTopic> topics = safeTopics(exam).stream()
+                .map(topic -> {
+                    if (!topic.getId().equals(topicId)) {
+                        return topic;
+                    }
+                    List<ExamQuestion> before = safeQuestions(topic);
+                    List<ExamQuestion> after = before.stream()
+                            .filter(question -> !question.getId().equals(questionId))
+                            .toList();
+                    if (after.size() == before.size()) {
+                        throw new IllegalArgumentException("Pregunta no encontrada");
+                    }
+                    return topic.toBuilder().questions(reindex(after)).build();
+                })
+                .toList();
+        ensureTopicExists(topics, topicId);
+        return saveWithTopics(exam, topics);
+    }
+
+    @Override
+    public Exam publish(String teacherEmail, UUID examId) {
+        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        validateReadyToPublish(exam);
+        Instant now = Instant.now();
+        return examRepository.save(exam.toBuilder()
+                .status(ExamStatus.PUBLICADO)
+                .updatedAt(now)
+                .publishedAt(now)
+                .build());
+    }
+
+    @Override
+    public Exam close(String teacherEmail, UUID examId) {
+        Exam exam = requireOwnedExam(teacherEmail, examId);
+        if (exam.getStatus() == ExamStatus.CERRADO) {
+            return exam;
+        }
+        return examRepository.save(exam.toBuilder()
+                .status(ExamStatus.CERRADO)
+                .updatedAt(Instant.now())
+                .build());
+    }
+
+    @Override
+    public List<Exam> listForTeacher(String teacherEmail) {
+        User teacher = requireTeacher(teacherEmail);
+        return examRepository.findByTeacherId(teacher.getId());
+    }
+
+    @Override
+    public List<Exam> listForSupervision(ExamStatus status) {
+        return status == null ? examRepository.findAll() : examRepository.findByStatus(status);
+    }
+
+    @Override
+    public List<Exam> listPublishedForStudents() {
+        return examRepository.findByStatus(ExamStatus.PUBLICADO);
+    }
+
+    @Override
+    public Exam findById(UUID examId) {
+        return examRepository.findById(examId)
+                .orElseThrow(() -> new ExamNotFoundException(examId));
+    }
+
+    private Exam requireEditableOwnedExam(String teacherEmail, UUID examId) {
+        Exam exam = requireOwnedExam(teacherEmail, examId);
+        if (exam.getStatus() != ExamStatus.BORRADOR) {
+            throw new IllegalArgumentException("Solo se puede editar un examen en borrador");
+        }
+        return exam;
+    }
+
+    private Exam requireOwnedExam(String teacherEmail, UUID examId) {
+        User teacher = requireTeacher(teacherEmail);
+        Exam exam = findById(examId);
+        if (!exam.getTeacherId().equals(teacher.getId())) {
+            throw new IllegalArgumentException("El examen pertenece a otro profesor");
+        }
+        return exam;
+    }
+
+    private User requireTeacher(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        if (user.getRole() != Role.PROFESOR) {
+            throw new IllegalArgumentException("Solo un profesor puede gestionar examenes");
+        }
+        return user;
+    }
+
+    private Exam saveWithTopics(Exam exam, List<ExamTopic> topics) {
+        return examRepository.save(exam.toBuilder()
+                .topics(topics)
+                .updatedAt(Instant.now())
+                .build());
+    }
+
+    private List<ExamQuestion> addQuestion(ExamTopic topic, String prompt, String modelAnswer, BigDecimal points) {
+        List<ExamQuestion> questions = new ArrayList<>(safeQuestions(topic));
+        questions.add(ExamQuestion.builder()
+                .id(UUID.randomUUID())
+                .prompt(cleanRequired(prompt, "El enunciado es obligatorio"))
+                .modelAnswer(cleanRequired(modelAnswer, "La respuesta modelo es obligatoria"))
+                .points(validPoints(points))
+                .displayOrder(questions.size() + 1)
+                .build());
+        return questions;
+    }
+
+    private void validateReadyToPublish(Exam exam) {
+        if (safeTopics(exam).isEmpty()) {
+            throw new IllegalArgumentException("El examen debe tener al menos un tema");
+        }
+        for (ExamTopic topic : safeTopics(exam)) {
+            if (safeQuestions(topic).isEmpty()) {
+                throw new IllegalArgumentException("Cada tema debe tener al menos una pregunta");
+            }
+            if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) != 0) {
+                throw new IllegalArgumentException("Cada tema debe sumar exactamente 10 puntos");
+            }
+        }
+    }
+
+    private BigDecimal validPoints(BigDecimal points) {
+        if (points == null || points.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El puntaje debe ser mayor a cero");
+        }
+        if (points.compareTo(REQUIRED_TOPIC_TOTAL) > 0) {
+            throw new IllegalArgumentException("Una pregunta no puede valer mas de 10 puntos");
+        }
+        return points.stripTrailingZeros();
+    }
+
+    private String cleanRequired(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private String cleanOptional(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private List<ExamTopic> safeTopics(Exam exam) {
+        return exam.getTopics() == null ? List.of() : exam.getTopics();
+    }
+
+    private List<ExamQuestion> safeQuestions(ExamTopic topic) {
+        return topic.getQuestions() == null
+                ? List.of()
+                : topic.getQuestions().stream()
+                    .sorted(Comparator.comparingInt(ExamQuestion::getDisplayOrder))
+                    .toList();
+    }
+
+    private List<ExamQuestion> reindex(List<ExamQuestion> questions) {
+        List<ExamQuestion> indexed = new ArrayList<>();
+        for (int i = 0; i < questions.size(); i++) {
+            indexed.add(questions.get(i).toBuilder().displayOrder(i + 1).build());
+        }
+        return indexed;
+    }
+
+    private void ensureTopicExists(List<ExamTopic> topics, UUID topicId) {
+        if (topics.stream().noneMatch(topic -> topic.getId().equals(topicId))) {
+            throw new IllegalArgumentException("Tema no encontrado");
+        }
+    }
+
+    private void ensureQuestionExists(List<ExamQuestion> questions, UUID questionId) {
+        if (questions.stream().noneMatch(question -> question.getId().equals(questionId))) {
+            throw new IllegalArgumentException("Pregunta no encontrada");
+        }
+    }
+}

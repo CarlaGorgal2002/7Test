@@ -3,6 +3,7 @@ package com.seventest.infrastructure.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,6 +20,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -36,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/password-recovery").permitAll()
                 .requestMatchers("/api/users/**", "/api/config/**").hasRole("ADMINISTRADOR")
+                .requestMatchers("/api/exams/**").authenticated()
+                .requestMatchers("/api/submissions/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthFilter(jwtProvider, tokenBlacklist),

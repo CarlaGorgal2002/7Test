@@ -39,6 +39,8 @@ export default function AdminLanding() {
 
   const [policy, setPolicy] = useState({ minLength: 8, maxLength: 100, requireUppercase: false, requireLowercase: false, requireNumbers: false, requireSpecialChars: false })
   const [policyMsg, setPolicyMsg] = useState('')
+  const [exams, setExams] = useState([])
+  const [examsMsg, setExamsMsg] = useState('')
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true)
@@ -62,6 +64,14 @@ export default function AdminLanding() {
   useEffect(() => {
     if (tab === 'policy') {
       api.get('/config/password-policy').then(res => setPolicy(res.data)).catch(() => {})
+    }
+  }, [tab])
+
+  useEffect(() => {
+    if (tab === 'exams') {
+      api.get('/exams/supervision')
+        .then(res => setExams(res.data))
+        .catch(err => setExamsMsg(err.response?.data?.message || 'Error al cargar examenes.'))
     }
   }, [tab])
 
@@ -198,6 +208,7 @@ export default function AdminLanding() {
       <div style={styles.tabBar}>
         <button onClick={() => setTab('users')} style={tab === 'users' ? styles.tabActive : styles.tab}>Usuarios</button>
         <button onClick={() => setTab('policy')} style={tab === 'policy' ? styles.tabActive : styles.tab}>Política de Contraseñas</button>
+        <button onClick={() => setTab('exams')} style={tab === 'exams' ? styles.tabActive : styles.tab}>Examenes</button>
       </div>
 
       <main style={styles.main}>
@@ -323,6 +334,36 @@ export default function AdminLanding() {
               {policyMsg && <p style={policyMsg.includes('Error') ? styles.error : styles.success}>{policyMsg}</p>}
               <button type="submit" style={styles.btnPrimary}>Guardar política</button>
             </form>
+          </div>
+        )}
+
+        {tab === 'exams' && (
+          <div style={styles.tableWrapper}>
+            {examsMsg && <p style={styles.error}>{examsMsg}</p>}
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Examen</th>
+                  <th style={styles.th}>Profesor</th>
+                  <th style={styles.th}>Estado</th>
+                  <th style={styles.th}>Temas</th>
+                  <th style={styles.th}>Actualizado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exams.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#09222A', opacity: 0.4 }}>No hay examenes cargados.</td></tr>
+                ) : exams.map(exam => (
+                  <tr key={exam.id}>
+                    <td style={styles.td}>{exam.title}</td>
+                    <td style={styles.td}>{exam.teacherName}</td>
+                    <td style={styles.td}>{exam.status}</td>
+                    <td style={styles.td}>{exam.topics?.length || 0}</td>
+                    <td style={styles.td}>{exam.updatedAt ? new Date(exam.updatedAt).toLocaleString('es-AR') : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </main>
