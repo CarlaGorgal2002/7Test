@@ -130,9 +130,21 @@ export default function ProfesorLanding() {
     try {
       const res = await api.patch(`/exams/${selectedExam.id}/publish`)
       replaceExam(res.data)
-      setMessage('Examen publicado. En el proximo sprint lo va a poder rendir el alumno.')
+      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+    }
+  }
+
+  async function closeExam() {
+    if (!selectedExam) return
+    setMessage('')
+    try {
+      const res = await api.patch(`/exams/${selectedExam.id}/close`)
+      replaceExam(res.data)
+      setMessage('Examen cerrado. Ya no se aceptan nuevas entregas.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo cerrar el examen.')
     }
   }
 
@@ -227,9 +239,12 @@ export default function ProfesorLanding() {
                 </div>
                 <div style={styles.headerActions}>
                   <span style={statusStyle(selectedExam.status)}>{labelStatus(selectedExam.status)}</span>
-                  <button onClick={publishExam} disabled={!canEdit} style={canEdit ? styles.primaryBtn : styles.disabledBtn}>
-                    Publicar
-                  </button>
+                  {canEdit && (
+                    <button onClick={publishExam} style={styles.primaryBtn}>Publicar</button>
+                  )}
+                  {selectedExam.status === 'PUBLICADO' && (
+                    <button onClick={closeExam} style={styles.closeBtn}>Cerrar examen</button>
+                  )}
                 </div>
               </div>
 
@@ -408,6 +423,7 @@ const styles = {
   primaryBtn: { minHeight: 38, padding: '8px 16px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
+  closeBtn: { minHeight: 38, padding: '8px 16px', background: '#fff', color: '#9B2C2C', border: '1px solid #9B2C2C', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   examItem: { width: '100%', border: 'none', borderBottom: '1px solid #E7F0F3', background: '#fff', padding: '12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left' },
   examItemActive: { width: '100%', border: 'none', borderBottom: '1px solid #E7F0F3', background: '#F0F5FF', padding: '12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left', borderRadius: 6 },
   examItemTitle: { fontSize: 14, fontWeight: 700, color: '#09222A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 175 },
