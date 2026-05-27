@@ -61,6 +61,7 @@ export default function ProfesorLanding() {
   const [editingTopicId, setEditingTopicId] = useState(null)
   const [editingTopicName, setEditingTopicName] = useState('')
   const [templateLoading, setTemplateLoading] = useState('')
+  const [publishDialog, setPublishDialog] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -195,11 +196,6 @@ export default function ProfesorLanding() {
     e.preventDefault()
     if (!selectedExam) return
     const form = questionForms[topicId] || emptyQuestion
-    const topic = selectedExam.topics?.find((item) => item.id === topicId)
-    if (topicExceedsLimit(topic, Number(form.points))) {
-      setMessage('El total del tema no puede superar 10 puntos. Ajusta el puntaje antes de guardar.')
-      return
-    }
     setMessage('')
     try {
       const modelAnswer = normalizedModelAnswer(form)
@@ -221,10 +217,6 @@ export default function ProfesorLanding() {
     if (!selectedExam || !topic || !question) return
     const form = editingQuestionForms[question.id]
     if (!form) return
-    if (topicExceedsLimit(topic, Number(form.points), question.id)) {
-      setMessage('El total del tema no puede superar 10 puntos. Ajusta el puntaje antes de guardar.')
-      return
-    }
     setMessage('')
     try {
       const modelAnswer = normalizedModelAnswer(form)
@@ -299,6 +291,57 @@ export default function ProfesorLanding() {
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
     }
+  }
+
+  function handlePublishClick() {
+    if (!selectedExam) return
+    const badTopics = (selectedExam.topics || []).filter((t) => Number(t.totalPoints) !== 10)
+    if (badTopics.length === 0) {
+      publishExam()
+    } else {
+      setPublishDialog(badTopics)
+    }
+  }
+
+  async function redistributeAndPublish() {
+    setPublishDialog(null)
+    setMessage('')
+    try {
+      let exam = selectedExam
+      for (const topic of exam.topics.filter((t) => Number(t.totalPoints) !== 10)) {
+        exam = await redistributeTopicPoints(exam, topic)
+        replaceExam(exam)
+      }
+      const res = await api.patch(`/exams/${exam.id}/publish`)
+      replaceExam(res.data)
+      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+    }
+  }
+
+  async function redistributeTopicPoints(exam, topic) {
+    const n = topic.questions.length
+    if (n === 0) return exam
+    const base = Math.floor((10 / n) / 0.25) * 0.25
+    const remainder = parseFloat((10 - base * n).toFixed(2))
+    const targets = topic.questions.map((q, i) => ({
+      ...q,
+      targetPoints: i === n - 1 ? parseFloat((base + remainder).toFixed(2)) : base,
+    }))
+    const sorted = [...targets].sort(
+      (a, b) => (a.targetPoints - Number(a.points)) - (b.targetPoints - Number(b.points))
+    )
+    let updated = exam
+    for (const q of sorted) {
+      const res = await api.put(`/exams/${updated.id}/topics/${topic.id}/questions/${q.id}`, {
+        prompt: q.prompt,
+        modelAnswer: q.modelAnswer,
+        points: q.targetPoints,
+      })
+      updated = res.data
+    }
+    return updated
   }
 
   async function closeExam() {
@@ -445,13 +488,34 @@ export default function ProfesorLanding() {
                 <div style={styles.headerActions}>
                   <span style={statusStyle(selectedExam.status)}>{labelStatus(selectedExam.status)}</span>
                   {canEdit && (
-                    <button onClick={publishExam} style={styles.primaryBtn}>Publicar</button>
+                    <button onClick={handlePublishClick} style={styles.primaryBtn}>Publicar</button>
                   )}
                   {selectedExam.status === 'PUBLICADO' && (
                     <button onClick={closeExam} style={styles.closeBtn}>Cerrar examen</button>
                   )}
                 </div>
               </div>
+
+              {publishDialog && (
+                <div style={styles.publishWarning}>
+                  <p style={styles.publishWarningText}>
+                    <strong>No se puede publicar todavía.</strong> Los siguientes temas no suman exactamente 10 puntos:
+                  </p>
+                  <ul style={{ margin: '6px 0 12px 18px', padding: 0, fontSize: 14 }}>
+                    {publishDialog.map((t) => (
+                      <li key={t.id}><strong>{t.name}</strong>: {t.totalPoints} / 10 pts</li>
+                    ))}
+                  </ul>
+                  <div style={styles.publishWarningActions}>
+                    <button onClick={redistributeAndPublish} style={styles.primaryBtn}>
+                      Redistribuir automáticamente y publicar
+                    </button>
+                    <button onClick={() => setPublishDialog(null)} style={styles.secondaryBtn}>
+                      Revisar manualmente
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {canEdit && (
                 <>
@@ -625,6 +689,7 @@ export default function ProfesorLanding() {
                                     />
                                   )}
                                   <div style={styles.editQuestionActions}>
+                                    <button type="button" onClick={() => { cancelEditQuestion(question.id); removeQuestion(topic.id, question.id) }} style={styles.linkBtn}>Eliminar</button>
                                     <button type="button" onClick={() => cancelEditQuestion(question.id)} style={styles.secondaryBtn}>Cancelar</button>
                                     <button type="submit" style={styles.primaryBtn}>Guardar pregunta</button>
                                   </div>
@@ -894,4 +959,7 @@ const styles = {
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   submittedBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
+  publishWarning: { background: '#FFF3CD', border: '1px solid #E7CE74', borderRadius: 8, padding: '14px 16px', marginBottom: 14 },
+  publishWarningText: { margin: '0 0 4px', color: '#5D4700', fontSize: 14 },
+  publishWarningActions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
 }

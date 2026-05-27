@@ -123,17 +123,17 @@ class ExamServiceTest {
     }
 
     @Test
-    void agregarPregunta_siTemaSuperaDiez_rechazaCambio() {
+    void agregarPregunta_siTemaSuperaDiez_permiteCambioParaRedistribucion() {
         User teacher = teacher();
         ExamTopic topic = topic("Tema A", question("P1", "R1", "9"));
         Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic));
         when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
         when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(examRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThatThrownBy(() -> examService.addQuestion(
-                teacher.getEmail(), exam.getId(), topic.getId(), "P2", "R2", new BigDecimal("2")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("superar 10");
+        Exam result = examService.addQuestion(teacher.getEmail(), exam.getId(), topic.getId(), "P2", "R2", new BigDecimal("2"));
+
+        assertThat(result.getTopics().get(0).getQuestions()).hasSize(2);
     }
 
     @Test
@@ -175,7 +175,7 @@ class ExamServiceTest {
     }
 
     @Test
-    void editarPregunta_siTemaSuperaDiez_rechazaCambio() {
+    void editarPregunta_siTemaSuperaDiez_permiteCambioParaRedistribucion() {
         User teacher = teacher();
         ExamQuestion first = question("P1", "R1", "6");
         ExamQuestion second = question("P2", "R2", "4");
@@ -183,11 +183,12 @@ class ExamServiceTest {
         Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic));
         when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
         when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(examRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThatThrownBy(() -> examService.updateQuestion(
-                teacher.getEmail(), exam.getId(), topic.getId(), second.getId(), "P2 editada", "R2 editada", new BigDecimal("5")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("superar 10");
+        Exam result = examService.updateQuestion(
+                teacher.getEmail(), exam.getId(), topic.getId(), second.getId(), "P2 editada", "R2 editada", new BigDecimal("5"));
+
+        assertThat(result.getTopics().get(0).totalPoints()).isEqualByComparingTo("11");
     }
 
     private User teacher() {

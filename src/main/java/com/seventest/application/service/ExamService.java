@@ -120,7 +120,6 @@ public class ExamService implements ExamManagementUseCase {
                         : topic)
                 .toList();
         ensureTopicExists(topics, topicId);
-        ensureNoTopicExceedsTotal(topics);
         return saveWithTopics(exam, topics);
     }
 
@@ -146,7 +145,6 @@ public class ExamService implements ExamManagementUseCase {
                 })
                 .toList();
         ensureTopicExists(topics, topicId);
-        ensureNoTopicExceedsTotal(topics);
         return saveWithTopics(exam, topics);
     }
 
