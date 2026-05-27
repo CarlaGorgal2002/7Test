@@ -162,6 +162,19 @@ class ExamServiceTest {
     }
 
     @Test
+    void publicarExamen_conTablaVacia_rechazaPublicacion() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic("Tema A",
+                question("Tabla", "7TEST_DECISION_TABLE:{\"rows\":3,\"cols\":2,\"cells\":[[\"\",\"\"],[\"\",\"\"] ,[\"\",\"\"]]}", "10"))));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.publish(teacher.getEmail(), exam.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("respuesta modelo");
+    }
+
+    @Test
     void editarPregunta_siTemaSuperaDiez_rechazaCambio() {
         User teacher = teacher();
         ExamQuestion first = question("P1", "R1", "6");

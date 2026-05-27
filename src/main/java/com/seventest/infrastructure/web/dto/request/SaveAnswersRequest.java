@@ -16,7 +16,7 @@ public record SaveAnswersRequest(
             @NotNull(message = "El id de pregunta es obligatorio")
             UUID questionId,
 
-            @Size(max = 8000, message = "La respuesta no puede superar 8000 caracteres")
+            @Size(max = 20000, message = "La respuesta no puede superar 20000 caracteres")
             String answerText
     ) {
     }

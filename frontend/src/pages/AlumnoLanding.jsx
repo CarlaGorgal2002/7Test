@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
+import AutoGrowTextarea from '../components/AutoGrowTextarea.jsx'
+import DecisionTableEditor, { emptyDecisionTableValue, isDecisionTablePrompt } from '../components/DecisionTableEditor.jsx'
 import DecisionTreeEditor, { emptyDecisionTreeValue, isDecisionTreePrompt } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 
@@ -187,40 +189,34 @@ export default function AlumnoLanding() {
               <div style={styles.questions}>
                 {current.questions.map((question) => {
                   const treeQuestion = isDecisionTreeQuestion(question)
-                  const practicalTemplate = treeQuestion ? '' : answerTemplateFor(question.prompt)
+                  const tableQuestion = isDecisionTableQuestion(question)
                   return (
                     <article key={question.questionId} style={styles.questionCard}>
                       <div style={styles.questionHeader}>
                         <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
                         <span style={styles.points}>{question.points} pts</span>
                       </div>
-                      {canAnswer && practicalTemplate && (
-                        <div style={styles.templateBox}>
-                          <button
-                            type="button"
-                            onClick={() => updateAnswer(question.questionId, answers[question.questionId]?.trim()
-                              ? `${answers[question.questionId]}\n\n${practicalTemplate}`
-                              : practicalTemplate)}
-                            style={styles.secondaryBtn}
-                          >
-                            Insertar plantilla
-                          </button>
-                        </div>
-                      )}
-                      {treeQuestion ? (
+                      {tableQuestion ? (
+                        <DecisionTableEditor
+                          value={answers[question.questionId] || emptyDecisionTableValue()}
+                          onChange={(value) => updateAnswer(question.questionId, value)}
+                          readOnly={!canAnswer}
+                        />
+                      ) : treeQuestion ? (
                         <DecisionTreeEditor
                           value={answers[question.questionId] || emptyDecisionTreeValue()}
                           onChange={(value) => updateAnswer(question.questionId, value)}
                           readOnly={!canAnswer}
                         />
                       ) : (
-                        <textarea
+                        <AutoGrowTextarea
                           value={answers[question.questionId] || ''}
                           onChange={(e) => updateAnswer(question.questionId, e.target.value)}
                           disabled={!canAnswer}
-                          rows={14}
                           style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
                           placeholder="Escribi tu respuesta..."
+                          minHeight={320}
+                          maxHeight={1400}
                         />
                       )}
                     </article>
@@ -248,43 +244,17 @@ function isDecisionTreeQuestion(question = {}) {
   return question.interactionType === 'DECISION_TREE' || isDecisionTreePrompt(question.prompt)
 }
 
-function questionFallbackTitle(question) {
-  if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
-  if (Number(question.points) === 2 && question.displayOrder === 7) return 'Practico - Tabla de decision'
-  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`
-  return 'Pregunta sin enunciado'
+function isDecisionTableQuestion(question = {}) {
+  return question.interactionType === 'DECISION_TABLE'
+    || isDecisionTablePrompt(question.prompt)
+    || (Number(question.points) === 2 && question.displayOrder === 7 && !isDecisionTreeQuestion(question))
 }
 
-function answerTemplateFor(prompt = '') {
-  const normalized = prompt.toLowerCase()
-  if (normalized.includes('tabla de decision')) {
-    return `Condiciones:
-C1:
-C2:
-C3:
-
-Acciones:
-A1:
-A2:
-A3:
-
-Cantidad de reglas: 2^n =
-
-Tabla:
-Condiciones / Reglas | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8
-C1                  | V  | V  | V  | V  | F  | F  | F  | F
-C2                  | V  | V  | F  | F  | V  | V  | F  | F
-C3                  | V  | F  | V  | F  | V  | F  | V  | F
-
-Acciones:
-A1                  |    |    |    |    |    |    |    |
-A2                  |    |    |    |    |    |    |    |
-A3                  |    |    |    |    |    |    |    |
-
-Supuestos / reglas invalidas:
-`
-  }
-  return ''
+function questionFallbackTitle(question) {
+  if (isDecisionTableQuestion(question)) return 'Practico - Tabla de decision'
+  if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
+  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`
+  return 'Pregunta sin enunciado'
 }
 
 const styles = {

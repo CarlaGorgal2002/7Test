@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 export const DECISION_TREE_PREFIX = '7TEST_DECISION_TREE:'
 
 const emptyTree = { nodes: [], edges: [] }
-const boardSize = { width: 960, height: 560 }
+const boardSize = { width: 1800, height: 1200 }
 const nodeSize = { oval: { width: 154, height: 84 }, rect: { width: 150, height: 74 } }
 const sides = ['top', 'right', 'bottom', 'left']
 
@@ -52,6 +52,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   const [selected, setSelected] = useState(null)
   const [drag, setDrag] = useState(null)
   const [draftEdge, setDraftEdge] = useState(null)
+  const [zoom, setZoom] = useState(compact ? 0.55 : 0.8)
 
   useEffect(() => {
     if ((value || '') !== lastEmitted.current) {
@@ -169,9 +170,13 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   function boardPoint(event) {
     const rect = boardRef.current.getBoundingClientRect()
     return {
-      x: clamp(event.clientX - rect.left + boardRef.current.scrollLeft, 0, boardSize.width),
-      y: clamp(event.clientY - rect.top + boardRef.current.scrollTop, 0, boardSize.height),
+      x: clamp((event.clientX - rect.left + boardRef.current.scrollLeft) / zoom, 0, boardSize.width),
+      y: clamp((event.clientY - rect.top + boardRef.current.scrollTop) / zoom, 0, boardSize.height),
     }
+  }
+
+  function changeZoom(delta) {
+    setZoom((current) => clamp(Number((current + delta).toFixed(2)), 0.35, 1.25))
   }
 
   function dropShape(event) {
@@ -197,6 +202,11 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
             <span style={styles.rectTool} />
           </button>
           <button type="button" onClick={removeSelected} disabled={!selected} style={selected ? styles.deleteButton : styles.disabledButton}>Eliminar</button>
+          <div style={styles.zoomControls}>
+            <button type="button" onClick={() => changeZoom(-0.1)} style={styles.zoomButton}>-</button>
+            <span style={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
+            <button type="button" onClick={() => changeZoom(0.1)} style={styles.zoomButton}>+</button>
+          </div>
         </div>
       )}
 
@@ -208,7 +218,8 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
         onDragOver={(event) => event.preventDefault()}
         onDrop={dropShape}
       >
-        <div style={styles.board} onPointerDown={() => setSelected(null)}>
+        <div style={{ width: boardSize.width * zoom, height: boardSize.height * zoom, position: 'relative' }}>
+        <div style={{ ...styles.board, transform: `scale(${zoom})` }} onPointerDown={() => setSelected(null)}>
           <svg width={boardSize.width} height={boardSize.height} style={styles.svgLayer}>
             <defs>
               <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -307,6 +318,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
             </div>
           ))}
         </div>
+        </div>
       </div>
     </div>
   )
@@ -376,18 +388,22 @@ function clamp(value, min, max) {
 const styles = {
   editor: { border: '1px solid #C9DDE3', borderRadius: 8, background: '#F8FBFC', overflow: 'hidden' },
   editorCompact: { border: '1px solid #E7F0F3', borderRadius: 6, background: '#F8FBFC', overflow: 'hidden', marginTop: 8 },
-  toolbar: { minHeight: 46, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid #D8E8EC', background: '#fff' },
+  toolbar: { minHeight: 46, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid #D8E8EC', background: '#fff', flexWrap: 'wrap' },
   toolButton: { width: 44, height: 32, border: '1px solid #1956D8', borderRadius: 6, background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' },
   deleteButton: { minHeight: 32, padding: '6px 12px', border: '1px solid #9B2C2C', borderRadius: 6, background: '#fff', color: '#9B2C2C', fontWeight: 700, cursor: 'pointer' },
   disabledButton: { minHeight: 32, padding: '6px 12px', border: '1px solid #C9DDE3', borderRadius: 6, background: '#F4F8FA', color: '#7B919B', fontWeight: 700 },
   ovalTool: { width: 28, height: 18, border: '2px solid #1956D8', borderRadius: '50%', display: 'block' },
   rectTool: { width: 26, height: 18, border: '2px solid #1956D8', borderRadius: 2, display: 'block' },
-  boardFrame: { width: '100%', overflow: 'auto', background: '#EEF5F7' },
-  boardFrameCompact: { width: '100%', maxHeight: 300, overflow: 'auto', background: '#EEF5F7' },
+  zoomControls: { display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  zoomButton: { width: 32, height: 32, border: '1px solid #1956D8', borderRadius: 6, background: '#fff', color: '#1956D8', fontSize: 16, fontWeight: 800, cursor: 'pointer' },
+  zoomLabel: { minWidth: 46, color: '#304653', fontSize: 13, fontWeight: 800, textAlign: 'center' },
+  boardFrame: { width: '100%', height: 680, overflow: 'auto', background: '#EEF5F7' },
+  boardFrameCompact: { width: '100%', maxHeight: 360, overflow: 'auto', background: '#EEF5F7' },
   board: {
     width: boardSize.width,
     height: boardSize.height,
     position: 'relative',
+    transformOrigin: 'top left',
     backgroundColor: '#fff',
     backgroundImage: 'linear-gradient(#EDF4F6 1px, transparent 1px), linear-gradient(90deg, #EDF4F6 1px, transparent 1px)',
     backgroundSize: '20px 20px',

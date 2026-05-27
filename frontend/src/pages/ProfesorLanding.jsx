@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
+import AutoGrowTextarea from '../components/AutoGrowTextarea.jsx'
+import DecisionTableEditor, {
+  emptyDecisionTableValue,
+  isDecisionTablePrompt,
+  isDecisionTableValue,
+} from '../components/DecisionTableEditor.jsx'
 import DecisionTreeEditor, {
   emptyDecisionTreeValue,
   isDecisionTreePrompt,
@@ -20,7 +26,7 @@ const theoryTemplate = {
 
 const decisionTableTemplate = {
   prompt: '',
-  modelAnswer: '',
+  modelAnswer: emptyDecisionTableValue(),
   points: '2',
 }
 
@@ -315,9 +321,7 @@ export default function ProfesorLanding() {
       ...current,
       [question.id]: {
         prompt: question.prompt,
-        modelAnswer: isDecisionTreeQuestion(question) && !isDecisionTreeValue(question.modelAnswer)
-          ? emptyDecisionTreeValue()
-          : question.modelAnswer,
+        modelAnswer: initialEditorValue(question),
         points: String(question.points),
       },
     }))
@@ -512,6 +516,7 @@ export default function ProfesorLanding() {
                   const totalOk = Number(topic.totalPoints) === 10
                   const form = questionForms[topic.id] || emptyQuestion
                   const treeForm = isDecisionTreeForm(form)
+                  const tableForm = isDecisionTableForm(form)
                   return (
                     <article key={topic.id} style={{ ...styles.topicCard, borderTop: `4px solid ${topic.colorHex || '#1956D8'}` }}>
                       <div style={styles.topicHeader}>
@@ -531,6 +536,7 @@ export default function ProfesorLanding() {
                         {topic.questions.map((question) => {
                           const editForm = editingQuestionForms[question.id]
                           const treeQuestion = isDecisionTreeQuestion(question)
+                          const tableQuestion = isDecisionTableQuestion(question)
                           return (
                             <div key={question.id} style={styles.questionRow}>
                               {editForm ? (
@@ -549,26 +555,33 @@ export default function ProfesorLanding() {
                                     />
                                   </div>
                                   <label style={styles.label}>Enunciado</label>
-                                  <textarea
+                                  <AutoGrowTextarea
                                     value={editForm.prompt}
                                     onChange={(e) => updateEditingQuestionForm(question.id, 'prompt', e.target.value)}
                                     style={styles.promptTextarea}
-                                    rows={4}
                                     placeholder={questionDisplayTitle(question)}
+                                    minHeight={220}
+                                    maxHeight={1200}
                                   />
                                   <label style={styles.label}>Respuesta modelo</label>
-                                  {isDecisionTreeForm(editForm) ? (
+                                  {isDecisionTableForm(editForm) ? (
+                                    <DecisionTableEditor
+                                      value={editForm.modelAnswer || emptyDecisionTableValue()}
+                                      onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
+                                    />
+                                  ) : isDecisionTreeForm(editForm) ? (
                                     <DecisionTreeEditor
                                       value={editForm.modelAnswer || emptyDecisionTreeValue()}
                                       onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
                                     />
                                   ) : (
-                                    <textarea
+                                    <AutoGrowTextarea
                                       value={editForm.modelAnswer}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
                                       style={styles.modelTextarea}
-                                      rows={8}
                                       placeholder="Respuesta modelo"
+                                      minHeight={260}
+                                      maxHeight={1400}
                                     />
                                   )}
                                   <div style={styles.editQuestionActions}>
@@ -580,7 +593,9 @@ export default function ProfesorLanding() {
                                 <>
                                   <div>
                                     <strong>{question.displayOrder}. {questionDisplayTitle(question)}</strong>
-                                    {treeQuestion ? (
+                                    {tableQuestion ? (
+                                      <DecisionTableEditor value={question.modelAnswer} readOnly compact />
+                                    ) : treeQuestion ? (
                                       <DecisionTreeEditor value={question.modelAnswer} readOnly compact />
                                     ) : (
                                       <p style={styles.answer}>Modelo: {question.modelAnswer || 'Sin completar'}</p>
@@ -624,26 +639,33 @@ export default function ProfesorLanding() {
                             <button type="button" onClick={() => applyQuestionTemplate(topic.id, decisionTreeTemplate)} style={styles.secondaryBtn}>Arbol 2 pts</button>
                           </div>
                           <label style={styles.label}>Enunciado</label>
-                          <textarea
+                          <AutoGrowTextarea
                             value={form.prompt}
                             onChange={(e) => updateQuestionForm(topic.id, 'prompt', e.target.value)}
                             style={styles.promptTextarea}
-                            rows={4}
                             placeholder="Enunciado"
+                            minHeight={220}
+                            maxHeight={1200}
                           />
                           <label style={styles.label}>Respuesta modelo</label>
-                          {treeForm ? (
+                          {tableForm ? (
+                            <DecisionTableEditor
+                              value={form.modelAnswer || emptyDecisionTableValue()}
+                              onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
+                            />
+                          ) : treeForm ? (
                             <DecisionTreeEditor
                               value={form.modelAnswer || emptyDecisionTreeValue()}
                               onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
                             />
                           ) : (
-                            <textarea
+                            <AutoGrowTextarea
                               value={form.modelAnswer}
                               onChange={(e) => updateQuestionForm(topic.id, 'modelAnswer', e.target.value)}
                               style={styles.modelTextarea}
-                              rows={8}
                               placeholder="Respuesta modelo"
+                              minHeight={260}
+                              maxHeight={1400}
                             />
                           )}
                           <div style={styles.inlineFields}>
@@ -714,14 +736,37 @@ function topicExceedsLimit(topic, nextPoints, editingQuestionId = null) {
 }
 
 function normalizedModelAnswer(form) {
+  if (isDecisionTableForm(form) && !isDecisionTableValue(form.modelAnswer)) {
+    return emptyDecisionTableValue()
+  }
   if (isDecisionTreeForm(form) && !isDecisionTreeValue(form.modelAnswer)) {
     return emptyDecisionTreeValue()
   }
   return form.modelAnswer || ''
 }
 
+function initialEditorValue(question) {
+  if (isDecisionTableQuestion(question) && !isDecisionTableValue(question.modelAnswer)) {
+    return emptyDecisionTableValue()
+  }
+  if (isDecisionTreeQuestion(question) && !isDecisionTreeValue(question.modelAnswer)) {
+    return emptyDecisionTreeValue()
+  }
+  return question.modelAnswer
+}
+
+function isDecisionTableForm(form = {}) {
+  return isDecisionTableValue(form.modelAnswer) || isDecisionTablePrompt(form.prompt)
+}
+
 function isDecisionTreeForm(form = {}) {
   return isDecisionTreeValue(form.modelAnswer) || isDecisionTreePrompt(form.prompt)
+}
+
+function isDecisionTableQuestion(question = {}) {
+  return isDecisionTableValue(question.modelAnswer)
+    || isDecisionTablePrompt(question.prompt)
+    || (Number(question.points) === 2 && question.displayOrder === 7 && !isDecisionTreeQuestion(question))
 }
 
 function isDecisionTreeQuestion(question = {}) {
@@ -731,6 +776,7 @@ function isDecisionTreeQuestion(question = {}) {
 function questionDisplayTitle(question) {
   const prompt = question.prompt?.trim()
   if (prompt) return prompt
+  if (isDecisionTableQuestion(question)) return 'Practico - Tabla de decision'
   if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
   if (Number(question.points) === 2 && question.displayOrder === 7) return 'Practico - Tabla de decision'
   if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`

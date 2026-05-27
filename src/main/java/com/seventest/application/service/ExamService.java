@@ -1,5 +1,7 @@
 package com.seventest.application.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seventest.domain.exception.ExamNotFoundException;
 import com.seventest.domain.exception.UserNotFoundException;
 import com.seventest.domain.model.Exam;
@@ -27,7 +29,11 @@ public class ExamService implements ExamManagementUseCase {
 
     private static final BigDecimal REQUIRED_TOPIC_TOTAL = BigDecimal.TEN;
     private static final String DEFAULT_COURSE_NAME = "Testing de Aplicaciones";
+    private static final String DECISION_TREE_PREFIX = "7TEST_DECISION_TREE:";
+    private static final String DECISION_TABLE_PREFIX = "7TEST_DECISION_TABLE:";
     private static final String EMPTY_DECISION_TREE = "7TEST_DECISION_TREE:{\"nodes\":[],\"edges\":[]}";
+    private static final String EMPTY_DECISION_TABLE = "7TEST_DECISION_TABLE:{\"rows\":2,\"cols\":2,\"cells\":[[\"\",\"\"],[\"\",\"\"]]}";
+    private static final ObjectMapper EDITOR_JSON = new ObjectMapper();
     private static final List<String> TOPIC_COLORS = List.of("#1956D8", "#03BB83", "#FFC012");
 
     private final ExamRepository examRepository;
@@ -280,7 +286,49 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     private boolean isBlankQuestionContent(String value) {
-        return value == null || value.isBlank() || EMPTY_DECISION_TREE.equals(value.trim());
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        String clean = value.trim();
+        return EMPTY_DECISION_TREE.equals(clean)
+                || EMPTY_DECISION_TABLE.equals(clean)
+                || (clean.startsWith(DECISION_TREE_PREFIX) && !hasNonBlankTreeText(clean))
+                || (clean.startsWith(DECISION_TABLE_PREFIX) && !hasNonBlankTableCell(clean));
+    }
+
+    private boolean hasNonBlankTreeText(String value) {
+        try {
+            JsonNode root = EDITOR_JSON.readTree(value.substring(DECISION_TREE_PREFIX.length()));
+            for (JsonNode node : root.path("nodes")) {
+                if (!node.path("text").asText("").isBlank()) {
+                    return true;
+                }
+            }
+            for (JsonNode edge : root.path("edges")) {
+                if (!edge.path("label").asText("").isBlank()) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private boolean hasNonBlankTableCell(String value) {
+        try {
+            JsonNode cells = EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path("cells");
+            for (JsonNode row : cells) {
+                for (JsonNode cell : row) {
+                    if (!cell.asText("").isBlank()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private void ensureNoTopicExceedsTotal(List<ExamTopic> topics) {

@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 public class ExamSubmissionController {
 
     private static final String DECISION_TREE_PREFIX = "7TEST_DECISION_TREE:";
+    private static final String DECISION_TABLE_PREFIX = "7TEST_DECISION_TABLE:";
 
     private final ExamSubmissionUseCase submissionUseCase;
     private final ExamManagementUseCase examManagementUseCase;
@@ -124,6 +125,11 @@ public class ExamSubmissionController {
     }
 
     private String interactionType(ExamQuestion question) {
+        if ((question.getModelAnswer() != null && question.getModelAnswer().startsWith(DECISION_TABLE_PREFIX))
+                || normalize(question.getPrompt()).contains("tabla de decision")
+                || (question.getPoints() != null && question.getPoints().intValue() == 2 && question.getDisplayOrder() == 7)) {
+            return "DECISION_TABLE";
+        }
         if ((question.getModelAnswer() != null && question.getModelAnswer().startsWith(DECISION_TREE_PREFIX))
                 || normalize(question.getPrompt()).contains("arbol de decision")) {
             return "DECISION_TREE";

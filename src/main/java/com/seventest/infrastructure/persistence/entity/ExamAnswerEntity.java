@@ -21,7 +21,7 @@ public class ExamAnswerEntity {
     @Column(name = "question_id", nullable = false)
     private UUID questionId;
 
-    @Column(name = "answer_text", nullable = false, length = 8000)
+    @Column(name = "answer_text", nullable = false, length = 20000)
     private String answerText;
 
     @Column(name = "updated_at", nullable = false)

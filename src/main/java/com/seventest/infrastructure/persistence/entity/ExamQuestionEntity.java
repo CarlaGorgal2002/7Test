@@ -21,7 +21,7 @@ public class ExamQuestionEntity {
     @Column(nullable = false, length = 4000)
     private String prompt;
 
-    @Column(name = "model_answer", nullable = false, length = 8000)
+    @Column(name = "model_answer", nullable = false, length = 20000)
     private String modelAnswer;
 
     @Column(nullable = false, precision = 5, scale = 2)

@@ -11,7 +11,7 @@ public record ExamQuestionRequest(
         @Size(max = 4000, message = "El enunciado no puede superar 4000 caracteres")
         String prompt,
 
-        @Size(max = 8000, message = "La respuesta modelo no puede superar 8000 caracteres")
+        @Size(max = 20000, message = "La respuesta modelo no puede superar 20000 caracteres")
         String modelAnswer,
 
         @NotNull(message = "El puntaje es obligatorio")
