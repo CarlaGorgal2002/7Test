@@ -2,7 +2,7 @@ spring:
   application:
     name: 7test
   datasource:
-    url: jdbc:h2:mem:seventest;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:file:/app/data/seventest;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -11,7 +11,7 @@ spring:
       enabled: true
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     database-platform: org.hibernate.dialect.H2Dialect
 

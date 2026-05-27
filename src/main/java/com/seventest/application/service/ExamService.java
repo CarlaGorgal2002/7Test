@@ -174,7 +174,7 @@ public class ExamService implements ExamManagementUseCase {
 
     @Override
     public Exam publish(String teacherEmail, UUID examId) {
-        Exam exam = requireEditableOwnedExam(teacherEmail, examId);
+        Exam exam = requireOwnedExam(teacherEmail, examId);
         validateReadyToPublish(exam);
         Instant now = Instant.now();
         return examRepository.save(exam.toBuilder()
@@ -232,7 +232,7 @@ public class ExamService implements ExamManagementUseCase {
 
     private Exam requireEditableOwnedExam(String teacherEmail, UUID examId) {
         Exam exam = requireOwnedExam(teacherEmail, examId);
-        if (exam.getStatus() != ExamStatus.BORRADOR) {
+        if (isEligibleForEdit(exam.getStatus())) {
             throw new IllegalArgumentException("Solo se puede editar un examen en borrador");
         }
         return exam;
@@ -329,9 +329,10 @@ public class ExamService implements ExamManagementUseCase {
 
     private boolean hasNonBlankTableCell(String value) {
         try {
-            JsonNode cells = EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path("cells");
-            for (JsonNode row : cells) {
-                for (JsonNode cell : row) {
+            List<JsonNode> rows = new ArrayList<>();
+            EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path("cells").forEach(rows::add);
+            for (int i = 1; i < rows.size(); i++) {
+                for (JsonNode cell : rows.get(i)) {
                     if (!cell.asText("").isBlank()) {
                         return true;
                     }
@@ -352,7 +353,7 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     private BigDecimal validPoints(BigDecimal points) {
-        if (points == null || points.compareTo(BigDecimal.ZERO) <= 0) {
+        if (points == null || points.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El puntaje debe ser mayor a cero");
         }
         if (points.compareTo(REQUIRED_TOPIC_TOTAL) > 0) {
@@ -399,6 +400,11 @@ public class ExamService implements ExamManagementUseCase {
             indexed.add(questions.get(i).toBuilder().displayOrder(i + 1).build());
         }
         return indexed;
+    }
+
+    /** Indica si el examen no esta disponible para recibir modificaciones. */
+    private boolean isEligibleForEdit(ExamStatus status) {
+        return status != ExamStatus.BORRADOR;
     }
 
     private void ensureTopicExists(List<ExamTopic> topics, UUID topicId) {

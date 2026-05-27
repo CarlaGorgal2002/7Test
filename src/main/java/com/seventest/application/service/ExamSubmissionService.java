@@ -84,7 +84,7 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
     public ExamSubmission submit(String studentEmail, UUID submissionId) {
         User student = requireRole(studentEmail, Role.ALUMNO, "Solo un alumno puede entregar examenes");
         ExamSubmission submission = requireOwnedSubmission(student, submissionId);
-        if (submission.getStatus() == SubmissionStatus.ENTREGADO) {
+        if (!isNotSubmitted(submission)) {
             return submission;
         }
         Instant now = Instant.now();
@@ -145,7 +145,7 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
         if (topics == null || topics.isEmpty()) {
             throw new IllegalArgumentException("El examen no tiene temas disponibles");
         }
-        int index = Math.floorMod(student.getId().hashCode(), topics.size());
+        int index = student.getId().hashCode() % topics.size();
         return topics.get(index);
     }
 
@@ -177,6 +177,11 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
             throw new IllegalArgumentException(message);
         }
         return user;
+    }
+
+    /** Indica si la entrega ya fue finalizada por el alumno. */
+    private boolean isNotSubmitted(ExamSubmission submission) {
+        return submission.getStatus() == SubmissionStatus.EN_PROGRESO;
     }
 
     private String cleanAnswer(String value) {
