@@ -58,6 +58,8 @@ export default function ProfesorLanding() {
   const [topicName, setTopicName] = useState('Tema A')
   const [questionForms, setQuestionForms] = useState({})
   const [editingQuestionForms, setEditingQuestionForms] = useState({})
+  const [editingTopicId, setEditingTopicId] = useState(null)
+  const [editingTopicName, setEditingTopicName] = useState('')
   const [templateLoading, setTemplateLoading] = useState('')
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
@@ -154,6 +156,20 @@ export default function ProfesorLanding() {
       setMessage(err.response?.data?.message || 'No se pudo agregar el tema o cargar la plantilla.')
     } finally {
       setTemplateLoading('')
+    }
+  }
+
+  async function renameTopic(topicId) {
+    if (!selectedExam || !editingTopicName.trim()) return
+    setMessage('')
+    try {
+      const res = await api.put(`/exams/${selectedExam.id}/topics/${topicId}`, { name: editingTopicName.trim() })
+      replaceExam(res.data)
+      setEditingTopicId(null)
+      setEditingTopicName('')
+      setMessage('Nombre del tema actualizado.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo renombrar el tema.')
     }
   }
 
@@ -523,7 +539,31 @@ export default function ProfesorLanding() {
                         <div>
                           <div style={styles.topicTitleRow}>
                             <span style={{ ...styles.topicSwatch, background: topic.colorHex || '#1956D8' }} />
-                            <h3 style={styles.topicTitle}>{topic.name}</h3>
+                            {canEdit && editingTopicId === topic.id ? (
+                              <form onSubmit={(e) => { e.preventDefault(); renameTopic(topic.id) }} style={styles.topicRenameForm}>
+                                <input
+                                  value={editingTopicName}
+                                  onChange={(e) => setEditingTopicName(e.target.value)}
+                                  style={styles.topicRenameInput}
+                                  autoFocus
+                                  required
+                                />
+                                <button type="submit" style={styles.topicRenameConfirm}>✓</button>
+                                <button type="button" onClick={() => { setEditingTopicId(null); setEditingTopicName('') }} style={styles.topicRenameCancel}>✕</button>
+                              </form>
+                            ) : (
+                              <div style={styles.topicTitleRow}>
+                                <h3 style={styles.topicTitle}>{topic.name}</h3>
+                                {canEdit && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingTopicId(topic.id); setEditingTopicName(topic.name) }}
+                                    style={styles.topicRenameBtn}
+                                    title="Renombrar tema"
+                                  >✎</button>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <span style={totalOk ? styles.totalOk : styles.totalPending}>
                             Total: {topic.totalPoints} / 10
@@ -827,6 +867,11 @@ const styles = {
   topicTitleRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
   topicSwatch: { width: 12, height: 12, borderRadius: 999, flex: '0 0 auto' },
   topicTitle: { fontSize: 18, margin: 0 },
+  topicRenameBtn: { background: 'none', border: 'none', color: '#536B76', fontSize: 14, cursor: 'pointer', padding: '0 2px', lineHeight: 1 },
+  topicRenameForm: { display: 'flex', alignItems: 'center', gap: 4 },
+  topicRenameInput: { fontSize: 16, fontWeight: 700, border: '1px solid #1956D8', borderRadius: 4, padding: '2px 6px', width: 140 },
+  topicRenameConfirm: { background: '#1956D8', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontWeight: 700 },
+  topicRenameCancel: { background: '#fff', color: '#9B2C2C', border: '1px solid #9B2C2C', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontWeight: 700 },
   totalOk: { color: '#087A55', fontSize: 13, fontWeight: 800 },
   totalPending: { color: '#9B6A00', fontSize: 13, fontWeight: 800 },
   questions: { display: 'flex', flexDirection: 'column', gap: 10 },
