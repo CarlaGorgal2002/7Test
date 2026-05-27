@@ -4,11 +4,13 @@ import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
 import AutoGrowTextarea from '../components/AutoGrowTextarea.jsx'
 import DecisionTableEditor, {
+  DECISION_TABLE_PREFIX,
   emptyDecisionTableValue,
   isDecisionTablePrompt,
   isDecisionTableValue,
 } from '../components/DecisionTableEditor.jsx'
 import DecisionTreeEditor, {
+  DECISION_TREE_PREFIX,
   emptyDecisionTreeValue,
   isDecisionTreePrompt,
   isDecisionTreeValue,
@@ -61,7 +63,7 @@ export default function ProfesorLanding() {
   const [editingTopicId, setEditingTopicId] = useState(null)
   const [editingTopicName, setEditingTopicName] = useState('')
   const [templateLoading, setTemplateLoading] = useState('')
-  const [publishDialog, setPublishDialog] = useState(null)
+  const [modal, setModal] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -295,20 +297,26 @@ export default function ProfesorLanding() {
 
   function handlePublishClick() {
     if (!selectedExam) return
+    const missingAnswers = findMissingAnswers(selectedExam)
+    if (missingAnswers.length > 0) {
+      setModal({ type: 'missingAnswers', items: missingAnswers })
+      return
+    }
     const badTopics = (selectedExam.topics || []).filter((t) => Number(t.totalPoints) !== 10)
-    if (badTopics.length === 0) {
-      publishExam()
+    if (badTopics.length > 0) {
+      setModal({ type: 'badPoints', topics: badTopics })
     } else {
-      setPublishDialog(badTopics)
+      publishExam()
     }
   }
 
   async function redistributeAndPublish() {
-    setPublishDialog(null)
+    const topicsToFix = modal?.topics || []
+    setModal(null)
     setMessage('')
     try {
       let exam = selectedExam
-      for (const topic of exam.topics.filter((t) => Number(t.totalPoints) !== 10)) {
+      for (const topic of exam.topics.filter((t) => topicsToFix.some((bt) => bt.id === t.id))) {
         exam = await redistributeTopicPoints(exam, topic)
         replaceExam(exam)
       }
@@ -496,26 +504,6 @@ export default function ProfesorLanding() {
                 </div>
               </div>
 
-              {publishDialog && (
-                <div style={styles.publishWarning}>
-                  <p style={styles.publishWarningText}>
-                    <strong>No se puede publicar todavía.</strong> Los siguientes temas no suman exactamente 10 puntos:
-                  </p>
-                  <ul style={{ margin: '6px 0 12px 18px', padding: 0, fontSize: 14 }}>
-                    {publishDialog.map((t) => (
-                      <li key={t.id}><strong>{t.name}</strong>: {t.totalPoints} / 10 pts</li>
-                    ))}
-                  </ul>
-                  <div style={styles.publishWarningActions}>
-                    <button onClick={redistributeAndPublish} style={styles.primaryBtn}>
-                      Redistribuir automáticamente y publicar
-                    </button>
-                    <button onClick={() => setPublishDialog(null)} style={styles.secondaryBtn}>
-                      Revisar manualmente
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {canEdit && (
                 <>
@@ -799,6 +787,44 @@ export default function ProfesorLanding() {
           )}
         </section>
       </main>
+
+      {modal && (
+        <div style={styles.modalOverlay} onClick={() => setModal(null)}>
+          <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            {modal.type === 'badPoints' ? (
+              <>
+                <h3 style={styles.modalTitle}>No se puede publicar todavía</h3>
+                <p style={styles.modalText}>Los siguientes temas no suman exactamente 10 puntos:</p>
+                <ul style={styles.modalList}>
+                  {modal.topics.map((t) => (
+                    <li key={t.id}><strong>{t.name}</strong>: {t.totalPoints} / 10 pts</li>
+                  ))}
+                </ul>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Revisar manualmente</button>
+                  <button onClick={redistributeAndPublish} style={styles.primaryBtn}>Redistribuir y publicar</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 style={styles.modalTitle}>Faltan respuestas modelo</h3>
+                <p style={styles.modalText}>Las siguientes preguntas no tienen respuesta modelo completa:</p>
+                <ul style={styles.modalList}>
+                  {modal.items.map((item, i) => (
+                    <li key={i}>
+                      <strong>{item.topicName} · Pregunta {item.order}</strong>
+                      {item.prompt ? `: ${item.prompt.slice(0, 80)}${item.prompt.length > 80 ? '…' : ''}` : ' (sin enunciado)'}
+                    </li>
+                  ))}
+                </ul>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.primaryBtn}>Entendido, voy a completarlas</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -829,6 +855,38 @@ function statusStyle(status) {
 function nextTopicName(count) {
   const letter = String.fromCharCode(64 + Math.min(count, 26))
   return `Tema ${letter}`
+}
+
+function isBlankModelAnswer(answer) {
+  if (!answer || answer.trim() === '') return true
+  const trimmed = answer.trim()
+  if (isDecisionTreeValue(trimmed)) {
+    try {
+      const data = JSON.parse(trimmed.slice(DECISION_TREE_PREFIX.length))
+      const hasNodeText = (data.nodes || []).some((n) => n.text && n.text.trim())
+      const hasEdgeLabel = (data.edges || []).some((e) => e.label && e.label.trim())
+      return !hasNodeText && !hasEdgeLabel
+    } catch { return true }
+  }
+  if (isDecisionTableValue(trimmed)) {
+    try {
+      const data = JSON.parse(trimmed.slice(DECISION_TABLE_PREFIX.length))
+      return (data.cells || []).every((row) => row.every((cell) => !String(cell).trim()))
+    } catch { return true }
+  }
+  return false
+}
+
+function findMissingAnswers(exam) {
+  const missing = []
+  for (const topic of exam.topics || []) {
+    for (const question of topic.questions || []) {
+      if (isBlankModelAnswer(question.modelAnswer)) {
+        missing.push({ topicName: topic.name, order: question.displayOrder, prompt: question.prompt })
+      }
+    }
+  }
+  return missing
 }
 
 function topicExceedsLimit(topic, nextPoints, editingQuestionId = null) {
@@ -959,7 +1017,10 @@ const styles = {
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   submittedBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
-  publishWarning: { background: '#FFF3CD', border: '1px solid #E7CE74', borderRadius: 8, padding: '14px 16px', marginBottom: 14 },
-  publishWarningText: { margin: '0 0 4px', color: '#5D4700', fontSize: 14 },
-  publishWarningActions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 520, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },
+  modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 10px', color: '#09222A' },
+  modalText: { fontSize: 14, color: '#304653', margin: '0 0 8px' },
+  modalList: { margin: '0 0 18px 20px', padding: 0, fontSize: 14, color: '#09222A', lineHeight: 2 },
+  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' },
 }
