@@ -7,6 +7,7 @@ import java.util.UUID;
 public record ExamTopicResponse(
         UUID id,
         String name,
+        String colorHex,
         BigDecimal totalPoints,
         List<ExamQuestionResponse> questions
 ) {

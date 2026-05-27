@@ -128,6 +128,7 @@ class ExamSubmissionServiceTest {
         ExamTopic topic = ExamTopic.builder()
                 .id(UUID.randomUUID())
                 .name("Tema A")
+                .colorHex("#1956D8")
                 .questions(List.of(question))
                 .build();
         Instant now = Instant.now();
@@ -135,6 +136,7 @@ class ExamSubmissionServiceTest {
                 .id(UUID.randomUUID())
                 .title("Parcial")
                 .description("")
+                .courseName("Testing de Aplicaciones")
                 .teacherId(UUID.randomUUID())
                 .teacherName("Profesor")
                 .status(ExamStatus.PUBLICADO)

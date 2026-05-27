@@ -58,6 +58,7 @@ export default function DirectorLanding() {
             <thead>
               <tr>
                 <th style={styles.th}>Examen</th>
+                <th style={styles.th}>Materia</th>
                 <th style={styles.th}>Profesor</th>
                 <th style={styles.th}>Estado</th>
                 <th style={styles.th}>Temas</th>
@@ -66,10 +67,11 @@ export default function DirectorLanding() {
             </thead>
             <tbody>
               {exams.length === 0 ? (
-                <tr><td colSpan={5} style={styles.empty}>No hay examenes para mostrar.</td></tr>
+                <tr><td colSpan={6} style={styles.empty}>No hay examenes para mostrar.</td></tr>
               ) : exams.map((exam) => (
                 <tr key={exam.id}>
                   <td style={styles.td}>{exam.title}</td>
+                  <td style={styles.td}>{exam.courseName || 'Testing de Aplicaciones'}</td>
                   <td style={styles.td}>{exam.teacherName}</td>
                   <td style={styles.td}><span style={statusBadge(exam.status)}>{labelStatus(exam.status)}</span></td>
                   <td style={styles.td}>{exam.topics?.length || 0}</td>

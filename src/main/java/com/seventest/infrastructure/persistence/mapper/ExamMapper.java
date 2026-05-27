@@ -20,6 +20,7 @@ public final class ExamMapper {
                 .id(entity.getId())
                 .title(entity.getTitle())
                 .description(entity.getDescription())
+                .courseName(entity.getCourseName())
                 .teacherId(entity.getTeacherId())
                 .teacherName(entity.getTeacherName())
                 .status(entity.getStatus())
@@ -40,6 +41,7 @@ public final class ExamMapper {
                 .id(exam.getId())
                 .title(exam.getTitle())
                 .description(exam.getDescription())
+                .courseName(exam.getCourseName())
                 .teacherId(exam.getTeacherId())
                 .teacherName(exam.getTeacherName())
                 .status(exam.getStatus())
@@ -57,6 +59,7 @@ public final class ExamMapper {
     public static void updateEntity(ExamEntity entity, Exam exam) {
         entity.setTitle(exam.getTitle());
         entity.setDescription(exam.getDescription());
+        entity.setCourseName(exam.getCourseName());
         entity.setTeacherId(exam.getTeacherId());
         entity.setTeacherName(exam.getTeacherName());
         entity.setStatus(exam.getStatus());
@@ -73,6 +76,7 @@ public final class ExamMapper {
         return ExamTopic.builder()
                 .id(entity.getId())
                 .name(entity.getName())
+                .colorHex(entity.getColorHex())
                 .questions(entity.getQuestions().stream()
                         .sorted(Comparator.comparingInt(ExamQuestionEntity::getDisplayOrder))
                         .map(ExamMapper::toDomain)
@@ -98,6 +102,7 @@ public final class ExamMapper {
             ExamTopicEntity topicEntity = ExamTopicEntity.builder()
                     .id(topic.getId())
                     .name(topic.getName())
+                    .colorHex(topic.getColorHex())
                     .exam(examEntity)
                     .questions(new LinkedHashSet<>())
                     .build();

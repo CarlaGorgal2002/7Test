@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import Logo from '../components/Logo.jsx'
 
-const emptyExam = { title: '', description: '', durationMinutes: 120 }
+const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 export default function ProfesorLanding() {
@@ -68,6 +68,7 @@ export default function ProfesorLanding() {
       const res = await api.post('/exams', {
         title: examForm.title,
         description: examForm.description,
+        courseName: examForm.courseName,
         durationMinutes: Number(examForm.durationMinutes) || null,
       })
       setExamForm(emptyExam)
@@ -195,6 +196,13 @@ export default function ProfesorLanding() {
               rows={3}
               placeholder="Evaluacion de Testing de Aplicaciones"
             />
+            <label style={styles.label}>Materia</label>
+            <input
+              value={examForm.courseName}
+              onChange={(e) => setExamForm({ ...examForm, courseName: e.target.value })}
+              style={styles.input}
+              placeholder="Testing de Aplicaciones"
+            />
             <label style={styles.label}>Duracion estimada</label>
             <input
               type="number"
@@ -234,7 +242,7 @@ export default function ProfesorLanding() {
                 <div>
                   <h2 style={styles.examTitle}>{selectedExam.title}</h2>
                   <p style={styles.examMeta}>
-                    {selectedExam.description || 'Sin descripcion'} · {selectedExam.durationMinutes || '-'} min
+                    {selectedExam.courseName || 'Testing de Aplicaciones'} · {selectedExam.description || 'Sin descripcion'} · {selectedExam.durationMinutes || '-'} min
                   </p>
                 </div>
                 <div style={styles.headerActions}>
@@ -298,10 +306,13 @@ export default function ProfesorLanding() {
                   const totalOk = Number(topic.totalPoints) === 10
                   const form = questionForms[topic.id] || emptyQuestion
                   return (
-                    <article key={topic.id} style={styles.topicCard}>
+                    <article key={topic.id} style={{ ...styles.topicCard, borderTop: `4px solid ${topic.colorHex || '#1956D8'}` }}>
                       <div style={styles.topicHeader}>
                         <div>
-                          <h3 style={styles.topicTitle}>{topic.name}</h3>
+                          <div style={styles.topicTitleRow}>
+                            <span style={{ ...styles.topicSwatch, background: topic.colorHex || '#1956D8' }} />
+                            <h3 style={styles.topicTitle}>{topic.name}</h3>
+                          </div>
                           <span style={totalOk ? styles.totalOk : styles.totalPending}>
                             Total: {topic.totalPoints} / 10
                           </span>
@@ -438,7 +449,9 @@ const styles = {
   topicGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 },
   topicCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
   topicHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  topicTitle: { fontSize: 18, margin: '0 0 6px' },
+  topicTitleRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
+  topicSwatch: { width: 12, height: 12, borderRadius: 999, flex: '0 0 auto' },
+  topicTitle: { fontSize: 18, margin: 0 },
   totalOk: { color: '#087A55', fontSize: 13, fontWeight: 800 },
   totalPending: { color: '#9B6A00', fontSize: 13, fontWeight: 800 },
   questions: { display: 'flex', flexDirection: 'column', gap: 10 },

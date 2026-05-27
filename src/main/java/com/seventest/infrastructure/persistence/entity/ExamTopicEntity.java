@@ -22,6 +22,9 @@ public class ExamTopicEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "color_hex", nullable = false)
+    private String colorHex;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "exam_id", nullable = false)
     private ExamEntity exam;

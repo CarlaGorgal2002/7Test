@@ -30,6 +30,9 @@ public class ExamEntity {
     @Column(length = 2000)
     private String description;
 
+    @Column(name = "course_name", nullable = false)
+    private String courseName;
+
     @Column(name = "teacher_id", nullable = false)
     private UUID teacherId;
 

@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ExamManagementUseCase {
-    Exam create(String teacherEmail, String title, String description, Instant availableFrom, Integer durationMinutes);
-    Exam update(String teacherEmail, UUID examId, String title, String description, Instant availableFrom, Integer durationMinutes);
+    Exam create(String teacherEmail, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes);
+    Exam update(String teacherEmail, UUID examId, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes);
     Exam addTopic(String teacherEmail, UUID examId, String name);
     Exam updateTopic(String teacherEmail, UUID examId, UUID topicId, String name);
     Exam removeTopic(String teacherEmail, UUID examId, UUID topicId);

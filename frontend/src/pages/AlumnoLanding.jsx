@@ -150,7 +150,7 @@ export default function AlumnoLanding() {
               <article key={exam.id} style={styles.examCard}>
                 <div>
                   <h3 style={styles.examTitle}>{exam.title}</h3>
-                  <p style={styles.muted}>{exam.durationMinutes || '-'} min · {exam.topics?.length || 0} tema(s)</p>
+                  <p style={styles.muted}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min · {exam.topics?.length || 0} tema(s)</p>
                 </div>
                 {submission ? (
                   <button onClick={() => openSubmission(submission)} style={styles.secondaryBtn}>

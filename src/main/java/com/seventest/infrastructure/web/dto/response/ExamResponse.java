@@ -10,6 +10,7 @@ public record ExamResponse(
         UUID id,
         String title,
         String description,
+        String courseName,
         UUID teacherId,
         String teacherName,
         ExamStatus status,

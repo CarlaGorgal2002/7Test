@@ -14,6 +14,9 @@ public record ExamRequest(
         @Size(max = 2000, message = "La descripcion no puede superar 2000 caracteres")
         String description,
 
+        @Size(max = 120, message = "La materia no puede superar 120 caracteres")
+        String courseName,
+
         Instant availableFrom,
 
         @Min(value = 1, message = "La duracion debe ser mayor a cero")

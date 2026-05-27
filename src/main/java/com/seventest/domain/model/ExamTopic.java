@@ -12,6 +12,7 @@ import java.util.UUID;
 public class ExamTopic {
     private final UUID id;
     private final String name;
+    private final String colorHex;
     private final List<ExamQuestion> questions;
 
     public BigDecimal totalPoints() {

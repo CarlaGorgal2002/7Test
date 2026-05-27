@@ -40,12 +40,27 @@ class ExamServiceTest {
         when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
         when(examRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Exam result = examService.create(teacher.getEmail(), "Primer parcial", "Texto libre", null, 120);
+        Exam result = examService.create(teacher.getEmail(), "Primer parcial", "Texto libre", null, null, 120);
 
         assertThat(result.getStatus()).isEqualTo(ExamStatus.BORRADOR);
         assertThat(result.getTeacherId()).isEqualTo(teacher.getId());
         assertThat(result.getTitle()).isEqualTo("Primer parcial");
+        assertThat(result.getCourseName()).isEqualTo("Testing de Aplicaciones");
         assertThat(result.getTopics()).isEmpty();
+    }
+
+    @Test
+    void agregarTemas_asignaColoresDelSprintDos() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of());
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(examRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Exam result = examService.addTopic(teacher.getEmail(), exam.getId(), "Tema A");
+
+        assertThat(result.getTopics()).hasSize(1);
+        assertThat(result.getTopics().get(0).getColorHex()).isEqualTo("#1956D8");
     }
 
     @Test
@@ -110,6 +125,7 @@ class ExamServiceTest {
                 .id(UUID.randomUUID())
                 .title("Parcial")
                 .description("")
+                .courseName("Testing de Aplicaciones")
                 .teacherId(teacher.getId())
                 .teacherName(teacher.getFullName())
                 .status(status)
@@ -124,6 +140,7 @@ class ExamServiceTest {
         return ExamTopic.builder()
                 .id(UUID.randomUUID())
                 .name(name)
+                .colorHex("#1956D8")
                 .questions(List.of(questions))
                 .build();
     }

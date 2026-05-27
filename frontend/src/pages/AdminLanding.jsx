@@ -344,6 +344,7 @@ export default function AdminLanding() {
               <thead>
                 <tr>
                   <th style={styles.th}>Examen</th>
+                  <th style={styles.th}>Materia</th>
                   <th style={styles.th}>Profesor</th>
                   <th style={styles.th}>Estado</th>
                   <th style={styles.th}>Temas</th>
@@ -352,10 +353,11 @@ export default function AdminLanding() {
               </thead>
               <tbody>
                 {exams.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#09222A', opacity: 0.4 }}>No hay examenes cargados.</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#09222A', opacity: 0.4 }}>No hay examenes cargados.</td></tr>
                 ) : exams.map(exam => (
                   <tr key={exam.id}>
                     <td style={styles.td}>{exam.title}</td>
+                    <td style={styles.td}>{exam.courseName || 'Testing de Aplicaciones'}</td>
                     <td style={styles.td}>{exam.teacherName}</td>
                     <td style={styles.td}>{exam.status}</td>
                     <td style={styles.td}>{exam.topics?.length || 0}</td>

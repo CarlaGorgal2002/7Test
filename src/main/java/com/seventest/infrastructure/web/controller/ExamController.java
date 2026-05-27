@@ -40,7 +40,7 @@ public class ExamController {
     @PostMapping
     public ResponseEntity<ExamResponse> create(@Valid @RequestBody ExamRequest request, Principal principal) {
         Exam exam = examManagementUseCase.create(principal.getName(),
-                request.title(), request.description(), request.availableFrom(), request.durationMinutes());
+                request.title(), request.description(), request.courseName(), request.availableFrom(), request.durationMinutes());
         return ResponseEntity.created(URI.create("/api/exams/" + exam.getId())).body(toResponse(exam));
     }
 
@@ -60,7 +60,7 @@ public class ExamController {
                                                @Valid @RequestBody ExamRequest request,
                                                Principal principal) {
         return ResponseEntity.ok(toResponse(examManagementUseCase.update(principal.getName(), examId,
-                request.title(), request.description(), request.availableFrom(), request.durationMinutes())));
+                request.title(), request.description(), request.courseName(), request.availableFrom(), request.durationMinutes())));
     }
 
     @Operation(summary = "Agregar tema a un examen en borrador")
@@ -161,6 +161,7 @@ public class ExamController {
                 exam.getId(),
                 exam.getTitle(),
                 exam.getDescription(),
+                exam.getCourseName(),
                 exam.getTeacherId(),
                 exam.getTeacherName(),
                 exam.getStatus(),
@@ -179,6 +180,7 @@ public class ExamController {
         return new ExamTopicResponse(
                 topic.getId(),
                 topic.getName(),
+                topic.getColorHex(),
                 topic.totalPoints(),
                 topic.getQuestions() == null ? List.of() : topic.getQuestions().stream()
                         .sorted(Comparator.comparingInt(ExamQuestion::getDisplayOrder))

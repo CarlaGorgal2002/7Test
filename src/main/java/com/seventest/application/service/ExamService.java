@@ -26,18 +26,21 @@ import java.util.UUID;
 public class ExamService implements ExamManagementUseCase {
 
     private static final BigDecimal REQUIRED_TOPIC_TOTAL = BigDecimal.TEN;
+    private static final String DEFAULT_COURSE_NAME = "Testing de Aplicaciones";
+    private static final List<String> TOPIC_COLORS = List.of("#1956D8", "#03BB83", "#FFC012");
 
     private final ExamRepository examRepository;
     private final UserRepository userRepository;
 
     @Override
-    public Exam create(String teacherEmail, String title, String description, Instant availableFrom, Integer durationMinutes) {
+    public Exam create(String teacherEmail, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
         User teacher = requireTeacher(teacherEmail);
         Instant now = Instant.now();
         Exam exam = Exam.builder()
                 .id(UUID.randomUUID())
                 .title(cleanRequired(title, "El titulo del examen es obligatorio"))
                 .description(cleanOptional(description))
+                .courseName(cleanCourseName(courseName))
                 .teacherId(teacher.getId())
                 .teacherName(teacher.getFullName())
                 .status(ExamStatus.BORRADOR)
@@ -52,11 +55,12 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     @Override
-    public Exam update(String teacherEmail, UUID examId, String title, String description, Instant availableFrom, Integer durationMinutes) {
+    public Exam update(String teacherEmail, UUID examId, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
         Exam exam = requireEditableOwnedExam(teacherEmail, examId);
         return examRepository.save(exam.toBuilder()
                 .title(cleanRequired(title, "El titulo del examen es obligatorio"))
                 .description(cleanOptional(description))
+                .courseName(cleanCourseName(courseName))
                 .availableFrom(availableFrom)
                 .durationMinutes(durationMinutes)
                 .updatedAt(Instant.now())
@@ -70,6 +74,7 @@ public class ExamService implements ExamManagementUseCase {
         topics.add(ExamTopic.builder()
                 .id(UUID.randomUUID())
                 .name(cleanRequired(name, "El nombre del tema es obligatorio"))
+                .colorHex(nextTopicColor(topics.size()))
                 .questions(List.of())
                 .build());
         return saveWithTopics(exam, topics);
@@ -282,6 +287,15 @@ public class ExamService implements ExamManagementUseCase {
 
     private String cleanOptional(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String cleanCourseName(String value) {
+        String clean = cleanOptional(value);
+        return clean.isBlank() ? DEFAULT_COURSE_NAME : clean;
+    }
+
+    private String nextTopicColor(int existingTopics) {
+        return TOPIC_COLORS.get(existingTopics % TOPIC_COLORS.size());
     }
 
     private List<ExamTopic> safeTopics(Exam exam) {

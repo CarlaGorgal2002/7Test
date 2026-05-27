@@ -13,6 +13,7 @@ public class Exam {
     private final UUID id;
     private final String title;
     private final String description;
+    private final String courseName;
     private final UUID teacherId;
     private final String teacherName;
     private final ExamStatus status;
