@@ -8,6 +8,7 @@ import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
 import com.seventest.domain.port.out.ExamRepository;
+import com.seventest.domain.port.out.ExamSubmissionRepository;
 import com.seventest.domain.port.out.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ class ExamServiceTest {
 
     @Mock ExamRepository examRepository;
     @Mock UserRepository userRepository;
+    @Mock ExamSubmissionRepository submissionRepository;
 
     @InjectMocks ExamService examService;
 
@@ -172,6 +174,40 @@ class ExamServiceTest {
         assertThatThrownBy(() -> examService.publish(teacher.getEmail(), exam.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("respuesta modelo");
+    }
+
+    @Test
+    void eliminarExamen_borrador_eliminaCorrectamente() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of());
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        examService.deleteExam(teacher.getEmail(), exam.getId());
+
+        org.mockito.Mockito.verify(examRepository).deleteById(exam.getId());
+    }
+
+    @Test
+    void eliminarExamen_cerradoConEntregas_rechaza() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.CERRADO, List.of());
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(submissionRepository.findByExamId(exam.getId())).thenReturn(List.of(
+                com.seventest.domain.model.ExamSubmission.builder()
+                        .id(UUID.randomUUID())
+                        .examId(exam.getId())
+                        .studentId(UUID.randomUUID())
+                        .status(com.seventest.domain.model.SubmissionStatus.ENTREGADO)
+                        .answers(List.of())
+                        .startedAt(java.time.Instant.now())
+                        .build()
+        ));
+
+        assertThatThrownBy(() -> examService.deleteExam(teacher.getEmail(), exam.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("entregas");
     }
 
     @Test

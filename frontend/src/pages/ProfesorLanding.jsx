@@ -364,6 +364,20 @@ export default function ProfesorLanding() {
     }
   }
 
+  async function deleteExam(examId) {
+    setMessage('')
+    try {
+      await api.delete(`/exams/${examId}`)
+      setExams((prev) => prev.filter((e) => e.id !== examId))
+      if (selectedExam?.id === examId) setSelectedId(null)
+      setModal(null)
+      setMessage('Examen eliminado.')
+    } catch (err) {
+      setModal(null)
+      setMessage(err.response?.data?.message || 'No se pudo eliminar el examen.')
+    }
+  }
+
   function replaceExam(updated) {
     setExams((current) => current.map((exam) => exam.id === updated.id ? updated : exam))
     setSelectedId(updated.id)
@@ -467,14 +481,22 @@ export default function ProfesorLanding() {
             {loading && <p style={styles.muted}>Cargando...</p>}
             {exams.length === 0 && !loading && <p style={styles.muted}>Todavia no hay examenes.</p>}
             {exams.map((exam) => (
-              <button
-                key={exam.id}
-                onClick={() => setSelectedId(exam.id)}
-                style={exam.id === selectedExam?.id ? styles.examItemActive : styles.examItem}
-              >
-                <span style={styles.examItemTitle}>{exam.title}</span>
-                <span style={statusStyle(exam.status)}>{labelStatus(exam.status)}</span>
-              </button>
+              <div key={exam.id} style={exam.id === selectedExam?.id ? styles.examItemActive : styles.examItem}>
+                <button
+                  onClick={() => setSelectedId(exam.id)}
+                  style={styles.examItemSelect}
+                >
+                  <span style={styles.examItemTitle}>{exam.title}</span>
+                  <span style={statusStyle(exam.status)}>{labelStatus(exam.status)}</span>
+                </button>
+                {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
+                  <button
+                    onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })}
+                    style={styles.deleteExamBtn}
+                    title="Eliminar examen"
+                  >✕</button>
+                )}
+              </div>
             ))}
           </div>
         </aside>
@@ -805,6 +827,17 @@ export default function ProfesorLanding() {
                   <button onClick={redistributeAndPublish} style={styles.primaryBtn}>Redistribuir y publicar</button>
                 </div>
               </>
+            ) : modal.type === 'confirmDelete' ? (
+              <>
+                <h3 style={styles.modalTitle}>Eliminar examen</h3>
+                <p style={styles.modalText}>
+                  ¿Confirmas que querés eliminar <strong>{modal.examTitle}</strong>? Esta acción no se puede deshacer.
+                </p>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
+                  <button onClick={() => deleteExam(modal.examId)} style={styles.closeBtn}>Eliminar</button>
+                </div>
+              </>
             ) : (
               <>
                 <h3 style={styles.modalTitle}>Faltan respuestas modelo</h3>
@@ -968,9 +1001,11 @@ const styles = {
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
   closeBtn: { minHeight: 38, padding: '8px 16px', background: '#fff', color: '#9B2C2C', border: '1px solid #9B2C2C', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  examItem: { width: '100%', border: 'none', borderBottom: '1px solid #E7F0F3', background: '#fff', padding: '12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left' },
-  examItemActive: { width: '100%', border: 'none', borderBottom: '1px solid #E7F0F3', background: '#F0F5FF', padding: '12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left', borderRadius: 6 },
-  examItemTitle: { fontSize: 14, fontWeight: 700, color: '#09222A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 175 },
+  examItem: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#fff', padding: '8px 4px', display: 'flex', alignItems: 'center', gap: 4 },
+  examItemActive: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#F0F5FF', padding: '8px 8px', display: 'flex', alignItems: 'center', gap: 4, borderRadius: 6 },
+  examItemSelect: { flex: 1, border: 'none', background: 'none', padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left', minWidth: 0 },
+  examItemTitle: { fontSize: 14, fontWeight: 700, color: '#09222A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 155 },
+  deleteExamBtn: { flexShrink: 0, width: 24, height: 24, borderRadius: 6, border: '1px solid #9B2C2C', background: '#fff', color: '#9B2C2C', fontWeight: 800, fontSize: 11, cursor: 'pointer' },
   workspace: { minWidth: 0 },
   message: { background: '#FFF8DF', border: '1px solid #E7CE74', color: '#5D4700', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 14 },
   emptyState: { background: '#fff', border: '1px dashed #B9CDD3', borderRadius: 8, padding: 24, color: '#536B76', textAlign: 'center' },

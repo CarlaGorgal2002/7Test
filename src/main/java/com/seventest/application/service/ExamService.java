@@ -12,6 +12,7 @@ import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.port.in.ExamManagementUseCase;
 import com.seventest.domain.port.out.ExamRepository;
+import com.seventest.domain.port.out.ExamSubmissionRepository;
 import com.seventest.domain.port.out.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,7 @@ public class ExamService implements ExamManagementUseCase {
 
     private final ExamRepository examRepository;
     private final UserRepository userRepository;
+    private final ExamSubmissionRepository submissionRepository;
 
     @Override
     public Exam create(String teacherEmail, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
@@ -214,6 +216,18 @@ public class ExamService implements ExamManagementUseCase {
     public Exam findById(UUID examId) {
         return examRepository.findById(examId)
                 .orElseThrow(() -> new ExamNotFoundException(examId));
+    }
+
+    @Override
+    public void deleteExam(String teacherEmail, UUID examId) {
+        Exam exam = requireOwnedExam(teacherEmail, examId);
+        if (exam.getStatus() == ExamStatus.PUBLICADO) {
+            throw new IllegalArgumentException("No se puede eliminar un examen publicado");
+        }
+        if (exam.getStatus() == ExamStatus.CERRADO && !submissionRepository.findByExamId(examId).isEmpty()) {
+            throw new IllegalArgumentException("No se puede eliminar un examen cerrado con entregas registradas");
+        }
+        examRepository.deleteById(examId);
     }
 
     private Exam requireEditableOwnedExam(String teacherEmail, UUID examId) {

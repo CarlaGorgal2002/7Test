@@ -25,4 +25,5 @@ public interface ExamManagementUseCase {
     List<Exam> listForSupervision(ExamStatus status);
     List<Exam> listPublishedForStudents();
     Exam findById(UUID examId);
+    void deleteExam(String teacherEmail, UUID examId);
 }

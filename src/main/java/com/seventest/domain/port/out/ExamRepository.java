@@ -13,4 +13,5 @@ public interface ExamRepository {
     List<Exam> findByTeacherId(UUID teacherId);
     List<Exam> findByStatus(ExamStatus status);
     List<Exam> findAll();
+    void deleteById(UUID id);
 }

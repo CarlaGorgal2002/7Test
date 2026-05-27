@@ -138,6 +138,14 @@ public class ExamController {
         return ResponseEntity.ok(toResponse(examManagementUseCase.close(principal.getName(), examId)));
     }
 
+    @Operation(summary = "Eliminar examen (borrador siempre; cerrado solo sin entregas)")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @DeleteMapping("/{examId}")
+    public ResponseEntity<Void> deleteExam(@PathVariable UUID examId, Principal principal) {
+        examManagementUseCase.deleteExam(principal.getName(), examId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Supervisar examenes")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'DIRECTOR_DE_CATEDRA')")
     @GetMapping("/supervision")

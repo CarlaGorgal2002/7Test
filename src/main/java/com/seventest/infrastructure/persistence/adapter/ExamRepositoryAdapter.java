@@ -56,4 +56,9 @@ public class ExamRepositoryAdapter implements ExamRepository {
                 .sorted(Comparator.comparing(Exam::getUpdatedAt).reversed())
                 .toList();
     }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
 }
