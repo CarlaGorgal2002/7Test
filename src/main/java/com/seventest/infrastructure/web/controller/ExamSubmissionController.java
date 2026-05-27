@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.text.Normalizer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/submissions")
 @RequiredArgsConstructor
 public class ExamSubmissionController {
+
+    private static final String DECISION_TREE_PREFIX = "7TEST_DECISION_TREE:";
 
     private final ExamSubmissionUseCase submissionUseCase;
     private final ExamManagementUseCase examManagementUseCase;
@@ -100,7 +103,8 @@ public class ExamSubmissionController {
                             question.getPoints(),
                             question.getDisplayOrder(),
                             answer == null ? "" : answer.getAnswerText(),
-                            answer == null ? null : answer.getUpdatedAt());
+                            answer == null ? null : answer.getUpdatedAt(),
+                            interactionType(question));
                 })
                 .toList();
 
@@ -117,5 +121,22 @@ public class ExamSubmissionController {
                 submission.getStartedAt(),
                 submission.getUpdatedAt(),
                 submission.getSubmittedAt());
+    }
+
+    private String interactionType(ExamQuestion question) {
+        if ((question.getModelAnswer() != null && question.getModelAnswer().startsWith(DECISION_TREE_PREFIX))
+                || normalize(question.getPrompt()).contains("arbol de decision")) {
+            return "DECISION_TREE";
+        }
+        return "TEXT";
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase();
     }
 }

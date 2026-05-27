@@ -107,6 +107,22 @@ class ExamServiceTest {
     }
 
     @Test
+    void agregarPregunta_enBorradorPermiteEspaciosVacios() {
+        User teacher = teacher();
+        ExamTopic topic = topic("Tema A");
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(examRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Exam result = examService.addQuestion(teacher.getEmail(), exam.getId(), topic.getId(), "", "", BigDecimal.ONE);
+
+        assertThat(result.getTopics().get(0).getQuestions()).hasSize(1);
+        assertThat(result.getTopics().get(0).getQuestions().get(0).getPrompt()).isEmpty();
+        assertThat(result.getTopics().get(0).getQuestions().get(0).getModelAnswer()).isEmpty();
+    }
+
+    @Test
     void agregarPregunta_siTemaSuperaDiez_rechazaCambio() {
         User teacher = teacher();
         ExamTopic topic = topic("Tema A", question("P1", "R1", "9"));
@@ -118,6 +134,31 @@ class ExamServiceTest {
                 teacher.getEmail(), exam.getId(), topic.getId(), "P2", "R2", new BigDecimal("2")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("superar 10");
+    }
+
+    @Test
+    void publicarExamen_conPreguntaVacia_rechazaPublicacion() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic("Tema A", question("", "", "10"))));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.publish(teacher.getEmail(), exam.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("enunciado");
+    }
+
+    @Test
+    void publicarExamen_conArbolVacio_rechazaPublicacion() {
+        User teacher = teacher();
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic("Tema A",
+                question("Arbol", "7TEST_DECISION_TREE:{\"nodes\":[],\"edges\":[]}", "10"))));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.publish(teacher.getEmail(), exam.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("respuesta modelo");
     }
 
     @Test

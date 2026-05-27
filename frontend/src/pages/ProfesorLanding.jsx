@@ -2,72 +2,41 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
+import DecisionTreeEditor, {
+  emptyDecisionTreeValue,
+  isDecisionTreePrompt,
+  isDecisionTreeValue,
+} from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 
 const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 const theoryTemplate = {
-  prompt: 'Pregunta teorica de Testing de Aplicaciones',
-  modelAnswer: 'Respuesta modelo esperada: definir concepto, explicar objetivo, mencionar un ejemplo concreto y relacionarlo con calidad del software.',
+  prompt: '',
+  modelAnswer: '',
   points: '1',
 }
 
 const decisionTableTemplate = {
-  prompt: 'Practico - Tabla de decision. Identifique condiciones, acciones, cantidad de reglas (2^n), complete V/F respetando alternancia y marque con X las acciones correspondientes.',
-  modelAnswer: `Plantilla esperada:
-Condiciones:
-C1:
-C2:
-C3:
-
-Acciones:
-A1:
-A2:
-A3:
-
-Cantidad de reglas: 2^n =
-
-Tabla:
-Condiciones / Reglas | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8
-C1                  | V  | V  | V  | V  | F  | F  | F  | F
-C2                  | V  | V  | F  | F  | V  | V  | F  | F
-C3                  | V  | F  | V  | F  | V  | F  | V  | F
-
-Acciones:
-A1                  |    |    |    |    |    |    |    |
-A2                  |    |    |    |    |    |    |    |
-A3                  |    |    |    |    |    |    |    |
-
-Validaciones: respetar la alternancia V/F, marcar reglas imposibles si hay condiciones excluyentes y justificar supuestos.`,
+  prompt: '',
+  modelAnswer: '',
   points: '2',
 }
 
 const decisionTreeTemplate = {
-  prompt: 'Practico - Arbol de decision. Construya un arbol con condiciones, ramas etiquetadas y resultados finales.',
-  modelAnswer: `Plantilla esperada:
-(Condicion inicial?)
-|-- Rama 1 -> [Resultado final]
-+-- Rama 2 -> (Siguiente condicion?)
-    |-- Rama 2.1 -> [Resultado final]
-    +-- Rama 2.2 -> [Resultado final]
-
-Convenciones:
-- Condicion = circulo, escrito como (pregunta o condicion).
-- Rama = linea etiquetada con la respuesta posible.
-- Resultado final = rectangulo, escrito como [accion o salida].
-- Todas las ramas deben terminar en otro circulo o en un rectangulo final.
-- No debe haber ramas colgadas ni condiciones repetidas innecesariamente.`,
+  prompt: '',
+  modelAnswer: emptyDecisionTreeValue(),
   points: '2',
 }
 
 const defaultExamTemplate = [
-  { ...theoryTemplate, prompt: 'Defina testing y explique para que sirve dentro del ciclo de vida del software.' },
-  { ...theoryTemplate, prompt: 'Diferencie validar y verificar. Incluya un ejemplo.' },
-  { ...theoryTemplate, prompt: 'Explique quien es responsable de la calidad en un equipo de desarrollo.' },
-  { ...theoryTemplate, prompt: 'Diferencie QA y QC.' },
-  { ...theoryTemplate, prompt: 'Diferencie pruebas de caja negra y caja blanca.' },
-  { ...theoryTemplate, prompt: 'Explique que es un caso de prueba y que datos minimos deberia incluir.' },
+  theoryTemplate,
+  theoryTemplate,
+  theoryTemplate,
+  theoryTemplate,
+  theoryTemplate,
+  theoryTemplate,
   decisionTableTemplate,
   decisionTreeTemplate,
 ]
@@ -174,7 +143,7 @@ export default function ProfesorLanding() {
         replaceExam(updated)
       }
       setTopicName(nextTopicName(res.data.topics.length + 1))
-      setMessage('Tema agregado con plantilla base de 10 puntos.')
+      setMessage('Tema agregado con 6 teoricas vacias, tabla vacia y arbol vacio.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo agregar el tema o cargar la plantilla.')
     } finally {
@@ -211,9 +180,10 @@ export default function ProfesorLanding() {
     }
     setMessage('')
     try {
+      const modelAnswer = normalizedModelAnswer(form)
       const res = await api.post(`/exams/${selectedExam.id}/topics/${topicId}/questions`, {
         prompt: form.prompt,
-        modelAnswer: form.modelAnswer,
+        modelAnswer,
         points: Number(form.points),
       })
       replaceExam(res.data)
@@ -235,9 +205,10 @@ export default function ProfesorLanding() {
     }
     setMessage('')
     try {
+      const modelAnswer = normalizedModelAnswer(form)
       const res = await api.put(`/exams/${selectedExam.id}/topics/${topic.id}/questions/${question.id}`, {
         prompt: form.prompt,
-        modelAnswer: form.modelAnswer,
+        modelAnswer,
         points: Number(form.points),
       })
       replaceExam(res.data)
@@ -263,7 +234,7 @@ export default function ProfesorLanding() {
     try {
       const updated = await appendDefaultTemplate(selectedExam, topic.id)
       replaceExam(updated)
-      setMessage('Plantilla cargada: 6 teoricas de 1 punto, tabla de decision de 2 puntos y arbol de decision de 2 puntos.')
+      setMessage('Plantilla cargada: 6 teoricas vacias de 1 punto, tabla vacia de 2 puntos y arbol vacio de 2 puntos.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo cargar la plantilla.')
     } finally {
@@ -344,7 +315,9 @@ export default function ProfesorLanding() {
       ...current,
       [question.id]: {
         prompt: question.prompt,
-        modelAnswer: question.modelAnswer,
+        modelAnswer: isDecisionTreeQuestion(question) && !isDecisionTreeValue(question.modelAnswer)
+          ? emptyDecisionTreeValue()
+          : question.modelAnswer,
         points: String(question.points),
       },
     }))
@@ -538,6 +511,7 @@ export default function ProfesorLanding() {
                 {selectedExam.topics?.map((topic) => {
                   const totalOk = Number(topic.totalPoints) === 10
                   const form = questionForms[topic.id] || emptyQuestion
+                  const treeForm = isDecisionTreeForm(form)
                   return (
                     <article key={topic.id} style={{ ...styles.topicCard, borderTop: `4px solid ${topic.colorHex || '#1956D8'}` }}>
                       <div style={styles.topicHeader}>
@@ -556,6 +530,7 @@ export default function ProfesorLanding() {
                         {topic.questions.length === 0 && <p style={styles.muted}>Sin preguntas cargadas.</p>}
                         {topic.questions.map((question) => {
                           const editForm = editingQuestionForms[question.id]
+                          const treeQuestion = isDecisionTreeQuestion(question)
                           return (
                             <div key={question.id} style={styles.questionRow}>
                               {editForm ? (
@@ -579,16 +554,23 @@ export default function ProfesorLanding() {
                                     onChange={(e) => updateEditingQuestionForm(question.id, 'prompt', e.target.value)}
                                     style={styles.promptTextarea}
                                     rows={4}
-                                    required
+                                    placeholder={questionDisplayTitle(question)}
                                   />
                                   <label style={styles.label}>Respuesta modelo</label>
-                                  <textarea
-                                    value={editForm.modelAnswer}
-                                    onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
-                                    style={styles.modelTextarea}
-                                    rows={8}
-                                    required
-                                  />
+                                  {isDecisionTreeForm(editForm) ? (
+                                    <DecisionTreeEditor
+                                      value={editForm.modelAnswer || emptyDecisionTreeValue()}
+                                      onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
+                                    />
+                                  ) : (
+                                    <textarea
+                                      value={editForm.modelAnswer}
+                                      onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
+                                      style={styles.modelTextarea}
+                                      rows={8}
+                                      placeholder="Respuesta modelo"
+                                    />
+                                  )}
                                   <div style={styles.editQuestionActions}>
                                     <button type="button" onClick={() => cancelEditQuestion(question.id)} style={styles.secondaryBtn}>Cancelar</button>
                                     <button type="submit" style={styles.primaryBtn}>Guardar pregunta</button>
@@ -597,8 +579,12 @@ export default function ProfesorLanding() {
                               ) : (
                                 <>
                                   <div>
-                                    <strong>{question.displayOrder}. {question.prompt}</strong>
-                                    <p style={styles.answer}>Modelo: {question.modelAnswer}</p>
+                                    <strong>{question.displayOrder}. {questionDisplayTitle(question)}</strong>
+                                    {treeQuestion ? (
+                                      <DecisionTreeEditor value={question.modelAnswer} readOnly compact />
+                                    ) : (
+                                      <p style={styles.answer}>Modelo: {question.modelAnswer || 'Sin completar'}</p>
+                                    )}
                                   </div>
                                   <div style={styles.questionActions}>
                                     <span style={styles.points}>{question.points} pts</span>
@@ -643,16 +629,23 @@ export default function ProfesorLanding() {
                             onChange={(e) => updateQuestionForm(topic.id, 'prompt', e.target.value)}
                             style={styles.promptTextarea}
                             rows={4}
-                            required
+                            placeholder="Enunciado"
                           />
                           <label style={styles.label}>Respuesta modelo</label>
-                          <textarea
-                            value={form.modelAnswer}
-                            onChange={(e) => updateQuestionForm(topic.id, 'modelAnswer', e.target.value)}
-                            style={styles.modelTextarea}
-                            rows={8}
-                            required
-                          />
+                          {treeForm ? (
+                            <DecisionTreeEditor
+                              value={form.modelAnswer || emptyDecisionTreeValue()}
+                              onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
+                            />
+                          ) : (
+                            <textarea
+                              value={form.modelAnswer}
+                              onChange={(e) => updateQuestionForm(topic.id, 'modelAnswer', e.target.value)}
+                              style={styles.modelTextarea}
+                              rows={8}
+                              placeholder="Respuesta modelo"
+                            />
+                          )}
                           <div style={styles.inlineFields}>
                             <div>
                               <label style={styles.label}>Puntos</label>
@@ -718,6 +711,30 @@ function topicExceedsLimit(topic, nextPoints, editingQuestionId = null) {
     return sum + Number(question.points || 0)
   }, 0)
   return currentTotal + nextPoints > 10
+}
+
+function normalizedModelAnswer(form) {
+  if (isDecisionTreeForm(form) && !isDecisionTreeValue(form.modelAnswer)) {
+    return emptyDecisionTreeValue()
+  }
+  return form.modelAnswer || ''
+}
+
+function isDecisionTreeForm(form = {}) {
+  return isDecisionTreeValue(form.modelAnswer) || isDecisionTreePrompt(form.prompt)
+}
+
+function isDecisionTreeQuestion(question = {}) {
+  return isDecisionTreeValue(question.modelAnswer) || isDecisionTreePrompt(question.prompt)
+}
+
+function questionDisplayTitle(question) {
+  const prompt = question.prompt?.trim()
+  if (prompt) return prompt
+  if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
+  if (Number(question.points) === 2 && question.displayOrder === 7) return 'Practico - Tabla de decision'
+  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`
+  return 'Enunciado sin completar'
 }
 
 const styles = {

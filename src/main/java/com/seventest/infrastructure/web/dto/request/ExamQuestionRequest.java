@@ -2,19 +2,16 @@ package com.seventest.infrastructure.web.dto.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
 public record ExamQuestionRequest(
-        @NotBlank(message = "El enunciado es obligatorio")
         @Size(max = 4000, message = "El enunciado no puede superar 4000 caracteres")
         String prompt,
 
-        @NotBlank(message = "La respuesta modelo es obligatoria")
-        @Size(max = 4000, message = "La respuesta modelo no puede superar 4000 caracteres")
+        @Size(max = 8000, message = "La respuesta modelo no puede superar 8000 caracteres")
         String modelAnswer,
 
         @NotNull(message = "El puntaje es obligatorio")

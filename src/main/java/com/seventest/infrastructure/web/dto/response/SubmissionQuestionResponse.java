@@ -10,6 +10,7 @@ public record SubmissionQuestionResponse(
         BigDecimal points,
         int displayOrder,
         String answerText,
-        Instant answerUpdatedAt
+        Instant answerUpdatedAt,
+        String interactionType
 ) {
 }

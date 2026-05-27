@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
+import DecisionTreeEditor, { emptyDecisionTreeValue, isDecisionTreePrompt } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 
 export default function AlumnoLanding() {
@@ -185,11 +186,12 @@ export default function AlumnoLanding() {
 
               <div style={styles.questions}>
                 {current.questions.map((question) => {
-                  const practicalTemplate = answerTemplateFor(question.prompt)
+                  const treeQuestion = isDecisionTreeQuestion(question)
+                  const practicalTemplate = treeQuestion ? '' : answerTemplateFor(question.prompt)
                   return (
                     <article key={question.questionId} style={styles.questionCard}>
                       <div style={styles.questionHeader}>
-                        <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt}</h3>
+                        <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
                         <span style={styles.points}>{question.points} pts</span>
                       </div>
                       {canAnswer && practicalTemplate && (
@@ -205,14 +207,22 @@ export default function AlumnoLanding() {
                           </button>
                         </div>
                       )}
-                      <textarea
-                        value={answers[question.questionId] || ''}
-                        onChange={(e) => updateAnswer(question.questionId, e.target.value)}
-                        disabled={!canAnswer}
-                        rows={14}
-                        style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
-                        placeholder="Escribi tu respuesta..."
-                      />
+                      {treeQuestion ? (
+                        <DecisionTreeEditor
+                          value={answers[question.questionId] || emptyDecisionTreeValue()}
+                          onChange={(value) => updateAnswer(question.questionId, value)}
+                          readOnly={!canAnswer}
+                        />
+                      ) : (
+                        <textarea
+                          value={answers[question.questionId] || ''}
+                          onChange={(e) => updateAnswer(question.questionId, e.target.value)}
+                          disabled={!canAnswer}
+                          rows={14}
+                          style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
+                          placeholder="Escribi tu respuesta..."
+                        />
+                      )}
                     </article>
                   )
                 })}
@@ -232,6 +242,17 @@ export default function AlumnoLanding() {
       </main>
     </div>
   )
+}
+
+function isDecisionTreeQuestion(question = {}) {
+  return question.interactionType === 'DECISION_TREE' || isDecisionTreePrompt(question.prompt)
+}
+
+function questionFallbackTitle(question) {
+  if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
+  if (Number(question.points) === 2 && question.displayOrder === 7) return 'Practico - Tabla de decision'
+  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`
+  return 'Pregunta sin enunciado'
 }
 
 function answerTemplateFor(prompt = '') {
@@ -261,19 +282,6 @@ A2                  |    |    |    |    |    |    |    |
 A3                  |    |    |    |    |    |    |    |
 
 Supuestos / reglas invalidas:
-`
-  }
-  if (normalized.includes('arbol de decision')) {
-    return `(Condicion inicial?)
-|-- Rama 1 -> [Resultado final]
-+-- Rama 2 -> (Siguiente condicion?)
-    |-- Rama 2.1 -> [Resultado final]
-    +-- Rama 2.2 -> [Resultado final]
-
-Referencias:
-- Condicion = circulo: (pregunta)
-- Rama = respuesta etiquetada
-- Resultado final = rectangulo: [accion]
 `
   }
   return ''

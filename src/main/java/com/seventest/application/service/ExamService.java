@@ -27,6 +27,7 @@ public class ExamService implements ExamManagementUseCase {
 
     private static final BigDecimal REQUIRED_TOPIC_TOTAL = BigDecimal.TEN;
     private static final String DEFAULT_COURSE_NAME = "Testing de Aplicaciones";
+    private static final String EMPTY_DECISION_TREE = "7TEST_DECISION_TREE:{\"nodes\":[],\"edges\":[]}";
     private static final List<String> TOPIC_COLORS = List.of("#1956D8", "#03BB83", "#FFC012");
 
     private final ExamRepository examRepository;
@@ -128,8 +129,8 @@ public class ExamService implements ExamManagementUseCase {
                     List<ExamQuestion> questions = safeQuestions(topic).stream()
                             .map(question -> question.getId().equals(questionId)
                                     ? question.toBuilder()
-                                        .prompt(cleanRequired(prompt, "El enunciado es obligatorio"))
-                                        .modelAnswer(cleanRequired(modelAnswer, "La respuesta modelo es obligatoria"))
+                                        .prompt(cleanOptional(prompt))
+                                        .modelAnswer(cleanOptional(modelAnswer))
                                         .points(validPoints(points))
                                         .build()
                                     : question)
@@ -248,8 +249,8 @@ public class ExamService implements ExamManagementUseCase {
         List<ExamQuestion> questions = new ArrayList<>(safeQuestions(topic));
         questions.add(ExamQuestion.builder()
                 .id(UUID.randomUUID())
-                .prompt(cleanRequired(prompt, "El enunciado es obligatorio"))
-                .modelAnswer(cleanRequired(modelAnswer, "La respuesta modelo es obligatoria"))
+                .prompt(cleanOptional(prompt))
+                .modelAnswer(cleanOptional(modelAnswer))
                 .points(validPoints(points))
                 .displayOrder(questions.size() + 1)
                 .build());
@@ -267,7 +268,19 @@ public class ExamService implements ExamManagementUseCase {
             if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) != 0) {
                 throw new IllegalArgumentException("Cada tema debe sumar exactamente 10 puntos");
             }
+            for (ExamQuestion question : safeQuestions(topic)) {
+                if (isBlankQuestionContent(question.getPrompt())) {
+                    throw new IllegalArgumentException("Todas las preguntas deben tener enunciado antes de publicar");
+                }
+                if (isBlankQuestionContent(question.getModelAnswer())) {
+                    throw new IllegalArgumentException("Todas las preguntas deben tener respuesta modelo antes de publicar");
+                }
+            }
         }
+    }
+
+    private boolean isBlankQuestionContent(String value) {
+        return value == null || value.isBlank() || EMPTY_DECISION_TREE.equals(value.trim());
     }
 
     private void ensureNoTopicExceedsTotal(List<ExamTopic> topics) {
