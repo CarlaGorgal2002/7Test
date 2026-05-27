@@ -44,7 +44,19 @@ public class SecurityConfig {
             )
             .addFilterBefore(new JwtAuthFilter(jwtProvider, tokenBlacklist),
                     UsernamePasswordAuthenticationFilter.class)
-            .headers(h -> h.frameOptions(fo -> fo.disable()));
+            .headers(h -> h
+                    .frameOptions(fo -> fo.sameOrigin())
+                    .contentSecurityPolicy(csp -> csp.policyDirectives(
+                            "default-src 'self'; " +
+                            "script-src 'self' 'unsafe-inline'; " +
+                            "style-src 'self' 'unsafe-inline'; " +
+                            "img-src 'self' data:; " +
+                            "connect-src 'self'; " +
+                            "frame-ancestors 'self'"))
+                    .permissionsPolicyHeader(policy -> policy.policy(
+                            "camera=(), microphone=(), geolocation=(), payment=(), usb=()"))
+                    .cacheControl(cache -> {})
+            );
         return http.build();
     }
 

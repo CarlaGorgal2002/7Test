@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -23,8 +24,9 @@ public class UserService implements UserManagementUseCase {
 
     @Override
     public User create(String fullName, String email, Role role, String initialPassword) {
-        if (userRepository.existsByEmail(email)) {
-            throw new EmailAlreadyExistsException(email);
+        String normalizedEmail = normalizeEmail(email);
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new EmailAlreadyExistsException(normalizedEmail);
         }
 
         PasswordPolicy policy = passwordPolicyRepository.find()
@@ -33,8 +35,8 @@ public class UserService implements UserManagementUseCase {
 
         User user = User.builder()
                 .id(UUID.randomUUID())
-                .fullName(fullName)
-                .email(email)
+                .fullName(cleanRequired(fullName))
+                .email(normalizedEmail)
                 .role(role)
                 .status(UserStatus.ACTIVO)
                 .passwordHash(passwordEncoder.encode(initialPassword))
@@ -48,9 +50,10 @@ public class UserService implements UserManagementUseCase {
     @Override
     public User update(UUID id, String fullName, String email, Role role, String newPassword) {
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        String normalizedEmail = normalizeEmail(email);
 
-        if (!user.getEmail().equals(email) && userRepository.existsByEmailAndIdNot(email, id)) {
-            throw new EmailAlreadyExistsException(email);
+        if (!user.getEmail().equalsIgnoreCase(normalizedEmail) && userRepository.existsByEmailAndIdNot(normalizedEmail, id)) {
+            throw new EmailAlreadyExistsException(normalizedEmail);
         }
 
         String passwordHash = user.getPasswordHash();
@@ -61,8 +64,8 @@ public class UserService implements UserManagementUseCase {
         }
 
         return userRepository.save(user.toBuilder()
-                .fullName(fullName)
-                .email(email)
+                .fullName(cleanRequired(fullName))
+                .email(normalizedEmail)
                 .role(role)
                 .passwordHash(passwordHash)
                 .build());
@@ -112,5 +115,13 @@ public class UserService implements UserManagementUseCase {
         if (policy.isRequireSpecialChars() && password.chars().allMatch(Character::isLetterOrDigit)) {
             throw new PasswordPolicyViolationException("La contraseña debe contener al menos un carácter especial");
         }
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String cleanRequired(String value) {
+        return value == null ? "" : value.trim();
     }
 }

@@ -30,24 +30,25 @@ public class UserRepositoryAdapter implements UserRepository {
 
     @Override
     public User save(User user) {
-        if (hardcodedUsers.containsId(user.getId()) || hardcodedUsers.containsEmail(user.getEmail())) {
+        User normalized = user.toBuilder().email(normalizeEmail(user.getEmail())).build();
+        if (hardcodedUsers.containsId(normalized.getId()) || hardcodedUsers.containsEmail(normalized.getEmail())) {
             return hardcodedUsers.findById(user.getId())
-                    .or(() -> hardcodedUsers.findByEmail(user.getEmail()))
-                    .orElse(user);
+                    .or(() -> hardcodedUsers.findByEmail(normalized.getEmail()))
+                    .orElse(normalized);
         }
 
-        UserEntity entity = jpaRepository.findById(user.getId())
+        UserEntity entity = jpaRepository.findById(normalized.getId())
                 .map(existing -> {
-                    existing.setFullName(user.getFullName());
-                    existing.setEmail(user.getEmail());
-                    existing.setRole(user.getRole());
-                    existing.setStatus(user.getStatus());
-                    existing.setPasswordHash(user.getPasswordHash());
-                    existing.setFailedLoginAttempts(user.getFailedLoginAttempts());
-                    existing.setLockedUntil(user.getLockedUntil());
+                    existing.setFullName(normalized.getFullName());
+                    existing.setEmail(normalized.getEmail());
+                    existing.setRole(normalized.getRole());
+                    existing.setStatus(normalized.getStatus());
+                    existing.setPasswordHash(normalized.getPasswordHash());
+                    existing.setFailedLoginAttempts(normalized.getFailedLoginAttempts());
+                    existing.setLockedUntil(normalized.getLockedUntil());
                     return existing;
                 })
-                .orElseGet(() -> UserMapper.toEntity(user));
+                .orElseGet(() -> UserMapper.toEntity(normalized));
         return UserMapper.toDomain(jpaRepository.save(entity));
     }
 
@@ -59,8 +60,9 @@ public class UserRepositoryAdapter implements UserRepository {
 
     @Override
     public Optional<User> findByEmail(String email) {
-        return hardcodedUsers.findByEmail(email)
-                .or(() -> jpaRepository.findByEmail(email).map(UserMapper::toDomain));
+        String normalized = normalizeEmail(email);
+        return hardcodedUsers.findByEmail(normalized)
+                .or(() -> jpaRepository.findByEmailIgnoreCase(normalized).map(UserMapper::toDomain));
     }
 
     @Override
@@ -71,15 +73,17 @@ public class UserRepositoryAdapter implements UserRepository {
 
     @Override
     public boolean existsByEmail(String email) {
-        return hardcodedUsers.containsEmail(email) || jpaRepository.existsByEmail(email);
+        String normalized = normalizeEmail(email);
+        return hardcodedUsers.containsEmail(normalized) || jpaRepository.existsByEmailIgnoreCase(normalized);
     }
 
     @Override
     public boolean existsByEmailAndIdNot(String email, UUID id) {
-        return hardcodedUsers.findByEmail(email)
+        String normalized = normalizeEmail(email);
+        return hardcodedUsers.findByEmail(normalized)
                 .map(user -> !user.getId().equals(id))
                 .orElse(false)
-                || jpaRepository.existsByEmailAndIdNot(email, id);
+                || jpaRepository.existsByEmailIgnoreCaseAndIdNot(normalized, id);
     }
 
     @Override
@@ -122,5 +126,9 @@ public class UserRepositoryAdapter implements UserRepository {
         String normalizedSearch = search.trim().toLowerCase(Locale.ROOT);
         return user.getFullName().toLowerCase(Locale.ROOT).contains(normalizedSearch)
                 || user.getEmail().toLowerCase(Locale.ROOT).contains(normalizedSearch);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }

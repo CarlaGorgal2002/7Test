@@ -2,9 +2,9 @@ package com.seventest.infrastructure.web.controller;
 
 import com.seventest.domain.model.LoginResult;
 import com.seventest.domain.port.in.AuthUseCase;
+import com.seventest.domain.port.out.UserRepository;
 import com.seventest.infrastructure.web.dto.request.LoginRequest;
 import com.seventest.infrastructure.web.dto.request.PasswordRecoveryRequest;
-import com.seventest.infrastructure.web.dto.request.RecoverByNameRequest;
 import com.seventest.infrastructure.web.dto.response.ErrorResponse;
 import com.seventest.infrastructure.web.dto.response.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 @Tag(name = "Autenticación", description = "Login, logout y recuperación de contraseña")
 @RestController
 @RequestMapping("/api/auth")
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthUseCase authUseCase;
+    private final UserRepository userRepository;
 
     @Operation(summary = "Iniciar sesión",
             description = "Autentica al usuario y devuelve un token JWT junto con el rol, "
@@ -78,9 +81,14 @@ public class AuthController {
         return ResponseEntity.accepted().build();
     }
 
-    @PostMapping("/recover-by-name")
-    public ResponseEntity<java.util.Map<String, String>> recoverByName(@Valid @RequestBody RecoverByNameRequest request) {
-        String email = authUseCase.recoverByName(request.name());
-        return ResponseEntity.ok(java.util.Map.of("email", email));
+    @Operation(summary = "Obtener usuario autenticado")
+    @SecurityRequirement(name = "Bearer Auth")
+    @GetMapping("/me")
+    public ResponseEntity<java.util.Map<String, String>> me(Principal principal) {
+        return userRepository.findByEmail(principal.getName())
+                .map(user -> ResponseEntity.ok(java.util.Map.of(
+                        "role", user.getRole().name(),
+                        "fullName", user.getFullName())))
+                .orElseGet(() -> ResponseEntity.status(401).build());
     }
 }

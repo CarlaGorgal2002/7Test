@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
+import { clearSession, getCurrentUser } from '../auth/session.js'
 import Logo from '../components/Logo.jsx'
 
 const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
@@ -8,7 +9,7 @@ const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 export default function ProfesorLanding() {
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const user = getCurrentUser() || {}
 
   const [exams, setExams] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -55,9 +56,8 @@ export default function ProfesorLanding() {
     try {
       await api.post('/auth/logout')
     } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      navigate('/login')
+      clearSession()
+      navigate('/login', { replace: true })
     }
   }
 
@@ -173,7 +173,7 @@ export default function ProfesorLanding() {
             <span style={styles.headerUser}>{user.fullName || user.email}</span>
           </div>
         </div>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesion</button>
+        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
       </header>
 
       <main style={styles.shell}>

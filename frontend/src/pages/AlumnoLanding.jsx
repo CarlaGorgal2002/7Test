@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
+import { clearSession, getCurrentUser } from '../auth/session.js'
 import Logo from '../components/Logo.jsx'
 
 export default function AlumnoLanding() {
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const user = getCurrentUser() || {}
   const [exams, setExams] = useState([])
   const [submissions, setSubmissions] = useState([])
   const [current, setCurrent] = useState(null)
@@ -53,9 +54,8 @@ export default function AlumnoLanding() {
     try {
       await api.post('/auth/logout')
     } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      navigate('/login')
+      clearSession()
+      navigate('/login', { replace: true })
     }
   }
 
@@ -136,7 +136,7 @@ export default function AlumnoLanding() {
             <span style={styles.headerUser}>{user.fullName || user.email}</span>
           </div>
         </div>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesion</button>
+        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
       </header>
 
       <main style={styles.shell}>

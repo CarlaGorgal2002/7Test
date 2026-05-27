@@ -4,7 +4,6 @@ import com.seventest.domain.exception.AccountLockedException;
 import com.seventest.domain.exception.InvalidCredentialsException;
 import com.seventest.domain.exception.UserInactiveException;
 import com.seventest.domain.model.LoginResult;
-import com.seventest.domain.model.PageResult;
 import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
@@ -23,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -77,10 +75,6 @@ class AuthServiceTest {
                 .build();
     }
 
-    private PageResult<User> activeUsers(User... users) {
-        return new PageResult<>(Arrays.asList(users), users.length, 1, 0);
-    }
-
     private void stubSecurityProperties() {
         when(appProperties.getSecurity()).thenReturn(securityConfig);
     }
@@ -89,7 +83,6 @@ class AuthServiceTest {
     void loginNoAdmin_conCredencialesValidas_retornaTokenRolYNombre() {
         User user = activeUser("alumno@test.com", Role.ALUMNO, "hashA", 0, null);
         when(userRepository.findByEmail("alumno@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(activeUsers(user));
         when(passwordEncoder.matches("passA", "hashA")).thenReturn(true);
         when(jwtProvider.generate("alumno@test.com", "ALUMNO")).thenReturn("jwt-token");
 
@@ -101,20 +94,17 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginNoAdmin_conPasswordDeOtroUsuario_caracterizaBugIntencional() {
+    void loginNoAdmin_conPasswordDeOtroUsuario_rechazaCredenciales() {
         User userA = activeUser("a@test.com", Role.ALUMNO, "hashA", 0, null);
-        User userB = activeUser("b@test.com", Role.ALUMNO, "hashB", 0, null);
         when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.of(userA));
-        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(activeUsers(userA, userB));
         when(passwordEncoder.matches("passB", "hashA")).thenReturn(false);
-        when(passwordEncoder.matches("passB", "hashB")).thenReturn(true);
-        when(jwtProvider.generate("a@test.com", "ALUMNO")).thenReturn("token-a");
+        stubSecurityProperties();
 
-        LoginResult result = authService.login("a@test.com", "passB");
+        assertThatThrownBy(() -> authService.login("a@test.com", "passB"))
+                .isInstanceOf(InvalidCredentialsException.class);
 
-        assertThat(result.token()).isEqualTo("token-a");
-        assertThat(result.role()).isEqualTo(Role.ALUMNO);
-        verify(jwtProvider).generate("a@test.com", "ALUMNO");
+        verify(userRepository, never()).findAll(null, null, UserStatus.ACTIVO, 0, 1000);
+        verify(userRepository).save(argThat(u -> u.getFailedLoginAttempts() == 1));
     }
 
     @Test
@@ -174,7 +164,6 @@ class AuthServiceTest {
     void loginConPasswordIncorrecta_incrementaIntentos() {
         User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 0, null);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(activeUsers(user));
         when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
         stubSecurityProperties();
 
@@ -188,7 +177,6 @@ class AuthServiceTest {
     void loginAlLlegarAlLimiteDeIntentos_bloqueaLaCuenta() {
         User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 4, null);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(activeUsers(user));
         when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
         stubSecurityProperties();
 
@@ -204,7 +192,6 @@ class AuthServiceTest {
         Instant expiredLock = Instant.now().minus(1, ChronoUnit.MINUTES);
         User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 3, expiredLock);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)).thenReturn(activeUsers(user));
         when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
         when(jwtProvider.generate("test@test.com", "ALUMNO")).thenReturn("token");
 
@@ -254,12 +241,14 @@ class AuthServiceTest {
     }
 
     @Test
-    void recoverByName_conNombreExistente_caracterizaFiltracionIntencionalDeEmail() {
+    void login_normalizaEmailAntesDeBuscar() {
         User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 0, null);
-        when(userRepository.findByFullName("Test User")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
+        when(jwtProvider.generate("test@test.com", "ALUMNO")).thenReturn("token");
 
-        String email = authService.recoverByName("Test User");
+        LoginResult result = authService.login("  TEST@test.com  ", "pass");
 
-        assertThat(email).isEqualTo("test@test.com");
+        assertThat(result.token()).isEqualTo("token");
     }
 }

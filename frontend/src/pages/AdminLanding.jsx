@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
+import { clearSession, getCurrentUser } from '../auth/session.js'
 import Logo from '../components/Logo.jsx'
 
 const ROLES = ['ALUMNO', 'PROFESOR', 'DIRECTOR_DE_CATEDRA', 'ADMINISTRADOR']
@@ -17,7 +18,7 @@ function emptyForm() {
 
 export default function AdminLanding() {
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const user = getCurrentUser() || {}
 
   const [tab, setTab] = useState('users')
   const [users, setUsers] = useState([])
@@ -77,9 +78,8 @@ export default function AdminLanding() {
 
   async function handleLogout() {
     try { await api.post('/auth/logout') } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      navigate('/login')
+      clearSession()
+      navigate('/login', { replace: true })
     }
   }
 
@@ -222,7 +222,7 @@ export default function AdminLanding() {
                   onChange={(e) => setSearchEmail(e.target.value)}
                   style={styles.searchInput}
                 />
-                <button onClick={fetchUsers} style={styles.btnSecondary}>Search</button>
+                <button onClick={fetchUsers} style={styles.btnSecondary}>Buscar</button>
               </div>
               <button onClick={openCreate} style={styles.btnPrimary}>+ Nuevo usuario</button>
             </div>

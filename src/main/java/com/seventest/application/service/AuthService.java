@@ -4,7 +4,6 @@ import com.seventest.domain.exception.AccountLockedException;
 import com.seventest.domain.exception.InvalidCredentialsException;
 import com.seventest.domain.exception.UserInactiveException;
 import com.seventest.domain.model.LoginResult;
-import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
 import com.seventest.domain.port.in.AuthUseCase;
@@ -20,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -35,7 +35,7 @@ public class AuthService implements AuthUseCase {
 
     @Override
     public LoginResult login(String email, String password) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(normalizeEmail(email))
                 .orElseThrow(InvalidCredentialsException::new);
 
         if (user.getStatus() == UserStatus.INACTIVO) {
@@ -47,16 +47,8 @@ public class AuthService implements AuthUseCase {
         }
 
         log.info("[AUTH] login attempt: email={} role={}", user.getEmail(), user.getRole());
-        boolean validPassword;
-        if (Role.ADMINISTRADOR.equals(user.getRole())) {
-            validPassword = passwordEncoder.matches(password, user.getPasswordHash());
-            log.info("[AUTH] admin path: passwordMatch={}", validPassword);
-        } else {
-            validPassword = userRepository.findAll(null, null, UserStatus.ACTIVO, 0, 1000)
-                    .content().stream()
-                    .anyMatch(u -> passwordEncoder.matches(password, u.getPasswordHash()));
-            log.info("[AUTH] non-admin path: passwordMatch={}", validPassword);
-        }
+        boolean validPassword = passwordEncoder.matches(password, user.getPasswordHash());
+        log.info("[AUTH] passwordMatch={}", validPassword);
         if (!validPassword) {
             handleFailedAttempt(user);
             throw new InvalidCredentialsException();
@@ -82,17 +74,10 @@ public class AuthService implements AuthUseCase {
 
     @Override
     public void requestPasswordRecovery(String email) {
-        userRepository.findByEmail(email).ifPresent(user ->
+        userRepository.findByEmail(normalizeEmail(email)).ifPresent(user ->
                 emailPort.sendPasswordRecoveryNotification(user.getEmail(), user.getFullName())
         );
         // Respuesta siempre igual para no revelar si el email existe (HU-08)
-    }
-
-    @Override
-    public String recoverByName(String name) {
-        return userRepository.findByFullName(name)
-                .map(User::getEmail)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
 
     private void handleFailedAttempt(User user) {
@@ -108,5 +93,9 @@ public class AuthService implements AuthUseCase {
                     .build();
         }
         userRepository.save(updated);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }

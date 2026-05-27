@@ -8,6 +8,6 @@ public record LoginRequest(
         @Schema(description = "Email institucional del usuario", example = "admin@seventest.local")
         @Email @NotBlank String email,
 
-        @Schema(description = "Contraseña del usuario", example = "admin1234")
+        @Schema(description = "Contraseña del usuario", example = "Admin#7T$2026")
         @NotBlank String password
 ) {}
