@@ -106,6 +106,36 @@ class ExamServiceTest {
                 .hasMessageContaining("borrador");
     }
 
+    @Test
+    void agregarPregunta_siTemaSuperaDiez_rechazaCambio() {
+        User teacher = teacher();
+        ExamTopic topic = topic("Tema A", question("P1", "R1", "9"));
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.addQuestion(
+                teacher.getEmail(), exam.getId(), topic.getId(), "P2", "R2", new BigDecimal("2")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("superar 10");
+    }
+
+    @Test
+    void editarPregunta_siTemaSuperaDiez_rechazaCambio() {
+        User teacher = teacher();
+        ExamQuestion first = question("P1", "R1", "6");
+        ExamQuestion second = question("P2", "R2", "4");
+        ExamTopic topic = topic("Tema A", first, second);
+        Exam exam = exam(teacher, ExamStatus.BORRADOR, List.of(topic));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.updateQuestion(
+                teacher.getEmail(), exam.getId(), topic.getId(), second.getId(), "P2 editada", "R2 editada", new BigDecimal("5")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("superar 10");
+    }
+
     private User teacher() {
         return User.builder()
                 .id(UUID.randomUUID())

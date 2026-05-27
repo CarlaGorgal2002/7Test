@@ -184,22 +184,38 @@ export default function AlumnoLanding() {
               </div>
 
               <div style={styles.questions}>
-                {current.questions.map((question) => (
-                  <article key={question.questionId} style={styles.questionCard}>
-                    <div style={styles.questionHeader}>
-                      <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt}</h3>
-                      <span style={styles.points}>{question.points} pts</span>
-                    </div>
-                    <textarea
-                      value={answers[question.questionId] || ''}
-                      onChange={(e) => updateAnswer(question.questionId, e.target.value)}
-                      disabled={!canAnswer}
-                      rows={7}
-                      style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
-                      placeholder="Escribi tu respuesta..."
-                    />
-                  </article>
-                ))}
+                {current.questions.map((question) => {
+                  const practicalTemplate = answerTemplateFor(question.prompt)
+                  return (
+                    <article key={question.questionId} style={styles.questionCard}>
+                      <div style={styles.questionHeader}>
+                        <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt}</h3>
+                        <span style={styles.points}>{question.points} pts</span>
+                      </div>
+                      {canAnswer && practicalTemplate && (
+                        <div style={styles.templateBox}>
+                          <button
+                            type="button"
+                            onClick={() => updateAnswer(question.questionId, answers[question.questionId]?.trim()
+                              ? `${answers[question.questionId]}\n\n${practicalTemplate}`
+                              : practicalTemplate)}
+                            style={styles.secondaryBtn}
+                          >
+                            Insertar plantilla
+                          </button>
+                        </div>
+                      )}
+                      <textarea
+                        value={answers[question.questionId] || ''}
+                        onChange={(e) => updateAnswer(question.questionId, e.target.value)}
+                        disabled={!canAnswer}
+                        rows={14}
+                        style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
+                        placeholder="Escribi tu respuesta..."
+                      />
+                    </article>
+                  )
+                })}
               </div>
 
               <div style={styles.footerActions}>
@@ -216,6 +232,51 @@ export default function AlumnoLanding() {
       </main>
     </div>
   )
+}
+
+function answerTemplateFor(prompt = '') {
+  const normalized = prompt.toLowerCase()
+  if (normalized.includes('tabla de decision')) {
+    return `Condiciones:
+C1:
+C2:
+C3:
+
+Acciones:
+A1:
+A2:
+A3:
+
+Cantidad de reglas: 2^n =
+
+Tabla:
+Condiciones / Reglas | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8
+C1                  | V  | V  | V  | V  | F  | F  | F  | F
+C2                  | V  | V  | F  | F  | V  | V  | F  | F
+C3                  | V  | F  | V  | F  | V  | F  | V  | F
+
+Acciones:
+A1                  |    |    |    |    |    |    |    |
+A2                  |    |    |    |    |    |    |    |
+A3                  |    |    |    |    |    |    |    |
+
+Supuestos / reglas invalidas:
+`
+  }
+  if (normalized.includes('arbol de decision')) {
+    return `(Condicion inicial?)
+|-- Rama 1 -> [Resultado final]
++-- Rama 2 -> (Siguiente condicion?)
+    |-- Rama 2.1 -> [Resultado final]
+    +-- Rama 2.2 -> [Resultado final]
+
+Referencias:
+- Condicion = circulo: (pregunta)
+- Rama = respuesta etiquetada
+- Resultado final = rectangulo: [accion]
+`
+  }
+  return ''
 }
 
 const styles = {
@@ -248,7 +309,8 @@ const styles = {
   questionHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   questionTitle: { fontSize: 17, margin: 0, lineHeight: 1.35 },
   points: { color: '#1956D8', fontWeight: 800, whiteSpace: 'nowrap' },
-  answerBox: { width: '100%', boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
-  answerBoxDisabled: { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
+  templateBox: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 },
+  answerBox: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
+  answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
 }

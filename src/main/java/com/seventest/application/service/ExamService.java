@@ -113,6 +113,7 @@ public class ExamService implements ExamManagementUseCase {
                         : topic)
                 .toList();
         ensureTopicExists(topics, topicId);
+        ensureNoTopicExceedsTotal(topics);
         return saveWithTopics(exam, topics);
     }
 
@@ -138,6 +139,7 @@ public class ExamService implements ExamManagementUseCase {
                 })
                 .toList();
         ensureTopicExists(topics, topicId);
+        ensureNoTopicExceedsTotal(topics);
         return saveWithTopics(exam, topics);
     }
 
@@ -264,6 +266,14 @@ public class ExamService implements ExamManagementUseCase {
             }
             if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) != 0) {
                 throw new IllegalArgumentException("Cada tema debe sumar exactamente 10 puntos");
+            }
+        }
+    }
+
+    private void ensureNoTopicExceedsTotal(List<ExamTopic> topics) {
+        for (ExamTopic topic : topics) {
+            if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) > 0) {
+                throw new IllegalArgumentException("El total del tema no puede superar 10 puntos");
             }
         }
     }

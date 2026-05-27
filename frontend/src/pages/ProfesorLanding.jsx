@@ -7,6 +7,71 @@ import Logo from '../components/Logo.jsx'
 const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
+const theoryTemplate = {
+  prompt: 'Pregunta teorica de Testing de Aplicaciones',
+  modelAnswer: 'Respuesta modelo esperada: definir concepto, explicar objetivo, mencionar un ejemplo concreto y relacionarlo con calidad del software.',
+  points: '1',
+}
+
+const decisionTableTemplate = {
+  prompt: 'Practico - Tabla de decision. Identifique condiciones, acciones, cantidad de reglas (2^n), complete V/F respetando alternancia y marque con X las acciones correspondientes.',
+  modelAnswer: `Plantilla esperada:
+Condiciones:
+C1:
+C2:
+C3:
+
+Acciones:
+A1:
+A2:
+A3:
+
+Cantidad de reglas: 2^n =
+
+Tabla:
+Condiciones / Reglas | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8
+C1                  | V  | V  | V  | V  | F  | F  | F  | F
+C2                  | V  | V  | F  | F  | V  | V  | F  | F
+C3                  | V  | F  | V  | F  | V  | F  | V  | F
+
+Acciones:
+A1                  |    |    |    |    |    |    |    |
+A2                  |    |    |    |    |    |    |    |
+A3                  |    |    |    |    |    |    |    |
+
+Validaciones: respetar la alternancia V/F, marcar reglas imposibles si hay condiciones excluyentes y justificar supuestos.`,
+  points: '2',
+}
+
+const decisionTreeTemplate = {
+  prompt: 'Practico - Arbol de decision. Construya un arbol con condiciones, ramas etiquetadas y resultados finales.',
+  modelAnswer: `Plantilla esperada:
+(Condicion inicial?)
+|-- Rama 1 -> [Resultado final]
++-- Rama 2 -> (Siguiente condicion?)
+    |-- Rama 2.1 -> [Resultado final]
+    +-- Rama 2.2 -> [Resultado final]
+
+Convenciones:
+- Condicion = circulo, escrito como (pregunta o condicion).
+- Rama = linea etiquetada con la respuesta posible.
+- Resultado final = rectangulo, escrito como [accion o salida].
+- Todas las ramas deben terminar en otro circulo o en un rectangulo final.
+- No debe haber ramas colgadas ni condiciones repetidas innecesariamente.`,
+  points: '2',
+}
+
+const defaultExamTemplate = [
+  { ...theoryTemplate, prompt: 'Defina testing y explique para que sirve dentro del ciclo de vida del software.' },
+  { ...theoryTemplate, prompt: 'Diferencie validar y verificar. Incluya un ejemplo.' },
+  { ...theoryTemplate, prompt: 'Explique quien es responsable de la calidad en un equipo de desarrollo.' },
+  { ...theoryTemplate, prompt: 'Diferencie QA y QC.' },
+  { ...theoryTemplate, prompt: 'Diferencie pruebas de caja negra y caja blanca.' },
+  { ...theoryTemplate, prompt: 'Explique que es un caso de prueba y que datos minimos deberia incluir.' },
+  decisionTableTemplate,
+  decisionTreeTemplate,
+]
+
 export default function ProfesorLanding() {
   const navigate = useNavigate()
   const user = getCurrentUser() || {}
@@ -17,6 +82,8 @@ export default function ProfesorLanding() {
   const [editExamForm, setEditExamForm] = useState(emptyExam)
   const [topicName, setTopicName] = useState('Tema A')
   const [questionForms, setQuestionForms] = useState({})
+  const [editingQuestionForms, setEditingQuestionForms] = useState({})
+  const [templateLoading, setTemplateLoading] = useState('')
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -96,12 +163,22 @@ export default function ProfesorLanding() {
     if (!selectedExam) return
     setMessage('')
     try {
+      const previousTopicIds = new Set((selectedExam.topics || []).map((topic) => topic.id))
       const res = await api.post(`/exams/${selectedExam.id}/topics`, { name: topicName })
-      replaceExam(res.data)
+      let updated = res.data
+      const createdTopic = updated.topics?.find((topic) => !previousTopicIds.has(topic.id))
+      replaceExam(updated)
+      if (createdTopic) {
+        setTemplateLoading(createdTopic.id)
+        updated = await appendDefaultTemplate(updated, createdTopic.id)
+        replaceExam(updated)
+      }
       setTopicName(nextTopicName(res.data.topics.length + 1))
-      setMessage('Tema agregado.')
+      setMessage('Tema agregado con plantilla base de 10 puntos.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
+      setMessage(err.response?.data?.message || 'No se pudo agregar el tema o cargar la plantilla.')
+    } finally {
+      setTemplateLoading('')
     }
   }
 
@@ -127,6 +204,11 @@ export default function ProfesorLanding() {
     e.preventDefault()
     if (!selectedExam) return
     const form = questionForms[topicId] || emptyQuestion
+    const topic = selectedExam.topics?.find((item) => item.id === topicId)
+    if (topicExceedsLimit(topic, Number(form.points))) {
+      setMessage('El total del tema no puede superar 10 puntos. Ajusta el puntaje antes de guardar.')
+      return
+    }
     setMessage('')
     try {
       const res = await api.post(`/exams/${selectedExam.id}/topics/${topicId}/questions`, {
@@ -140,6 +222,66 @@ export default function ProfesorLanding() {
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo agregar la pregunta.')
     }
+  }
+
+  async function updateQuestion(e, topic, question) {
+    e.preventDefault()
+    if (!selectedExam || !topic || !question) return
+    const form = editingQuestionForms[question.id]
+    if (!form) return
+    if (topicExceedsLimit(topic, Number(form.points), question.id)) {
+      setMessage('El total del tema no puede superar 10 puntos. Ajusta el puntaje antes de guardar.')
+      return
+    }
+    setMessage('')
+    try {
+      const res = await api.put(`/exams/${selectedExam.id}/topics/${topic.id}/questions/${question.id}`, {
+        prompt: form.prompt,
+        modelAnswer: form.modelAnswer,
+        points: Number(form.points),
+      })
+      replaceExam(res.data)
+      setEditingQuestionForms((current) => {
+        const next = { ...current }
+        delete next[question.id]
+        return next
+      })
+      setMessage('Pregunta actualizada.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo actualizar la pregunta.')
+    }
+  }
+
+  async function loadDefaultTemplate(topic) {
+    if (!selectedExam || !topic) return
+    if (Number(topic.totalPoints || 0) > 0 || topic.questions.length > 0) {
+      setMessage('La plantilla completa se carga sobre un tema vacio.')
+      return
+    }
+    setTemplateLoading(topic.id)
+    setMessage('')
+    try {
+      const updated = await appendDefaultTemplate(selectedExam, topic.id)
+      replaceExam(updated)
+      setMessage('Plantilla cargada: 6 teoricas de 1 punto, tabla de decision de 2 puntos y arbol de decision de 2 puntos.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo cargar la plantilla.')
+    } finally {
+      setTemplateLoading('')
+    }
+  }
+
+  async function appendDefaultTemplate(exam, topicId) {
+    let updated = exam
+    for (const question of defaultExamTemplate) {
+      const res = await api.post(`/exams/${updated.id}/topics/${topicId}/questions`, {
+        prompt: question.prompt,
+        modelAnswer: question.modelAnswer,
+        points: Number(question.points),
+      })
+      updated = res.data
+    }
+    return updated
   }
 
   async function removeQuestion(topicId, questionId) {
@@ -188,6 +330,39 @@ export default function ProfesorLanding() {
       ...current,
       [topicId]: { ...(current[topicId] || emptyQuestion), [field]: value },
     }))
+  }
+
+  function applyQuestionTemplate(topicId, template) {
+    setQuestionForms((current) => ({
+      ...current,
+      [topicId]: { ...template },
+    }))
+  }
+
+  function startEditQuestion(question) {
+    setEditingQuestionForms((current) => ({
+      ...current,
+      [question.id]: {
+        prompt: question.prompt,
+        modelAnswer: question.modelAnswer,
+        points: String(question.points),
+      },
+    }))
+  }
+
+  function updateEditingQuestionForm(questionId, field, value) {
+    setEditingQuestionForms((current) => ({
+      ...current,
+      [questionId]: { ...current[questionId], [field]: value },
+    }))
+  }
+
+  function cancelEditQuestion(questionId) {
+    setEditingQuestionForms((current) => {
+      const next = { ...current }
+      delete next[questionId]
+      return next
+    })
   }
 
   const canEdit = selectedExam?.status === 'BORRADOR'
@@ -379,40 +554,103 @@ export default function ProfesorLanding() {
 
                       <div style={styles.questions}>
                         {topic.questions.length === 0 && <p style={styles.muted}>Sin preguntas cargadas.</p>}
-                        {topic.questions.map((question) => (
-                          <div key={question.id} style={styles.questionRow}>
-                            <div>
-                              <strong>{question.displayOrder}. {question.prompt}</strong>
-                              <p style={styles.answer}>Modelo: {question.modelAnswer}</p>
-                            </div>
-                            <div style={styles.questionActions}>
-                              <span style={styles.points}>{question.points} pts</span>
-                              {canEdit && (
-                                <button onClick={() => removeQuestion(topic.id, question.id)} style={styles.linkBtn}>
-                                  Eliminar
-                                </button>
+                        {topic.questions.map((question) => {
+                          const editForm = editingQuestionForms[question.id]
+                          return (
+                            <div key={question.id} style={styles.questionRow}>
+                              {editForm ? (
+                                <form onSubmit={(e) => updateQuestion(e, topic, question)} style={styles.editQuestionForm}>
+                                  <div style={styles.inlineFields}>
+                                    <label style={styles.label}>Puntos</label>
+                                    <input
+                                      type="number"
+                                      step="0.25"
+                                      min="0.25"
+                                      max="10"
+                                      value={editForm.points}
+                                      onChange={(e) => updateEditingQuestionForm(question.id, 'points', e.target.value)}
+                                      style={styles.smallInput}
+                                      required
+                                    />
+                                  </div>
+                                  <label style={styles.label}>Enunciado</label>
+                                  <textarea
+                                    value={editForm.prompt}
+                                    onChange={(e) => updateEditingQuestionForm(question.id, 'prompt', e.target.value)}
+                                    style={styles.promptTextarea}
+                                    rows={4}
+                                    required
+                                  />
+                                  <label style={styles.label}>Respuesta modelo</label>
+                                  <textarea
+                                    value={editForm.modelAnswer}
+                                    onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
+                                    style={styles.modelTextarea}
+                                    rows={8}
+                                    required
+                                  />
+                                  <div style={styles.editQuestionActions}>
+                                    <button type="button" onClick={() => cancelEditQuestion(question.id)} style={styles.secondaryBtn}>Cancelar</button>
+                                    <button type="submit" style={styles.primaryBtn}>Guardar pregunta</button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <>
+                                  <div>
+                                    <strong>{question.displayOrder}. {question.prompt}</strong>
+                                    <p style={styles.answer}>Modelo: {question.modelAnswer}</p>
+                                  </div>
+                                  <div style={styles.questionActions}>
+                                    <span style={styles.points}>{question.points} pts</span>
+                                    {canEdit && (
+                                      <>
+                                        <button onClick={() => startEditQuestion(question)} style={styles.editLinkBtn}>
+                                          Editar
+                                        </button>
+                                        <button onClick={() => removeQuestion(topic.id, question.id)} style={styles.linkBtn}>
+                                          Eliminar
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </>
                               )}
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
 
                       {canEdit && (
                         <form onSubmit={(e) => addQuestion(e, topic.id)} style={styles.questionForm}>
+                          {topic.questions.length === 0 && (
+                            <button
+                              type="button"
+                              onClick={() => loadDefaultTemplate(topic)}
+                              style={styles.primaryBtn}
+                              disabled={templateLoading === topic.id}
+                            >
+                              {templateLoading === topic.id ? 'Cargando plantilla...' : 'Cargar plantilla base 10 pts'}
+                            </button>
+                          )}
+                          <div style={styles.templateActions}>
+                            <button type="button" onClick={() => applyQuestionTemplate(topic.id, theoryTemplate)} style={styles.secondaryBtn}>Teorica 1 pto</button>
+                            <button type="button" onClick={() => applyQuestionTemplate(topic.id, decisionTableTemplate)} style={styles.secondaryBtn}>Tabla 2 pts</button>
+                            <button type="button" onClick={() => applyQuestionTemplate(topic.id, decisionTreeTemplate)} style={styles.secondaryBtn}>Arbol 2 pts</button>
+                          </div>
                           <label style={styles.label}>Enunciado</label>
                           <textarea
                             value={form.prompt}
                             onChange={(e) => updateQuestionForm(topic.id, 'prompt', e.target.value)}
-                            style={styles.textarea}
-                            rows={2}
+                            style={styles.promptTextarea}
+                            rows={4}
                             required
                           />
                           <label style={styles.label}>Respuesta modelo</label>
                           <textarea
                             value={form.modelAnswer}
                             onChange={(e) => updateQuestionForm(topic.id, 'modelAnswer', e.target.value)}
-                            style={styles.textarea}
-                            rows={2}
+                            style={styles.modelTextarea}
+                            rows={8}
                             required
                           />
                           <div style={styles.inlineFields}>
@@ -473,6 +711,15 @@ function nextTopicName(count) {
   return `Tema ${letter}`
 }
 
+function topicExceedsLimit(topic, nextPoints, editingQuestionId = null) {
+  if (!topic || Number.isNaN(nextPoints)) return false
+  const currentTotal = topic.questions.reduce((sum, question) => {
+    if (question.id === editingQuestionId) return sum
+    return sum + Number(question.points || 0)
+  }, 0)
+  return currentTotal + nextPoints > 10
+}
+
 const styles = {
   page: { minHeight: '100vh', background: '#F4F8FA', color: '#09222A' },
   header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
@@ -489,6 +736,8 @@ const styles = {
   input: { minHeight: 38, padding: '8px 10px', border: '1px solid #C9DDE3', borderRadius: 6, fontSize: 14, color: '#09222A', boxSizing: 'border-box', width: '100%' },
   smallInput: { minHeight: 38, width: 100, padding: '8px 10px', border: '1px solid #C9DDE3', borderRadius: 6, fontSize: 14, color: '#09222A', boxSizing: 'border-box' },
   textarea: { padding: '8px 10px', border: '1px solid #C9DDE3', borderRadius: 6, fontSize: 14, color: '#09222A', resize: 'vertical', boxSizing: 'border-box', width: '100%', fontFamily: 'inherit' },
+  promptTextarea: { minHeight: 118, padding: '10px 12px', border: '1px solid #C9DDE3', borderRadius: 6, fontSize: 14, color: '#09222A', resize: 'vertical', boxSizing: 'border-box', width: '100%', fontFamily: 'inherit', lineHeight: 1.5 },
+  modelTextarea: { minHeight: 220, padding: '10px 12px', border: '1px solid #C9DDE3', borderRadius: 6, fontSize: 14, color: '#09222A', resize: 'vertical', boxSizing: 'border-box', width: '100%', fontFamily: 'inherit', lineHeight: 1.5 },
   primaryBtn: { minHeight: 38, padding: '8px 16px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
@@ -519,11 +768,15 @@ const styles = {
   totalPending: { color: '#9B6A00', fontSize: 13, fontWeight: 800 },
   questions: { display: 'flex', flexDirection: 'column', gap: 10 },
   questionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 12 },
-  answer: { margin: '6px 0 0', color: '#536B76', fontSize: 13, lineHeight: 1.4 },
+  answer: { margin: '6px 0 0', color: '#536B76', fontSize: 13, lineHeight: 1.4, whiteSpace: 'pre-wrap' },
   questionActions: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 },
   points: { color: '#1956D8', fontWeight: 800, fontSize: 13 },
+  editLinkBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, cursor: 'pointer', fontSize: 13 },
   linkBtn: { background: 'none', border: 'none', color: '#9B2C2C', fontWeight: 700, cursor: 'pointer', fontSize: 13 },
   questionForm: { marginTop: 14, borderTop: '1px solid #E7F0F3', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 },
+  editQuestionForm: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 },
+  editQuestionActions: { display: 'flex', justifyContent: 'flex-end', gap: 10 },
+  templateActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   inlineFields: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
   muted: { color: '#536B76', fontSize: 14, margin: 0 },
   submissionPanel: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, marginBottom: 16 },
