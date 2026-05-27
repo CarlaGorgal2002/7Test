@@ -14,6 +14,7 @@ export default function ProfesorLanding() {
   const [exams, setExams] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [examForm, setExamForm] = useState(emptyExam)
+  const [editExamForm, setEditExamForm] = useState(emptyExam)
   const [topicName, setTopicName] = useState('Tema A')
   const [questionForms, setQuestionForms] = useState({})
   const [submissions, setSubmissions] = useState([])
@@ -51,6 +52,16 @@ export default function ProfesorLanding() {
       .then((res) => setSubmissions(res.data))
       .catch(() => setSubmissions([]))
   }, [selectedExam?.id, selectedExam?.status])
+
+  useEffect(() => {
+    if (!selectedExam) return
+    setEditExamForm({
+      title: selectedExam.title || '',
+      description: selectedExam.description || '',
+      courseName: selectedExam.courseName || 'Testing de Aplicaciones',
+      durationMinutes: selectedExam.durationMinutes || 120,
+    })
+  }, [selectedExam?.id])
 
   async function handleLogout() {
     try {
@@ -91,6 +102,24 @@ export default function ProfesorLanding() {
       setMessage('Tema agregado.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
+    }
+  }
+
+  async function updateExam(e) {
+    e.preventDefault()
+    if (!selectedExam || selectedExam.status !== 'BORRADOR') return
+    setMessage('')
+    try {
+      const res = await api.put(`/exams/${selectedExam.id}`, {
+        title: editExamForm.title,
+        description: editExamForm.description,
+        courseName: editExamForm.courseName || selectedExam.courseName || 'Testing de Aplicaciones',
+        durationMinutes: Number(editExamForm.durationMinutes || selectedExam.durationMinutes) || null,
+      })
+      replaceExam(res.data)
+      setMessage('Datos del borrador actualizados.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudieron actualizar los datos del borrador.')
     }
   }
 
@@ -257,16 +286,45 @@ export default function ProfesorLanding() {
               </div>
 
               {canEdit && (
-                <form onSubmit={addTopic} style={styles.topicForm}>
-                  <input
-                    value={topicName}
-                    onChange={(e) => setTopicName(e.target.value)}
-                    style={styles.input}
-                    placeholder="Tema A"
-                    required
-                  />
-                  <button type="submit" style={styles.secondaryBtn}>Agregar tema</button>
-                </form>
+                <>
+                  <form onSubmit={updateExam} style={styles.editBox}>
+                    <h3 style={styles.editTitle}>Datos del borrador</h3>
+                    <div style={styles.editGrid}>
+                      <div style={styles.fieldBlock}>
+                        <label style={styles.label}>Titulo</label>
+                        <input
+                          value={editExamForm.title}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, title: e.target.value })}
+                          style={styles.input}
+                          required
+                        />
+                      </div>
+                      <div style={styles.fieldBlock}>
+                        <label style={styles.label}>Descripcion</label>
+                        <textarea
+                          value={editExamForm.description}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, description: e.target.value })}
+                          style={styles.textarea}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <div style={styles.editActions}>
+                      <button type="submit" style={styles.secondaryBtn}>Guardar cambios</button>
+                    </div>
+                  </form>
+
+                  <form onSubmit={addTopic} style={styles.topicForm}>
+                    <input
+                      value={topicName}
+                      onChange={(e) => setTopicName(e.target.value)}
+                      style={styles.input}
+                      placeholder="Tema A"
+                      required
+                    />
+                    <button type="submit" style={styles.secondaryBtn}>Agregar tema</button>
+                  </form>
+                </>
               )}
 
               {!canEdit && (
@@ -445,6 +503,11 @@ const styles = {
   examTitle: { fontSize: 24, fontWeight: 800, margin: '0 0 6px' },
   examMeta: { fontSize: 14, color: '#536B76', margin: 0 },
   headerActions: { display: 'flex', alignItems: 'center', gap: 10 },
+  editBox: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, marginBottom: 16 },
+  editTitle: { fontSize: 16, fontWeight: 800, color: '#1956D8', margin: '0 0 12px' },
+  editGrid: { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(260px, 2fr)', gap: 12 },
+  fieldBlock: { display: 'flex', flexDirection: 'column', gap: 6 },
+  editActions: { display: 'flex', justifyContent: 'flex-end', marginTop: 12 },
   topicForm: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 14, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 16 },
   topicGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 },
   topicCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
