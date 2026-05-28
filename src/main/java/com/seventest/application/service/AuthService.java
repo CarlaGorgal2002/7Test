@@ -80,6 +80,14 @@ public class AuthService implements AuthUseCase {
         // Respuesta siempre igual para no revelar si el email existe (HU-08)
     }
 
+    @Override
+    public String recoverByName(String fullName) {
+        // BUG-02: revela el email real del usuario — viola privacidad (HU-08)
+        return userRepository.findByFullName(fullName)
+                .map(User::getEmail)
+                .orElse("");
+    }
+
     private void handleFailedAttempt(User user) {
         int attempts = user.getFailedLoginAttempts() + 1;
         int max = appProperties.getSecurity().getMaxLoginAttempts();

@@ -121,4 +121,16 @@ class KnownBugWhiteBoxChecks {
                     .isFalse();
         });
     }
+
+    @Test
+    void recuperacionPorNombre_noDeberiaRevelarEmailRegistrado() {
+        User userA = activeUser("Usuario A", "a@test.com", "hashA");
+        when(userRepository.findByFullName("Usuario A")).thenReturn(Optional.of(userA));
+
+        String result = authService.recoverByName("Usuario A");
+
+        assertThat(result)
+                .as("BUG-02 / HU-08: recoverByName no debe revelar el email real del usuario")
+                .isNotEqualTo("a@test.com");
+    }
 }
