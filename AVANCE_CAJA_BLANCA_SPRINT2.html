@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>7test - Caja blanca Sprint 2</title><style>
+@page { size: A4; margin: 16mm 13mm; }
+body { font-family: Arial, Helvetica, sans-serif; color: #1f2933; line-height: 1.42; font-size: 10.5pt; }
+h1 { font-size: 20pt; color: #0b3b75; margin: 0 0 12px; border-bottom: 3px solid #0b3b75; padding-bottom: 8px; }
+h2 { font-size: 15pt; color: #0b3b75; margin: 24px 0 8px; border-bottom: 1px solid #d9e2ec; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #183b56; margin: 16px 0 6px; }
+p { margin: 6px 0; }
+ul { margin: 6px 0 10px 20px; padding: 0; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0 16px; font-size: 9pt; page-break-inside: auto; }
+th, td { border: 1px solid #bcccdc; padding: 5px 6px; vertical-align: top; }
+th { background: #e6f0ff; color: #102a43; font-weight: 700; }
+tr:nth-child(even) td { background: #f8fbff; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 1px 3px; border-radius: 3px; }
+pre { background: #102a43; color: #f8fbff; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 9pt; }
+strong { color: #102a43; }
+</style></head>
+<body>
+<h1>7test - Estrategia y avance de pruebas de caja blanca - Sprint 2</h1>
+<p><strong>Fecha de preparacion:</strong> 28/05/2026</p>
+<p><strong>Version evaluada:</strong> Sprint 2, con avance parcial de Sprint 3</p>
+<p><strong>Tipo de pruebas:</strong> unitarias de caja blanca sobre backend</p>
+<p><strong>Stack:</strong> Java 21, Spring Boot, JUnit 5, Mockito, AssertJ</p>
+<h2>1. Objetivo</h2>
+<p>El objetivo de esta entrega es documentar la estrategia y el avance de las pruebas de caja blanca correspondientes al Sprint 2. La base metodologica es la misma declarada desde Sprint 1: pruebas unitarias con JUnit 5 + Mockito, aislando la unidad bajo prueba mediante mocks y validando ramas internas, precondiciones, estados y casos borde.</p>
+<p>El alcance principal del Sprint 2 es la gestion de examenes por parte del profesor:</p>
+<ul>
+<li>Creacion de examenes en estado borrador.</li>
+<li>Carga de temas y preguntas.</li>
+<li>Validacion de puntaje total por tema.</li>
+<li>Publicacion de examenes.</li>
+<li>Bloqueo de edicion cuando el examen ya fue publicado.</li>
+<li>Cierre y eliminacion segun estado del examen.</li>
+</ul>
+<p>Adicionalmente, se incluye en este mismo informe un avance parcial ya implementado sobre el flujo posterior previsto para Sprint 3: inicio de examen, guardado de respuestas y entrega por parte del alumno. Se presenta como avance complementario dentro de la misma suite de caja blanca, no como un informe separado.</p>
+<h2>2. Estrategia de caja blanca</h2>
+<p>La estrategia se basa en revisar el codigo fuente de los servicios y derivar casos desde las decisiones internas de cada metodo. No se prueba la UI ni la base de datos real en estos casos; se prueba la logica de dominio/aplicacion con dependencias reemplazadas por mocks.</p>
+<h3>Criterios aplicados</h3>
+<table><thead><tr><th>Criterio</th><th>Aplicacion</th></tr></thead><tbody>
+<tr><td>Aislamiento de unidad</td><td>Los repositorios se mockean con Mockito para probar solo el servicio.</td></tr>
+<tr><td>Cobertura de ramas</td><td>Se cubren ramas exitosas y ramas con excepcion.</td></tr>
+<tr><td>Estados del dominio</td><td>Se validan transiciones <code>BORRADOR -&gt; PUBLICADO</code>, reglas para <code>CERRADO</code>, y avance parcial <code>EN_PROGRESO -&gt; ENTREGADO</code>.</td></tr>
+<tr><td>Casos borde</td><td>Puntajes que no suman 10, preguntas vacias, arbol/tabla sin contenido, entrega finalizada.</td></tr>
+<tr><td>Reglas por rol</td><td>Se fuerza que solo profesores gestionen examenes y que solo alumnos rindan entregas.</td></tr>
+<tr><td>Regresion</td><td>Se mantiene la suite previa de Sprint 1 para autenticacion, usuarios y politicas.</td></tr>
+</tbody></table>
+<h3>Herramientas</h3>
+<ul>
+<li><code>@ExtendWith(MockitoExtension.class)</code> para ejecutar tests unitarios sin levantar Spring.</li>
+<li><code>@Mock</code> para reemplazar repositorios y puertos externos.</li>
+<li><code>@InjectMocks</code> para inyectar los mocks en los servicios bajo prueba.</li>
+<li>AssertJ para verificar resultados y excepciones esperadas.</li>
+<li><code>ApplicationTests</code> como smoke test de contexto Spring.</li>
+</ul>
+<h2>3. Alcance cubierto</h2>
+<h3>Servicios bajo prueba</h3>
+<table><thead><tr><th>Servicio</th><th>Archivo de test</th><th>Relacion con la entrega</th></tr></thead><tbody>
+<tr><td><code>ExamService</code></td><td><code>src/test/java/com/seventest/application/service/ExamServiceTest.java</code></td><td>Alcance principal de Sprint 2: creacion, edicion, publicacion, cierre y eliminacion de examenes.</td></tr>
+<tr><td><code>ExamSubmissionService</code></td><td><code>src/test/java/com/seventest/application/service/ExamSubmissionServiceTest.java</code></td><td>Avance parcial de Sprint 3 incluido en la misma suite: inicio, guardado y entrega de examen.</td></tr>
+</tbody></table>
+<h3>Suite de regresion incluida</h3>
+<table><thead><tr><th>Servicio</th><th>Archivo de test</th><th>Motivo</th></tr></thead><tbody>
+<tr><td><code>AuthService</code></td><td><code>AuthServiceTest.java</code></td><td>Login, logout, recuperacion y bloqueo de cuenta.</td></tr>
+<tr><td><code>UserService</code></td><td><code>UserServiceTest.java</code></td><td>Alta, edicion, activacion/desactivacion y filtros.</td></tr>
+<tr><td><code>PasswordPolicyService</code></td><td><code>PasswordPolicyServiceTest.java</code></td><td>Reglas de contrasena y limites.</td></tr>
+</tbody></table>
+<h2>4. Matriz de pruebas disenadas</h2>
+<h3>Sprint 2 - ExamService</h3>
+<table><thead><tr><th>TC-ID</th><th>Metodo / rama</th><th>Condicion analizada</th><th>Resultado esperado</th><th>Estado</th></tr></thead><tbody>
+<tr><td>WB-S2-EX-01</td><td><code>create</code></td><td>Profesor valido crea examen</td><td>Se guarda examen en <code>BORRADOR</code> con materia default</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-02</td><td><code>addTopic</code></td><td>Examen en borrador agrega primer tema</td><td>Se asigna color <code>#1956D8</code></td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-03</td><td><code>publish</code></td><td>Tema suma menos de 10 puntos</td><td>Rechaza publicacion con excepcion</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-04</td><td><code>publish</code></td><td>Cada tema suma exactamente 10</td><td>Cambia estado a <code>PUBLICADO</code> y setea <code>publishedAt</code></td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-05</td><td><code>addQuestion</code></td><td>Examen ya publicado</td><td>Rechaza edicion porque no esta en borrador</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-06</td><td><code>addQuestion</code></td><td>Pregunta vacia en borrador</td><td>Permite guardar borrador incompleto</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-07</td><td><code>addQuestion</code></td><td>Tema supera 10 durante redistribucion</td><td>Permite cambio intermedio para luego ajustar</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-08</td><td><code>publish</code></td><td>Pregunta sin enunciado</td><td>Rechaza publicacion</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-09</td><td><code>publish</code></td><td>Arbol de decision vacio</td><td>Rechaza publicacion por respuesta modelo incompleta</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-10</td><td><code>publish</code></td><td>Tabla de decision vacia</td><td>Rechaza publicacion por respuesta modelo incompleta</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-11</td><td><code>deleteExam</code></td><td>Examen en borrador</td><td>Elimina correctamente</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-12</td><td><code>deleteExam</code></td><td>Examen cerrado con entregas</td><td>Rechaza eliminacion</td><td>Implementado</td></tr>
+<tr><td>WB-S2-EX-13</td><td><code>updateQuestion</code></td><td>Tema queda arriba de 10 en edicion</td><td>Permite estado intermedio para redistribucion</td><td>Implementado</td></tr>
+</tbody></table>
+<h3>Avance parcial Sprint 3 - ExamSubmissionService</h3>
+<table><thead><tr><th>TC-ID</th><th>Metodo / rama</th><th>Condicion analizada</th><th>Resultado esperado</th><th>Estado</th></tr></thead><tbody>
+<tr><td>WB-S3-SUB-01</td><td><code>start</code></td><td>Alumno inicia examen publicado</td><td>Crea entrega <code>EN_PROGRESO</code> con respuestas vacias</td><td>Implementado</td></tr>
+<tr><td>WB-S3-SUB-02</td><td><code>saveAnswers</code></td><td>Entrega en progreso</td><td>Actualiza texto de respuesta</td><td>Implementado</td></tr>
+<tr><td>WB-S3-SUB-03</td><td><code>saveAnswers</code></td><td>Entrega ya finalizada</td><td>Rechaza modificacion</td><td>Implementado</td></tr>
+<tr><td>WB-S3-SUB-04</td><td><code>submit</code></td><td>Entrega en progreso</td><td>Cambia a <code>ENTREGADO</code> y setea <code>submittedAt</code></td><td>Implementado</td></tr>
+</tbody></table>
+<h2>5. Resultado de ejecucion</h2>
+<p>Comando utilizado para ejecutar la suite completa incluida en esta entrega:</p>
+<pre><code>$env:JAVA_HOME=&#x27;C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2025.2\jbr&#x27;
+$env:Path=&quot;$env:JAVA_HOME\bin;$env:Path&quot;
+.\mvnw.cmd test</code></pre>
+<p>Resultado:</p>
+<table><thead><tr><th>Test set</th><th>Tests</th><th>Failures</th><th>Errors</th><th>Skipped</th></tr></thead><tbody>
+<tr><td><code>AuthServiceTest</code></td><td>15</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><code>ExamServiceTest</code></td><td>13</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><code>ExamSubmissionServiceTest</code></td><td>4</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><code>PasswordPolicyServiceTest</code></td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><code>UserServiceTest</code></td><td>17</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><code>ApplicationTests</code></td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>55</strong></td><td><strong>0</strong></td><td><strong>0</strong></td><td><strong>0</strong></td></tr>
+</tbody></table>
+<p>Estado general: <strong>BUILD SUCCESS</strong>.</p>
+<p>Evidencia local generada por Maven Surefire:</p>
+<pre><code>target/surefire-reports/</code></pre>
+<h2>6. Avance respecto de Sprint 1</h2>
+<p>En Sprint 1 la caja blanca se concentro en autenticacion, usuarios y politicas de contrasena. Para esta entrega se avanzo sobre la logica principal incorporada en Sprint 2 y se dejo cubierto un primer bloque del flujo posterior.</p>
+<table><thead><tr><th>Area</th><th>Sprint 1</th><th>Entrega actual</th></tr></thead><tbody>
+<tr><td>Autenticacion / usuarios / politicas</td><td>Cubierto</td><td>Regresion mantenida</td></tr>
+<tr><td>Creacion de examenes en borrador</td><td>No incluido</td><td>Cubierto</td></tr>
+<tr><td>Alta de temas y preguntas</td><td>No incluido</td><td>Cubierto</td></tr>
+<tr><td>Validacion de 10 puntos por tema</td><td>No incluido</td><td>Cubierto</td></tr>
+<tr><td>Publicacion de examenes</td><td>No incluido</td><td>Cubierto</td></tr>
+<tr><td>Bloqueo de edicion post-publicacion</td><td>No incluido</td><td>Cubierto</td></tr>
+<tr><td>Inicio y entrega de examen</td><td>No incluido</td><td>Avance parcial cubierto</td></tr>
+</tbody></table>
+<h2>7. Riesgos detectados y pendientes</h2>
+<table><thead><tr><th>Riesgo / pendiente</th><th>Impacto</th><th>Propuesta</th></tr></thead><tbody>
+<tr><td>No hay medicion automatica de cobertura con JaCoCo</td><td>No se puede informar porcentaje de lineas/ramas con evidencia numerica</td><td>Agregar plugin JaCoCo y umbral minimo por paquete.</td></tr>
+<tr><td>No hay tests unitarios de frontend</td><td>La logica visual del panel de profesor queda validada solo manualmente</td><td>Agregar React Testing Library para flujos principales.</td></tr>
+<tr><td><code>ApplicationTests</code> levanta contexto con H2 file</td><td>La prueba es mas lenta y puede depender del entorno</td><td>Configurar perfil <code>test</code> con H2 en memoria aislado.</td></tr>
+<tr><td>Suite de bugs conocidos corre separada</td><td>Es util como evidencia, pero no forma parte de la suite verde</td><td>Mantenerla documentada como suite de deteccion/regresion negativa.</td></tr>
+</tbody></table>
+<h2>8. Conclusion</h2>
+<p>Este informe unifica la estrategia y el avance de caja blanca de la entrega actual. El foco principal corresponde a Sprint 2: gestion de examenes por profesor, validaciones previas a la publicacion y restricciones de edicion segun estado. Dentro de la misma suite se incluye tambien un avance parcial del flujo posterior previsto para Sprint 3, cubriendo inicio, guardado y entrega de examenes.</p>
+<p>La suite ejecuta 55 pruebas automatizadas con JUnit 5 + Mockito: 13 directamente asociadas a <code>ExamService</code>, 4 al avance de <code>ExamSubmissionService</code>, 37 de regresion de Sprint 1 y 1 smoke test de contexto Spring. La estrategia sigue el criterio definido desde Sprint 1: pruebas unitarias aisladas, derivadas de la estructura interna del codigo, con foco en ramas, estados y validaciones de negocio.</p>
+</body>
+</html>
