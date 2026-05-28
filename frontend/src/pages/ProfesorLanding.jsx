@@ -17,158 +17,6 @@ import DecisionTreeEditor, {
 } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 
-const HC_DELETED_KEY = '7test_hc_deleted'
-
-const HARDCODED_EXAMS = [
-  {
-    id: 'a0000001-a001-a001-a001-a00000000001',
-    title: 'Modelo de Examen — Tema A',
-    description: 'Examen modelo de muestra. Solo lectura.',
-    courseName: 'Testing de Aplicaciones',
-    teacherId: '00000000-0000-0000-0000-000000000000',
-    teacherName: 'Cátedra',
-    status: 'PUBLICADO',
-    availableFrom: null,
-    durationMinutes: 90,
-    publishedAt: '2025-01-01T00:00:00Z',
-    createdAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
-    _hardcoded: true,
-    topics: [
-      {
-        id: 'a0000001-a001-a001-a001-a00000000011',
-        name: 'Parte Teórica',
-        colorHex: '#1956D8',
-        totalPoints: 6,
-        questions: [
-          { id: 'a0000001-a001-a001-a001-a00000001101', prompt: '1. Defina testing y explique para qué sirve dentro del ciclo de vida del software.', modelAnswer: 'El testing es el proceso que incluye actividades de planificación, preparación y evaluación de productos de software para comprobar si cumplen los requisitos especificados, si son aptos para su propósito y para detectar defectos.\n\nSirve para:\n• Detectar problemas lo antes posible.\n• Verificar que el producto cumpla los requerimientos.\n• Reducir el riesgo de fallas en producción.\n• Aportar evidencia sobre la calidad del producto.', points: 1, displayOrder: 1 },
-          { id: 'a0000001-a001-a001-a001-a00000001102', prompt: '2. Explique la diferencia entre validar y verificar. Dé un ejemplo breve.', modelAnswer: 'Validar: comprobar que los requerimientos o el producto respondan a la necesidad real del negocio o del usuario.\nVerificar: comprobar que el producto desarrollado cumpla con los requerimientos previamente definidos.\n\nEjemplo:\n• Validar: confirmar que "mayores de 16 pueden votar" era la regla correcta.\n• Verificar: revisar que el sistema efectivamente permita votar a quienes cumplen esa condición.', points: 1, displayOrder: 2 },
-          { id: 'a0000001-a001-a001-a001-a00000001103', prompt: '3. ¿Quién es responsable de la calidad del software dentro de un equipo? Justifique.', modelAnswer: 'La calidad es responsabilidad de todo el equipo. No depende solo del tester. PM/PO, QA, QC, developers, DevOps y negocio influyen en la calidad. Si un requerimiento está mal definido, aunque el desarrollo esté técnicamente bien hecho, el producto puede fallar respecto de la necesidad real.', points: 1, displayOrder: 3 },
-          { id: 'a0000001-a001-a001-a001-a00000001104', prompt: '4. Explique la diferencia entre QA y QC.', modelAnswer: 'QA (Quality Assurance): se enfoca en el proceso. Define y audita metodologías, estándares, criterios, test plan y test cases. Busca prevenir defectos.\n\nQC (Quality Control): se enfoca en el producto. Ejecuta pruebas siguiendo el plan y los casos definidos, compara resultado esperado contra resultado obtenido y detecta defectos.', points: 1, displayOrder: 4 },
-          { id: 'a0000001-a001-a001-a001-a00000001105', prompt: '5. Defina prueba de caja negra y prueba de caja blanca. Marque la diferencia principal entre ambas.', modelAnswer: 'Caja negra: no interesa la estructura interna del código. Se evalúan entradas, salidas y comportamiento esperado desde afuera.\n\nCaja blanca: sí interesa el código, la lógica interna, caminos, condiciones, estructuras y funcionamiento interno.\n\nDiferencia principal: caja negra prueba desde la expectativa funcional; caja blanca prueba desde la implementación interna.', points: 1, displayOrder: 5 },
-          { id: 'a0000001-a001-a001-a001-a00000001106', prompt: '6. Enumere las principales técnicas de testing vistas en clase y explique dos de ellas.', modelAnswer: 'Técnicas: Partición de clases de equivalencia, Valores límite o frontera, Tablas de decisión, Árboles de decisión, Casos de uso, Unitarias por código, Cobertura, Mutantes.\n\nPartición de equivalencia: divide los datos en grupos equivalentes para no probar infinitos casos. Ej.: menores de 18 y mayores o iguales a 18.\n\nValores límite: prueba valores cercanos a los bordes del rango. Ej.: si se permite desde 18 años, probar 17, 18 y 19.', points: 1, displayOrder: 6 },
-        ],
-      },
-      {
-        id: 'a0000001-a001-a001-a001-a00000000012',
-        name: 'Ejercicio 1 — Tabla de decisión',
-        colorHex: '#03BB83',
-        totalPoints: 2,
-        questions: [
-          { id: 'a0000001-a001-a001-a001-a00000001201', prompt: 'Una app de delivery aplica beneficios sobre el costo de envío:\n• Usuario con suscripción premium → envío gratis.\n• Sin premium, pedido > $20.000 → 50% de descuento en el envío.\n• Cupón válido → 25% de descuento adicional sobre el envío.\n• Restaurante en zona de alta demanda → recargo, salvo que haya envío gratis.\n• Cupón inválido → sin descuento por cupón.\n\na) Identificar las condiciones.\nb) Identificar las acciones.\nc) Armar la tabla de decisión completa.\nd) Marcar qué acción corresponde en cada regla.', modelAnswer: 'Condiciones:\nC1. Usuario premium (S/N)\nC2. Pedido mayor a $20.000 (S/N)\nC3. Cupón válido (S/N)\nC4. Zona de alta demanda (S/N)\n\nAcciones:\nA1. Envío gratis\nA2. 50% de descuento en envío\nA3. 25% de descuento por cupón\nA4. Cobrar recargo por alta demanda\nA5. Sin descuentos\n\nTabla (16 reglas R1–R16):\nPremium:      V V V V V V V V F F F F F F F F\nPedido>$20k:  V V V V F F F F V V V V F F F F\nCupón válido: V V F F V V F F V V F F V V F F\nZona alta:    V F V F V F V F V F V F V F V F\n\nEnvío gratis (A1):        R1–R8\n50% desc. envío (A2):     R9,R10,R11,R12\n25% desc. cupón (A3):     R9,R10,R13,R14\nRecargo alta dem. (A4):   R9,R11,R13,R15\nSin descuentos (A5):      R15,R16\n\nNota: si el usuario es premium, el envío es gratis y no se cobra recargo aunque haya zona de alta demanda.', points: 2, displayOrder: 1 },
-        ],
-      },
-      {
-        id: 'a0000001-a001-a001-a001-a00000000013',
-        name: 'Ejercicio 2 — Árbol de decisión',
-        colorHex: '#FFC012',
-        totalPoints: 2,
-        questions: [
-          { id: 'a0000001-a001-a001-a001-a00000001301', prompt: 'Una app de streaming asigna calidad de reproducción automáticamente:\n• Conexión mala → calidad baja.\n• Conexión media:\n  - Plan gratuito → calidad media.\n  - Plan premium → calidad alta.\n• Conexión buena:\n  - Dispositivo soporta 4K Y usuario premium → calidad 4K.\n  - Si no cumple ambas → calidad alta.\n\nConstruir el árbol de decisión comenzando desde un nodo inicial.', modelAnswer: '¿Cómo es la conexión?\n├── Mala\n│   └── Calidad baja\n├── Media\n│   └── ¿Usuario premium?\n│       ├── Sí → Calidad alta\n│       └── No → Calidad media\n└── Buena\n    └── ¿Usuario premium?\n        ├── No → Calidad alta\n        └── Sí\n            └── ¿Dispositivo soporta 4K?\n                ├── Sí → Calidad 4K\n                └── No → Calidad alta', points: 2, displayOrder: 1 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'b0000002-b002-b002-b002-b00000000002',
-    title: 'Modelo de Examen — Tema B',
-    description: 'Examen modelo de muestra. Solo lectura.',
-    courseName: 'Testing de Aplicaciones',
-    teacherId: '00000000-0000-0000-0000-000000000000',
-    teacherName: 'Cátedra',
-    status: 'PUBLICADO',
-    availableFrom: null,
-    durationMinutes: 90,
-    publishedAt: '2025-01-01T00:00:00Z',
-    createdAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
-    _hardcoded: true,
-    topics: [
-      {
-        id: 'b0000002-b002-b002-b002-b00000000021',
-        name: 'Parte Teórica',
-        colorHex: '#1956D8',
-        totalPoints: 6,
-        questions: [
-          { id: 'b0000002-b002-b002-b002-b00000002101', prompt: '1. ¿Por qué no se puede testear todo? Relacione su respuesta con la necesidad de usar técnicas de testing.', modelAnswer: 'No se puede testear todo porque las combinaciones posibles de datos, caminos, usuarios, ambientes y condiciones son demasiado grandes. Además, hay límites de tiempo, recursos y presupuesto.\n\nPor eso se usan técnicas de testing: ayudan a seleccionar casos relevantes, críticos o representativos.', points: 1, displayOrder: 1 },
-          { id: 'b0000002-b002-b002-b002-b00000002102', prompt: '2. Explique el fundamento: "la prueba muestra la presencia de defectos, no su ausencia".', modelAnswer: 'Significa que una prueba puede demostrar que encontró un defecto, pero no puede garantizar que no existan otros defectos.\n\nAunque todos los casos ejecutados pasen, podrían existir errores en escenarios no probados. Por eso el testing reduce riesgos, pero no asegura perfección total.', points: 1, displayOrder: 2 },
-          { id: 'b0000002-b002-b002-b002-b00000002103', prompt: '3. Diferencie error, defecto y falla.', modelAnswer: '• Error: acción humana equivocada.\n• Defecto: problema introducido en el software por ese error.\n• Falla: manifestación visible del defecto cuando el sistema se ejecuta.\n\nEjemplo: un programador interpreta mal una condición de edad (error), escribe mal la lógica (defecto), y el sistema deja votar a alguien que no debería (falla).', points: 1, displayOrder: 3 },
-          { id: 'b0000002-b002-b002-b002-b00000002104', prompt: '4. Explique qué es una prueba de regresión y cuándo se utiliza.', modelAnswer: 'La prueba de regresión verifica que un cambio, corrección o nueva funcionalidad no haya roto algo que antes funcionaba.\n\nSe usa después de modificar el sistema, corregir bugs o agregar funcionalidades.', points: 1, displayOrder: 4 },
-          { id: 'b0000002-b002-b002-b002-b00000002105', prompt: '5. Explique qué es UAT y en qué momento del proceso de testing aparece.', modelAnswer: 'UAT significa User Acceptance Testing. Es la validación de aceptación del usuario.\n\nParticipan usuarios del negocio, clientes o representantes del usuario final para confirmar que el sistema resuelve la necesidad real. Aparece antes de pasar a producción.', points: 1, displayOrder: 5 },
-          { id: 'b0000002-b002-b002-b002-b00000002106', prompt: '6. Defina caso de uso y explique para qué sirve en testing.', modelAnswer: 'Un caso de uso describe cómo un actor interactúa con el sistema para cumplir una tarea específica.\n\nSirve en testing porque ayuda a diseñar pruebas funcionales desde la perspectiva del usuario, considerando flujo principal, flujos alternativos, precondiciones y resultados esperados.', points: 1, displayOrder: 6 },
-        ],
-      },
-      {
-        id: 'b0000002-b002-b002-b002-b00000000022',
-        name: 'Ejercicio 1 — Tabla de decisión',
-        colorHex: '#03BB83',
-        totalPoints: 2,
-        questions: [
-          { id: 'b0000002-b002-b002-b002-b00000002201', prompt: 'Una plataforma educativa decide el estado académico de un alumno:\n• Nota >= 7 → promociona.\n• Nota >= 4 y < 7 → rinde final.\n• Nota < 4 → desaprueba.\n• Más de 3 inasistencias → no puede promocionar aunque nota >= 7 → rinde final.\n• Fraude académico → desaprueba automáticamente.\n\na) Identificar condiciones.\nb) Identificar acciones.\nc) Armar la tabla de decisión.\nd) No superponer condiciones incompatibles de nota.', modelAnswer: 'Condiciones (nota es excluyente entre C1, C2 y C3):\nC1. Nota >= 7\nC2. Nota >= 4 y < 7\nC3. Nota < 4\nC4. Más de 3 inasistencias (S/N)\nC5. Fraude académico (S/N)\n\nAcciones:\nA1. Promociona\nA2. Rinde final\nA3. Desaprueba\n\nTabla válida (12 reglas, sin combinaciones imposibles de nota):\n\nNota>=7:       V V V V F F F F F F F F\nNota 4-7:      F F F F V V V V F F F F\nNota<4:        F F F F F F F F V V V V\nInasistencias: V F V F V F V F V F V F\nFraude:        V V F F V V F F V V F F\n\nPromocion (A1): R4 únicamente (nota>=7, sin inasistencias, sin fraude)\nRinde final (A2): R2 (nota>=7, fraude=N, inasist.=N→ no, wait: R2 es nota>=7, inasist.=F, fraude=V... wait)\n\nResumen correcto:\n• Fraude → siempre desaprueba (A3).\n• Nota>=7 + sin inasistencias + sin fraude → promociona (A1).\n• Nota>=7 + inasistencias → rinde final (A2).\n• Nota 4-7 + sin fraude → rinde final (A2).\n• Nota<4 → desaprueba (A3).\n• Nota 4-7 + fraude → desaprueba (A3).', points: 2, displayOrder: 1 },
-        ],
-      },
-      {
-        id: 'b0000002-b002-b002-b002-b00000000023',
-        name: 'Ejercicio 2 — Árbol de decisión',
-        colorHex: '#FFC012',
-        totalPoints: 2,
-        questions: [
-          { id: 'b0000002-b002-b002-b002-b00000002301', prompt: 'Un videojuego mobile entrega recompensas diarias:\n• No inició sesión → sin recompensa.\n• Inició sesión:\n  - Racha < 7 días → monedas básicas.\n  - Racha >= 7 días:\n    · Completó misión diaria → monedas premium.\n    · No completó misión → monedas básicas.\n• Compró pase de batalla → duplica la recompensa obtenida.\n\nConstruir el árbol de decisión.', modelAnswer: '¿Inició sesión ese día?\n├── No → Sin recompensa\n└── Sí\n    └── ¿Racha menor a 7 días?\n        ├── Sí\n        │   └── ¿Tiene pase de batalla?\n        │       ├── Sí → Monedas básicas duplicadas\n        │       └── No → Monedas básicas\n        └── No (racha >= 7 días)\n            └── ¿Completó misión diaria?\n                ├── Sí\n                │   └── ¿Tiene pase de batalla?\n                │       ├── Sí → Monedas premium duplicadas\n                │       └── No → Monedas premium\n                └── No\n                    └── ¿Tiene pase de batalla?\n                        ├── Sí → Monedas básicas duplicadas\n                        └── No → Monedas básicas', points: 2, displayOrder: 1 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'c0000003-c003-c003-c003-c00000000003',
-    title: 'Modelo de Examen — Tema C',
-    description: 'Examen modelo de muestra. Solo lectura.',
-    courseName: 'Testing de Aplicaciones',
-    teacherId: '00000000-0000-0000-0000-000000000000',
-    teacherName: 'Cátedra',
-    status: 'PUBLICADO',
-    availableFrom: null,
-    durationMinutes: 90,
-    publishedAt: '2025-01-01T00:00:00Z',
-    createdAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
-    _hardcoded: true,
-    topics: [
-      {
-        id: 'c0000003-c003-c003-c003-c00000000031',
-        name: 'Parte Teórica',
-        colorHex: '#1956D8',
-        totalPoints: 6,
-        questions: [
-          { id: 'c0000003-c003-c003-c003-c00000003101', prompt: '1. Defina calidad del software según lo visto en clase.', modelAnswer: 'La calidad del software es el grado en el cual un sistema, componente o proceso se ajusta a las expectativas o necesidades del cliente o usuario.\n\nNo alcanza con que el sistema "ande"; tiene que responder a lo que el usuario o el negocio realmente necesita.', points: 1, displayOrder: 1 },
-          { id: 'c0000003-c003-c003-c003-c00000003102', prompt: '2. Explique la diferencia entre UI y UX. ¿Cuál se relaciona más directamente con la experiencia de uso?', modelAnswer: 'UI (User Interface): cómo se ve la interfaz — colores, botones, tipografía, disposición visual.\n\nUX (User Experience): cómo se siente usar el sistema — flujo, claridad, facilidad, usabilidad y experiencia general.\n\nLa UX se relaciona más directamente con la experiencia de uso.', points: 1, displayOrder: 2 },
-          { id: 'c0000003-c003-c003-c003-c00000003103', prompt: '3. Describa el proceso base de testing y nombre sus etapas principales.', modelAnswer: 'El proceso base de testing es un ciclo ordenado para comprobar calidad, validar necesidades, verificar requerimientos y detectar defectos temprano.\n\nEtapas:\n1. Análisis de requerimientos.\n2. Test planning.\n3. Desarrollo de casos de prueba.\n4. Preparación del ambiente de prueba.\n5. Ejecución de pruebas.', points: 1, displayOrder: 3 },
-          { id: 'c0000003-c003-c003-c003-c00000003104', prompt: '4. Explique qué es una prueba smoke y cuál es su objetivo.', modelAnswer: 'La prueba smoke o "de humo" es una prueba rápida y superficial que verifica si una build es lo suficientemente estable como para seguir probándola en profundidad.\n\nSirve para evitar perder tiempo testeando una versión que falla en cosas básicas.', points: 1, displayOrder: 4 },
-          { id: 'c0000003-c003-c003-c003-c00000003105', prompt: '5. Explique la diferencia entre pruebas funcionales y no funcionales.', modelAnswer: 'Pruebas funcionales: verifican qué hace el sistema. Evalúan si cumple los requerimientos funcionales. Ej.: que un usuario pueda iniciar sesión.\n\nPruebas no funcionales: evalúan cómo se comporta el sistema. Ej.: rendimiento, carga, estrés, usabilidad, confiabilidad, portabilidad o seguridad.', points: 1, displayOrder: 5 },
-          { id: 'c0000003-c003-c003-c003-c00000003106', prompt: '6. Explique qué son valores límite y dé un ejemplo de aplicación.', modelAnswer: 'Los valores límite son una técnica de testing donde se prueban los bordes de una condición o rango, porque allí suelen aparecer errores.\n\nEjemplo: si una app permite registrarse desde los 18 años, probar 17, 18 y 19. También se puede probar un valor inválido extremo, como edad negativa.', points: 1, displayOrder: 6 },
-        ],
-      },
-      {
-        id: 'c0000003-c003-c003-c003-c00000000032',
-        name: 'Ejercicio 1 — Tabla de decisión',
-        colorHex: '#03BB83',
-        totalPoints: 2,
-        questions: [
-          { id: 'c0000003-c003-c003-c003-c00000003201', prompt: 'Una billetera virtual decide si permite una transferencia:\n• Cuenta no verificada → no puede transferir.\n• Cuenta verificada → puede transferir hasta $100.000/día.\n• Transferencia > $100.000 → solo si tiene validación biométrica activa.\n• Destinatario bloqueado → se rechaza siempre.\n• Saldo disponible < monto → se rechaza siempre.\n\na) Identificar condiciones.\nb) Identificar acciones.\nc) Armar la tabla de decisión completa.\nd) Marcar reglas imposibles o redundantes.', modelAnswer: 'Condiciones:\nC1. Cuenta verificada (S/N)\nC2. Transferencia > $100.000 (S/N)\nC3. Validación biométrica activa (S/N)\nC4. Destinatario bloqueado (S/N)\nC5. Saldo suficiente (S/N)\n\nAcciones:\nA1. Permitir transferencia\nA2. Rechazar por cuenta no verificada\nA3. Rechazar por destinatario bloqueado\nA4. Rechazar por saldo insuficiente\nA5. Rechazar por superar límite sin biometría\n\nTabla optimizada (- = irrelevante):\n\n            R1  R2  R3  R4  R5  R6\nCuenta:      -   -   F   V   V   V\nMonto>100k:  -   -   -   V   V   F\nBiometría:   -   -   -   F   V   -\nDest.bloq.:  V   F   F   F   F   F\nSaldo suf.:  -   F   V   V   V   V\n\nPermitir (A1):        –   –   –   –   X   X\nNo verif. (A2):       –   –   X   –   –   –\nDest.bloq. (A3):      X   –   –   –   –   –\nSaldo ins. (A4):      –   X   –   –   –   –\nSin biom. (A5):       –   –   –   X   –   –\n\nNotas: destinatario bloqueado siempre rechaza sin importar el resto. Sin saldo siempre rechaza (salvo precedencia por destinatario bloqueado). Biometría solo importa cuando monto > $100.000.', points: 2, displayOrder: 1 },
-        ],
-      },
-      {
-        id: 'c0000003-c003-c003-c003-c00000000033',
-        name: 'Ejercicio 2 — Árbol de decisión',
-        colorHex: '#FFC012',
-        totalPoints: 2,
-        questions: [
-          { id: 'c0000003-c003-c003-c003-c00000003301', prompt: 'Una app de turnos médicos decide qué mensaje mostrar:\n• No hay médicos disponibles → "Sin turnos disponibles".\n• Hay médicos disponibles:\n  - Obra social aceptada → puede reservar turno.\n  - Sin obra social:\n    · Acepta pagar particular → puede reservar turno.\n    · No acepta → "No se puede reservar".\n• Si tiene deuda pendiente → se bloquea la reserva aunque haya disponibilidad.\n\nConstruir el árbol de decisión.', modelAnswer: '¿Tiene deuda pendiente?\n├── Sí → Reserva bloqueada por deuda\n└── No\n    └── ¿Hay médicos disponibles?\n        ├── No → "Sin turnos disponibles"\n        └── Sí\n            └── ¿Tiene obra social aceptada?\n                ├── Sí → Puede reservar turno\n                └── No\n                    └── ¿Acepta pagar particular?\n                        ├── Sí → Puede reservar turno\n                        └── No → "No se puede reservar"', points: 2, displayOrder: 1 },
-        ],
-      },
-    ],
-  },
-]
-
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
 const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
@@ -221,7 +69,6 @@ export default function ProfesorLanding() {
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [devTokenInput, setDevTokenInput] = useState('')
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || exams[0] || null,
@@ -232,11 +79,8 @@ export default function ProfesorLanding() {
     setLoading(true)
     try {
       const res = await api.get('/exams/mine')
-      const deleted = JSON.parse(localStorage.getItem(HC_DELETED_KEY) || '[]')
-      const activeHC = HARDCODED_EXAMS.filter((e) => !deleted.includes(e.id))
-      const all = [...activeHC, ...res.data]
-      setExams(all)
-      if (!selectedId && all.length > 0) setSelectedId(all[0].id)
+      setExams(res.data)
+      if (!selectedId && res.data.length > 0) setSelectedId(res.data[0].id)
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudieron cargar los examenes.')
     } finally {
@@ -536,24 +380,6 @@ export default function ProfesorLanding() {
     }
   }
 
-  function handleDevTokenDelete() {
-    if (devTokenInput !== '4989') {
-      setMessage('Token de desarrollo incorrecto.')
-      setModal(null)
-      setDevTokenInput('')
-      return
-    }
-    const examId = modal.examId
-    const deleted = JSON.parse(localStorage.getItem(HC_DELETED_KEY) || '[]')
-    deleted.push(examId)
-    localStorage.setItem(HC_DELETED_KEY, JSON.stringify(deleted))
-    setExams((prev) => prev.filter((e) => e.id !== examId))
-    if (selectedExam?.id === examId) setSelectedId(null)
-    setModal(null)
-    setDevTokenInput('')
-    setMessage('Examen de muestra eliminado. Se restaurará al limpiar el almacenamiento del navegador.')
-  }
-
   function replaceExam(updated) {
     setExams((current) => current.map((exam) => exam.id === updated.id ? updated : exam))
     setSelectedId(updated.id)
@@ -666,12 +492,9 @@ export default function ProfesorLanding() {
                   <span style={styles.examItemTitle}>{exam.title}</span>
                   <span style={statusStyle(exam.status)}>{labelStatus(exam.status)}</span>
                 </button>
-                {(exam.status === 'BORRADOR' || exam.status === 'CERRADO' || exam._hardcoded) && (
+                {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
                   <button
-                    onClick={() => exam._hardcoded
-                      ? setModal({ type: 'devTokenDelete', examId: exam.id, examTitle: exam.title })
-                      : setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })
-                    }
+                    onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })}
                     style={styles.deleteExamBtn}
                     title="Eliminar examen"
                   >✕</button>
@@ -1016,26 +839,6 @@ export default function ProfesorLanding() {
                 <div style={styles.modalActions}>
                   <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
                   <button onClick={() => deleteExam(modal.examId)} style={styles.closeBtn}>Eliminar</button>
-                </div>
-              </>
-            ) : modal.type === 'devTokenDelete' ? (
-              <>
-                <h3 style={styles.modalTitle}>Eliminar examen de muestra</h3>
-                <p style={styles.modalText}>
-                  <strong>{modal.examTitle}</strong> es un examen de muestra. Para eliminarlo ingresá el token de desarrollo.
-                </p>
-                <input
-                  type="password"
-                  value={devTokenInput}
-                  onChange={(e) => setDevTokenInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleDevTokenDelete()}
-                  placeholder="Token de desarrollo"
-                  style={{ ...styles.input, marginBottom: 16 }}
-                  autoFocus
-                />
-                <div style={styles.modalActions}>
-                  <button onClick={() => { setModal(null); setDevTokenInput('') }} style={styles.secondaryBtn}>Cancelar</button>
-                  <button onClick={handleDevTokenDelete} style={styles.closeBtn}>Eliminar</button>
                 </div>
               </>
             ) : (
