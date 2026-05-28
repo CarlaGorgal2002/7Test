@@ -716,16 +716,22 @@ export default function ProfesorLanding() {
                                   />
                                   <label style={styles.label}>Respuesta modelo</label>
                                   {isDecisionTableForm(editForm) ? (
-                                    <DecisionTableEditor
-                                      value={editForm.modelAnswer || emptyDecisionTableValue()}
-                                      onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
-                                    />
-                                  ) : isDecisionTreeForm(editForm) ? (
-                                    <DecisionTreeEditor
-                                      value={editForm.modelAnswer || emptyDecisionTreeValue()}
-                                      onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
-                                    />
-                                  ) : (
+                                        <div style={styles.practicalAnswerContainerLarge}>
+                                          <DecisionTableEditor
+                                            value={editForm.modelAnswer || emptyDecisionTableValue()}
+                                            onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
+                                            compact
+                                          />
+                                        </div>
+                                      ) : isDecisionTreeForm(editForm) ? (
+                                        <div style={styles.practicalAnswerContainerLarge}>
+                                          <DecisionTreeEditor
+                                            value={editForm.modelAnswer || emptyDecisionTreeValue()}
+                                            onChange={(value) => updateEditingQuestionForm(question.id, 'modelAnswer', value)}
+                                            compact
+                                          />
+                                        </div>
+                                      ) : (
                                     <AutoGrowTextarea
                                       value={editForm.modelAnswer}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
@@ -746,10 +752,14 @@ export default function ProfesorLanding() {
                                   <div>
                                     <strong>{question.displayOrder}. {questionDisplayTitle(question)}</strong>
                                     {tableQuestion ? (
-                                      <DecisionTableEditor value={question.modelAnswer} readOnly compact />
-                                    ) : treeQuestion ? (
-                                      <DecisionTreeEditor value={question.modelAnswer} readOnly compact />
-                                    ) : (
+                                        <div style={styles.practicalAnswerContainer}>
+                                          <DecisionTableEditor value={question.modelAnswer} readOnly compact />
+                                        </div>
+                                      ) : treeQuestion ? (
+                                        <div style={styles.practicalAnswerContainer}>
+                                          <DecisionTreeEditor value={question.modelAnswer} readOnly compact />
+                                        </div>
+                                      ) : (
                                       <p style={styles.answer}>Modelo: {question.modelAnswer || 'Sin completar'}</p>
                                     )}
                                   </div>
@@ -801,16 +811,22 @@ export default function ProfesorLanding() {
                           />
                           <label style={styles.label}>Respuesta modelo</label>
                           {tableForm ? (
-                            <DecisionTableEditor
-                              value={form.modelAnswer || emptyDecisionTableValue()}
-                              onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
-                            />
-                          ) : treeForm ? (
-                            <DecisionTreeEditor
-                              value={form.modelAnswer || emptyDecisionTreeValue()}
-                              onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
-                            />
-                          ) : (
+                                <div style={styles.practicalAnswerContainerLarge}>
+                                  <DecisionTableEditor
+                                    value={form.modelAnswer || emptyDecisionTableValue()}
+                                    onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
+                                    compact
+                                  />
+                                </div>
+                              ) : treeForm ? (
+                                <div style={styles.practicalAnswerContainerLarge}>
+                                  <DecisionTreeEditor
+                                    value={form.modelAnswer || emptyDecisionTreeValue()}
+                                    onChange={(value) => updateQuestionForm(topic.id, 'modelAnswer', value)}
+                                    compact
+                                  />
+                                </div>
+                              ) : (
                             <AutoGrowTextarea
                               value={form.modelAnswer}
                               onChange={(e) => updateQuestionForm(topic.id, 'modelAnswer', e.target.value)}
@@ -1074,7 +1090,15 @@ const styles = {
   totalOk: { color: '#087A55', fontSize: 13, fontWeight: 800 },
   totalPending: { color: '#9B6A00', fontSize: 13, fontWeight: 800 },
   questions: { display: 'flex', flexDirection: 'column', gap: 10 },
-  questionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 12 },
+  questionRow: {
+    border: '1px solid #E7F0F3',
+    borderRadius: 6,
+    padding: 10,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 12,
+    overflow: 'hidden',
+  },
   answer: { margin: '6px 0 0', color: '#536B76', fontSize: 13, lineHeight: 1.4, whiteSpace: 'pre-wrap' },
   questionActions: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 },
   points: { color: '#1956D8', fontWeight: 800, fontSize: 13 },
@@ -1099,4 +1123,27 @@ const styles = {
   modalText: { fontSize: 14, color: '#304653', margin: '0 0 8px' },
   modalList: { margin: '0 0 18px 20px', padding: 0, fontSize: 14, color: '#09222A', lineHeight: 2 },
   modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' },
+practicalAnswerContainer: {
+  width: '100%',
+  maxWidth: '100%',
+  height: 220,
+  overflow: 'auto',
+  boxSizing: 'border-box',
+  border: '1px solid #D8E8EC',
+  borderRadius: 8,
+  background: '#EEF5F7',
+  marginTop: 8,
+},
+
+practicalAnswerContainerLarge: {
+  width: '100%',
+  maxWidth: '100%',
+  height: 420,
+  overflow: 'auto',
+  boxSizing: 'border-box',
+  border: '1px solid #D8E8EC',
+  borderRadius: 8,
+  background: '#EEF5F7',
+  marginTop: 8,
+},
 }

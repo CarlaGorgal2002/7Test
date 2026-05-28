@@ -197,18 +197,24 @@ export default function AlumnoLanding() {
                         <span style={styles.points}>{question.points} pts</span>
                       </div>
                       {tableQuestion ? (
-                        <DecisionTableEditor
-                          value={answers[question.questionId] || emptyDecisionTableValue()}
-                          onChange={(value) => updateAnswer(question.questionId, value)}
-                          readOnly={!canAnswer}
-                        />
-                      ) : treeQuestion ? (
-                        <DecisionTreeEditor
-                          value={answers[question.questionId] || emptyDecisionTreeValue()}
-                          onChange={(value) => updateAnswer(question.questionId, value)}
-                          readOnly={!canAnswer}
-                        />
-                      ) : (
+                            <div style={styles.practicalAnswerContainer}>
+                              <DecisionTableEditor
+                                value={answers[question.questionId] || emptyDecisionTableValue()}
+                                onChange={(value) => updateAnswer(question.questionId, value)}
+                                readOnly={!canAnswer}
+                                compact
+                              />
+                            </div>
+                          ) : treeQuestion ? (
+                            <div style={styles.practicalAnswerContainer}>
+                              <DecisionTreeEditor
+                                value={answers[question.questionId] || emptyDecisionTreeValue()}
+                                onChange={(value) => updateAnswer(question.questionId, value)}
+                                readOnly={!canAnswer}
+                                compact
+                              />
+                            </div>
+                          ) : (
                         <AutoGrowTextarea
                           value={answers[question.questionId] || ''}
                           onChange={(e) => updateAnswer(question.questionId, e.target.value)}
@@ -273,8 +279,7 @@ const styles = {
   primaryBtn: { minHeight: 38, padding: '8px 16px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
-  workspace: { minWidth: 0 },
-  message: { background: '#FFF8DF', border: '1px solid #E7CE74', color: '#5D4700', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 14 },
+  workspace: { minWidth: 0, maxWidth: '100%', overflow: 'hidden' },  message: { background: '#FFF8DF', border: '1px solid #E7CE74', color: '#5D4700', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 14 },
   empty: { background: '#fff', border: '1px dashed #B9CDD3', borderRadius: 8, padding: 24, color: '#536B76', textAlign: 'center' },
   examHeader: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 20, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 16 },
   currentTitle: { fontSize: 24, margin: '0 0 6px' },
@@ -283,7 +288,7 @@ const styles = {
   doneBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   saving: { color: '#536B76', fontSize: 13, fontWeight: 700 },
   questions: { display: 'flex', flexDirection: 'column', gap: 14 },
-  questionCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
+  questionCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, maxWidth: '100%', overflow: 'hidden'},
   questionHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   questionTitle: { fontSize: 17, margin: 0, lineHeight: 1.35 },
   points: { color: '#1956D8', fontWeight: 800, whiteSpace: 'nowrap' },
@@ -291,4 +296,5 @@ const styles = {
   answerBox: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
   answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
+  practicalAnswerContainer: { width: '100%', maxWidth: '100%',height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7'},
 }

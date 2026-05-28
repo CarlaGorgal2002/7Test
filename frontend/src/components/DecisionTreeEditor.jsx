@@ -387,7 +387,16 @@ function clamp(value, min, max) {
 
 const styles = {
   editor: { border: '1px solid #C9DDE3', borderRadius: 8, background: '#F8FBFC', overflow: 'hidden' },
-  editorCompact: { border: '1px solid #E7F0F3', borderRadius: 6, background: '#F8FBFC', overflow: 'hidden', marginTop: 8 },
+  editorCompact: {
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #E7F0F3',
+    borderRadius: 6,
+    background: '#F8FBFC',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
   toolbar: { minHeight: 46, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid #D8E8EC', background: '#fff', flexWrap: 'wrap' },
   toolButton: { width: 44, height: 32, border: '1px solid #1956D8', borderRadius: 6, background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' },
   deleteButton: { minHeight: 32, padding: '6px 12px', border: '1px solid #9B2C2C', borderRadius: 6, background: '#fff', color: '#9B2C2C', fontWeight: 700, cursor: 'pointer' },
@@ -398,7 +407,14 @@ const styles = {
   zoomButton: { width: 32, height: 32, border: '1px solid #1956D8', borderRadius: 6, background: '#fff', color: '#1956D8', fontSize: 16, fontWeight: 800, cursor: 'pointer' },
   zoomLabel: { minWidth: 46, color: '#304653', fontSize: 13, fontWeight: 800, textAlign: 'center' },
   boardFrame: { width: '100%', height: 680, overflow: 'auto', background: '#EEF5F7' },
-  boardFrameCompact: { width: '100%', maxHeight: 360, overflow: 'auto', background: '#EEF5F7' },
+  boardFrameCompact: {
+    width: '100%',
+    maxWidth: '100%',
+    height: 320,
+    overflow: 'auto',
+    background: '#EEF5F7',
+    boxSizing: 'border-box',
+  },
   board: {
     width: boardSize.width,
     height: boardSize.height,
