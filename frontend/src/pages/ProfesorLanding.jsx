@@ -60,6 +60,7 @@ export default function ProfesorLanding() {
   const [examForm, setExamForm] = useState(emptyExam)
   const [editExamForm, setEditExamForm] = useState(emptyExam)
   const [topicName, setTopicName] = useState('Tema A')
+  const [selectedTopicId, setSelectedTopicId] = useState(null)
   const [questionForms, setQuestionForms] = useState({})
   const [editingQuestionForms, setEditingQuestionForms] = useState({})
   const [editingTopicId, setEditingTopicId] = useState(null)
@@ -110,6 +111,7 @@ export default function ProfesorLanding() {
       courseName: selectedExam.courseName || 'Testing de Aplicaciones',
       durationMinutes: selectedExam.durationMinutes || 120,
     })
+    setSelectedTopicId(selectedExam.topics?.[0]?.id ?? null)
   }, [selectedExam?.id])
 
   async function handleLogout() {
@@ -154,6 +156,7 @@ export default function ProfesorLanding() {
         setTemplateLoading(createdTopic.id)
         updated = await appendDefaultTemplate(updated, createdTopic.id)
         replaceExam(updated)
+        setSelectedTopicId(createdTopic.id)
       }
       setTopicName(nextTopicName(res.data.topics.length + 1))
       setMessage('Tema agregado con 6 teoricas vacias, tabla vacia y arbol vacio.')
@@ -600,18 +603,49 @@ export default function ProfesorLanding() {
                 </section>
               )}
 
-              <div style={styles.topicGrid}>
-                {selectedExam.topics?.length === 0 && (
-                  <div style={styles.emptyState}>Agrega al menos un tema. Para publicar, cada tema debe sumar 10 puntos.</div>
-                )}
+              {selectedExam.topics?.length === 0 && (
+                <div style={styles.emptyState}>Agrega al menos un tema. Para publicar, cada tema debe sumar 10 puntos.</div>
+              )}
 
-                {selectedExam.topics?.map((topic) => {
+              {selectedExam.topics?.length > 0 && (() => {
+                const activeId = selectedTopicId && selectedExam.topics.find(t => t.id === selectedTopicId)
+                  ? selectedTopicId
+                  : selectedExam.topics[0].id
+                return (
+                  <>
+                    <div style={styles.topicTabs}>
+                      {selectedExam.topics.map((t) => {
+                        const isActive = t.id === activeId
+                        const ok = Number(t.totalPoints) === 10
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setSelectedTopicId(t.id)}
+                            style={{
+                              ...styles.topicTab,
+                              borderBottom: isActive ? `3px solid ${t.colorHex || '#1956D8'}` : '3px solid transparent',
+                              color: isActive ? (t.colorHex || '#1956D8') : '#555',
+                              fontWeight: isActive ? 700 : 400,
+                              background: isActive ? '#f0f8ff' : 'transparent',
+                            }}
+                          >
+                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.colorHex || '#1956D8', marginRight: 6, flexShrink: 0 }} />
+                            {t.name}
+                            <span style={{ marginLeft: 6, fontSize: 11, color: ok ? '#03BB83' : '#e74c3c', fontWeight: 700 }}>
+                              {Number(t.totalPoints)}/10
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {selectedExam.topics.filter(topic => topic.id === activeId).map((topic) => {
                   const totalOk = Number(topic.totalPoints) === 10
                   const form = questionForms[topic.id] || emptyQuestion
                   const treeForm = isDecisionTreeForm(form)
                   const tableForm = isDecisionTableForm(form)
                   return (
-                    <article key={topic.id} style={{ ...styles.topicCard, borderTop: `4px solid ${topic.colorHex || '#1956D8'}` }}>
+                    <article key={topic.id} style={{ ...styles.topicCard, borderTop: `4px solid ${topic.colorHex || '#1956D8'}`, marginTop: 0, borderRadius: '0 0 12px 12px' }}>
                       <div style={styles.topicHeader}>
                         <div>
                           <div style={styles.topicTitleRow}>
@@ -807,7 +841,9 @@ export default function ProfesorLanding() {
                     </article>
                   )
                 })}
-              </div>
+                  </>
+                )
+              })()}
             </>
           )}
         </section>
@@ -1023,6 +1059,8 @@ const styles = {
   editActions: { display: 'flex', justifyContent: 'flex-end', marginTop: 12 },
   topicForm: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 14, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 16 },
   topicGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 },
+  topicTabs: { display: 'flex', flexWrap: 'wrap', gap: 0, borderBottom: '1px solid #D8E8EC', marginBottom: 0 },
+  topicTab: { display: 'flex', alignItems: 'center', padding: '9px 18px', cursor: 'pointer', border: 'none', borderRadius: '8px 8px 0 0', fontSize: 14, transition: 'all .15s', whiteSpace: 'nowrap' },
   topicCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
   topicHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   topicTitleRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
