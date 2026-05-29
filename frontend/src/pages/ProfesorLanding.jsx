@@ -76,6 +76,11 @@ export default function ProfesorLanding() {
     [exams, selectedId]
   )
 
+  const activeTopic = useMemo(() => {
+    if (!selectedExam?.topics?.length) return null
+    return selectedExam.topics.find(t => t.id === selectedTopicId) || selectedExam.topics[0]
+  }, [selectedExam, selectedTopicId])
+
   const fetchExams = useCallback(async () => {
     setLoading(true)
     try {
@@ -607,39 +612,36 @@ export default function ProfesorLanding() {
                 <div style={styles.emptyState}>Agrega al menos un tema. Para publicar, cada tema debe sumar 10 puntos.</div>
               )}
 
-              {selectedExam.topics?.length > 0 && (() => {
-                const activeId = selectedTopicId && selectedExam.topics.find(t => t.id === selectedTopicId)
-                  ? selectedTopicId
-                  : selectedExam.topics[0].id
-                return (
-                  <>
-                    <div style={styles.topicTabs}>
-                      {selectedExam.topics.map((t) => {
-                        const isActive = t.id === activeId
-                        const ok = Number(t.totalPoints) === 10
-                        return (
-                          <button
-                            key={t.id}
-                            onClick={() => setSelectedTopicId(t.id)}
-                            style={{
-                              ...styles.topicTab,
-                              borderBottom: isActive ? `3px solid ${t.colorHex || '#1956D8'}` : '3px solid transparent',
-                              color: isActive ? (t.colorHex || '#1956D8') : '#555',
-                              fontWeight: isActive ? 700 : 400,
-                              background: isActive ? '#f0f8ff' : 'transparent',
-                            }}
-                          >
-                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.colorHex || '#1956D8', marginRight: 6, flexShrink: 0 }} />
-                            {t.name}
-                            <span style={{ marginLeft: 6, fontSize: 11, color: ok ? '#03BB83' : '#e74c3c', fontWeight: 700 }}>
-                              {Number(t.totalPoints)}/10
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
+              {selectedExam.topics?.length > 0 && (
+                <div style={styles.topicTabs}>
+                  {selectedExam.topics.map((t) => {
+                    const isActive = t.id === activeTopic?.id
+                    const ok = Number(t.totalPoints) === 10
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTopicId(t.id)}
+                        style={{
+                          ...styles.topicTab,
+                          borderBottom: isActive ? `3px solid ${t.colorHex || '#1956D8'}` : '3px solid transparent',
+                          color: isActive ? (t.colorHex || '#1956D8') : '#555',
+                          fontWeight: isActive ? 700 : 400,
+                          background: isActive ? '#f0f8ff' : 'transparent',
+                        }}
+                      >
+                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.colorHex || '#1956D8', marginRight: 6, flexShrink: 0 }} />
+                        {t.name}
+                        <span style={{ marginLeft: 6, fontSize: 11, color: ok ? '#03BB83' : '#e74c3c', fontWeight: 700 }}>
+                          {Number(t.totalPoints)}/10
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
-                    {selectedExam.topics.filter(topic => topic.id === activeId).map((topic) => {
+              {activeTopic && (() => {
+                  const topic = activeTopic
                   const totalOk = Number(topic.totalPoints) === 10
                   const form = questionForms[topic.id] || emptyQuestion
                   const treeForm = isDecisionTreeForm(form)
@@ -856,10 +858,7 @@ export default function ProfesorLanding() {
                       )}
                     </article>
                   )
-                })}
-                  </>
-                )
-              })()}
+                })()}
             </>
           )}
         </section>
