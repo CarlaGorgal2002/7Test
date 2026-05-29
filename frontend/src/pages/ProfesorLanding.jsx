@@ -172,19 +172,38 @@ export default function ProfesorLanding() {
     }
   }
 
-  async function renameTopic(topicId) {
-    if (!selectedExam || !editingTopicName.trim()) return
-    setMessage('')
-    try {
-      const res = await api.put(`/exams/${selectedExam.id}/topics/${topicId}`, { name: editingTopicName.trim() })
-      replaceExam(res.data)
-      setEditingTopicId(null)
-      setEditingTopicName('')
-      setMessage('Nombre del tema actualizado.')
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo renombrar el tema.')
-    }
+  async function removeTopic(topicId) {
+  if (!selectedExam || !topicId) return
+  if (!window.confirm('¿Seguro que querés eliminar este tema? Se van a borrar también sus preguntas.')) return
+
+  setMessage('')
+  try {
+    const res = await api.delete(`/exams/${selectedExam.id}/topics/${topicId}`)
+    replaceExam(res.data)
+
+    const remainingTopics = res.data.topics || []
+    setSelectedTopicId(remainingTopics[0]?.id ?? null)
+
+    setMessage('Tema eliminado.')
+  } catch (err) {
+    setMessage(err.response?.data?.message || 'No se pudo eliminar el tema.')
   }
+}
+async function renameTopic(topicId) {
+  if (!selectedExam || !editingTopicName.trim()) return
+  setMessage('')
+  try {
+    const res = await api.put(`/exams/${selectedExam.id}/topics/${topicId}`, {
+      name: editingTopicName.trim(),
+    })
+    replaceExam(res.data)
+    setEditingTopicId(null)
+    setEditingTopicName('')
+    setMessage('Nombre del tema actualizado.')
+  } catch (err) {
+    setMessage(err.response?.data?.message || 'No se pudo renombrar el tema.')
+  }
+}
 
   async function updateExam(e) {
     e.preventDefault()
@@ -667,14 +686,27 @@ export default function ProfesorLanding() {
                             ) : (
                               <div style={styles.topicTitleRow}>
                                 <h3 style={styles.topicTitle}>{topic.name}</h3>
-                                {canEdit && (
-                                  <button
-                                    type="button"
-                                    onClick={() => { setEditingTopicId(topic.id); setEditingTopicName(topic.name) }}
-                                    style={styles.topicRenameBtn}
-                                    title="Renombrar tema"
-                                  >✎</button>
-                                )}
+                                  {canEdit && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setEditingTopicId(topic.id); setEditingTopicName(topic.name) }}
+                                        style={styles.topicRenameBtn}
+                                        title="Renombrar tema"
+                                      >
+                                        ✎
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTopic(topic.id)}
+                                        style={styles.deleteTopicBtn}
+                                        title="Eliminar tema"
+                                      >
+                                        Eliminar tema
+                                      </button>
+                                    </>
+                                  )}
                               </div>
                             )}
                           </div>
@@ -1144,5 +1176,16 @@ practicalAnswerContainerLarge: {
   borderRadius: 8,
   background: '#EEF5F7',
   marginTop: 8,
+},
+deleteTopicBtn: {
+  minHeight: 30,
+  padding: '5px 10px',
+  background: '#fff',
+  color: '#9B2C2C',
+  border: '1px solid #9B2C2C',
+  borderRadius: 6,
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: 'pointer',
 },
 }
