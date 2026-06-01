@@ -7,6 +7,26 @@ import DecisionTableEditor, { emptyDecisionTableValue, isDecisionTablePrompt } f
 import DecisionTreeEditor, { emptyDecisionTreeValue, isDecisionTreePrompt } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 
+const TOPIC_PASTEL = {
+  '#1956d8': '#AACCFF',
+  '#03bb83': '#AAFFD9',
+  '#ffc012': '#FFF099',
+  '#e05252': '#FFAAAA',
+  '#9b59b6': '#D9AAFF',
+  '#e67e22': '#FFD4AA',
+  '#1abc9c': '#AAFFF0',
+  '#2980b9': '#AADEFF',
+  '#d35400': '#FFCC99',
+  '#27ae60': '#AAFFCC',
+}
+
+function topicPastelColor(exams, examId, topicId) {
+  const exam = exams.find(e => e.id === examId)
+  const topic = exam?.topics?.find(t => t.id === topicId)
+  const hex = topic?.colorHex?.toLowerCase()
+  return (hex && TOPIC_PASTEL[hex]) || '#F4F8FA'
+}
+
 export default function AlumnoLanding() {
   const navigate = useNavigate()
   const user = getCurrentUser() || {}
@@ -233,8 +253,9 @@ export default function AlumnoLanding() {
 
   // ── VISTA: RESOLUCIÓN ─────────────────────────────────────────────────────
   if (view.type === 'exam' && current) {
+    const bgColor = topicPastelColor(exams, current.examId, current.topicId)
     return (
-      <div style={styles.page}>
+      <div style={{ ...styles.page, background: bgColor }}>
         <header style={styles.header}>
           <div style={styles.brand}>
             <Logo dark size={36} />
