@@ -19,7 +19,7 @@ import Logo from '../components/Logo.jsx'
 
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
-const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120 }
+const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableFrom: '' }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 const theoryTemplate = {
@@ -70,6 +70,7 @@ export default function ProfesorLanding() {
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [profNow, setProfNow] = useState(Date.now())
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || exams[0] || null,
@@ -109,12 +110,19 @@ export default function ProfesorLanding() {
   }, [selectedExam?.id, selectedExam?.status])
 
   useEffect(() => {
+    if (selectedExam?.status !== 'PUBLICADO') return
+    const interval = setInterval(() => setProfNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [selectedExam?.status])
+
+  useEffect(() => {
     if (!selectedExam) return
     setEditExamForm({
       title: selectedExam.title || '',
       description: selectedExam.description || '',
       courseName: selectedExam.courseName || 'Testing de Aplicaciones',
       durationMinutes: selectedExam.durationMinutes || 120,
+      availableFrom: selectedExam.availableFrom ? toDatetimeLocal(selectedExam.availableFrom) : '',
     })
     setSelectedTopicId(selectedExam.topics?.[0]?.id ?? null)
   }, [selectedExam?.id])
@@ -137,6 +145,7 @@ export default function ProfesorLanding() {
         description: examForm.description,
         courseName: examForm.courseName,
         durationMinutes: Number(examForm.durationMinutes) || null,
+        availableFrom: examForm.availableFrom ? new Date(examForm.availableFrom).toISOString() : null,
       })
       setExamForm(emptyExam)
       let newExam = res.data
@@ -234,6 +243,7 @@ async function renameTopic(topicId) {
         description: editExamForm.description,
         courseName: editExamForm.courseName || selectedExam.courseName || 'Testing de Aplicaciones',
         durationMinutes: Number(editExamForm.durationMinutes || selectedExam.durationMinutes) || null,
+        availableFrom: editExamForm.availableFrom ? new Date(editExamForm.availableFrom).toISOString() : null,
       })
       replaceExam(res.data)
       setMessage('Datos del borrador actualizados.')
@@ -519,12 +529,19 @@ async function renameTopic(topicId) {
               style={styles.input}
               placeholder="Testing de Aplicaciones"
             />
-            <label style={styles.label}>Duracion estimada</label>
+            <label style={styles.label}>Duracion estimada (min)</label>
             <input
               type="number"
               min="1"
               value={examForm.durationMinutes}
               onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })}
+              style={styles.input}
+            />
+            <label style={styles.label}>Fecha y hora (opcional)</label>
+            <input
+              type="datetime-local"
+              value={examForm.availableFrom}
+              onChange={(e) => setExamForm({ ...examForm, availableFrom: e.target.value })}
               style={styles.input}
             />
             <button type="submit" style={styles.primaryBtn}>Crear borrador</button>
@@ -604,6 +621,15 @@ async function renameTopic(topicId) {
                           rows={3}
                         />
                       </div>
+                      <div style={styles.fieldBlock}>
+                        <label style={styles.label}>Fecha y hora (opcional)</label>
+                        <input
+                          type="datetime-local"
+                          value={editExamForm.availableFrom || ''}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, availableFrom: e.target.value })}
+                          style={styles.input}
+                        />
+                      </div>
                     </div>
                     <div style={styles.editActions}>
                       <button type="submit" style={styles.secondaryBtn}>Guardar cambios</button>
@@ -623,33 +649,63 @@ async function renameTopic(topicId) {
                 </>
               )}
 
-              {!canEdit && (
-                <section style={styles.submissionPanel}>
-                  <div style={styles.submissionHeader}>
-                    <h3 style={styles.submissionTitle}>Entregas de alumnos</h3>
-                    <button onClick={() => {
-                      api.get(`/submissions/exams/${selectedExam.id}`).then((res) => setSubmissions(res.data)).catch(() => setSubmissions([]))
-                    }} style={styles.secondaryBtn}>Actualizar</button>
-                  </div>
-                  {submissions.length === 0 ? (
-                    <p style={styles.muted}>Todavia no hay alumnos que hayan iniciado este examen.</p>
-                  ) : (
-                    <div style={styles.submissionList}>
-                      {submissions.map((submission) => (
-                        <div key={submission.id} style={styles.submissionRow}>
-                          <div>
-                            <strong>{submission.studentName}</strong>
-                            <p style={styles.answer}>Tema: {submission.topicName}</p>
-                          </div>
-                          <span style={submission.status === 'ENTREGADO' ? styles.submittedBadge : styles.progressBadge}>
-                            {submission.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
+              {!canEdit && (() => {
+                const examEndMs = selectedExam.publishedAt && selectedExam.durationMinutes
+                  ? new Date(selectedExam.publishedAt).getTime() + selectedExam.durationMinutes * 60_000
+                  : null
+                const secondsLeft = examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
+                const enProgreso = submissions.filter(s => s.status !== 'ENTREGADO').length
+                const entregados = submissions.filter(s => s.status === 'ENTREGADO').length
+                return (
+                  <section style={styles.submissionPanel}>
+                    <div style={styles.submissionHeader}>
+                      <h3 style={styles.submissionTitle}>Entregas de alumnos</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {secondsLeft !== null && (
+                          <span style={secondsLeft <= 0 ? styles.timerExpiredProf : styles.timerProf}>
+                            {secondsLeft <= 0 ? '⏰ Tiempo vencido' : `⏱ ${formatProfTime(secondsLeft)} restantes`}
                           </span>
-                        </div>
-                      ))}
+                        )}
+                        <button onClick={() => {
+                          api.get(`/submissions/exams/${selectedExam.id}`).then((res) => setSubmissions(res.data)).catch(() => setSubmissions([]))
+                        }} style={styles.secondaryBtn}>Actualizar</button>
+                      </div>
                     </div>
-                  )}
-                </section>
-              )}
+                    {submissions.length > 0 && (
+                      <div style={styles.submissionCounters}>
+                        <span style={styles.counterBadgeProgress}>En progreso: {enProgreso}</span>
+                        <span style={styles.counterBadgeDone}>Entregado: {entregados}</span>
+                        <span style={styles.counterBadgeTotal}>Total: {submissions.length}</span>
+                      </div>
+                    )}
+                    {submissions.length === 0 ? (
+                      <p style={styles.muted}>Todavia no hay alumnos que hayan iniciado este examen.</p>
+                    ) : (
+                      <div style={styles.submissionList}>
+                        {submissions.map((submission) => {
+                          const excedido = examEndMs && submission.status !== 'ENTREGADO' && profNow > examEndMs
+                          return (
+                            <div key={submission.id} style={styles.submissionRow}>
+                              <div>
+                                <strong>{submission.studentName}</strong>
+                                <p style={styles.answer}>Tema: {submission.topicName}</p>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                <span style={submission.status === 'ENTREGADO' ? styles.submittedBadge : styles.progressBadge}>
+                                  {submission.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
+                                </span>
+                                {excedido && (
+                                  <span style={styles.exceededBadge}>Excedido de tiempo</span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )
+              })()}
 
               {selectedExam.topics?.length === 0 && (
                 <div style={styles.emptyState}>Agrega al menos un tema. Para publicar, cada tema debe sumar 10 puntos.</div>
@@ -994,6 +1050,23 @@ async function renameTopic(topicId) {
   )
 }
 
+function toDatetimeLocal(isoString) {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatProfTime(seconds) {
+  const s = Math.max(0, seconds)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const pad = (n) => String(n).padStart(2, '0')
+  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`
+  return `${pad(m)}:${pad(sec)}`
+}
+
 function labelStatus(status) {
   return {
     BORRADOR: 'Borrador',
@@ -1194,6 +1267,13 @@ const styles = {
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   submittedBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
+  exceededBadge: { background: '#FDECEA', color: '#9B2C2C', padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800 },
+  timerProf: { background: '#E6EEFF', color: '#1956D8', padding: '5px 12px', borderRadius: 8, fontSize: 13, fontWeight: 800 },
+  timerExpiredProf: { background: '#FDECEA', color: '#9B2C2C', padding: '5px 12px', borderRadius: 8, fontSize: 13, fontWeight: 800 },
+  submissionCounters: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
+  counterBadgeProgress: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 },
+  counterBadgeDone: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 },
+  counterBadgeTotal: { background: '#F0F0F0', color: '#536B76', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 520, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },
   modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 10px', color: '#09222A' },
