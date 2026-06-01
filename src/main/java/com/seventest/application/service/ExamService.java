@@ -36,8 +36,8 @@ public class ExamService implements ExamManagementUseCase {
     private static final String EMPTY_DECISION_TABLE = "7TEST_DECISION_TABLE:{\"rows\":2,\"cols\":2,\"cells\":[[\"\",\"\"],[\"\",\"\"]]}";
     private static final ObjectMapper EDITOR_JSON = new ObjectMapper();
     private static final List<String> TOPIC_COLORS = List.of(
-            "#1956D8", "#03BB83", "#FFC012", "#E05252", "#9B59B6",
-            "#E67E22", "#1ABC9C", "#2980B9", "#D35400", "#27AE60"
+            "#2563EB", "#16A34A", "#D97706", "#DC2626", "#7C3AED",
+            "#EA580C", "#0891B2", "#65A30D", "#DB2777", "#0D9488"
     );
 
     private final ExamRepository examRepository;
@@ -290,11 +290,15 @@ public class ExamService implements ExamManagementUseCase {
                 throw new IllegalArgumentException("Cada tema debe sumar exactamente 10 puntos");
             }
             for (ExamQuestion question : safeQuestions(topic)) {
+                String loc = topic.getName() + " · Pregunta " + question.getDisplayOrder();
+                String hint = (question.getPrompt() != null && !question.getPrompt().isBlank())
+                        ? ": " + question.getPrompt().substring(0, Math.min(60, question.getPrompt().length()))
+                        : "";
                 if (isBlankQuestionContent(question.getPrompt())) {
-                    throw new IllegalArgumentException("Todas las preguntas deben tener enunciado antes de publicar");
+                    throw new IllegalArgumentException("Falta enunciado en " + loc);
                 }
                 if (isBlankQuestionContent(question.getModelAnswer())) {
-                    throw new IllegalArgumentException("Todas las preguntas deben tener respuesta modelo antes de publicar");
+                    throw new IllegalArgumentException("Falta respuesta modelo en " + loc + hint);
                 }
             }
         }

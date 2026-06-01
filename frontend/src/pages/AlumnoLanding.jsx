@@ -8,16 +8,16 @@ import DecisionTreeEditor, { emptyDecisionTreeValue, isDecisionTreePrompt } from
 import Logo from '../components/Logo.jsx'
 
 const TOPIC_PASTEL = {
-  '#1956d8': '#AACCFF',
-  '#03bb83': '#AAFFD9',
-  '#ffc012': '#FFF099',
-  '#e05252': '#FFAAAA',
-  '#9b59b6': '#D9AAFF',
-  '#e67e22': '#FFD4AA',
-  '#1abc9c': '#AAFFF0',
-  '#2980b9': '#AADEFF',
-  '#d35400': '#FFCC99',
-  '#27ae60': '#AAFFCC',
+  '#2563eb': '#BFDBFE',
+  '#16a34a': '#BBF7D0',
+  '#d97706': '#FDE68A',
+  '#dc2626': '#FECACA',
+  '#7c3aed': '#DDD6FE',
+  '#ea580c': '#FDBA74',
+  '#0891b2': '#A5F3FC',
+  '#65a30d': '#D9F99D',
+  '#db2777': '#FBCFE8',
+  '#0d9488': '#99F6E4',
 }
 
 function topicPastelColor(exams, examId, topicId) {
@@ -158,11 +158,10 @@ export default function AlumnoLanding() {
     setMessage('')
     try {
       const res = await api.patch(`/submissions/${current.id}/submit`)
-      setView({ type: 'exam', submission: res.data })
       upsertSubmission(res.data)
       setDirty(false)
       setConfirmSubmit(false)
-      setMessage('Examen entregado correctamente.')
+      setView({ type: 'submitted', submission: res.data })
     } catch (err) {
       setConfirmSubmit(false)
       setMessage(err.response?.data?.message || 'No se pudo entregar el examen.')
@@ -251,9 +250,34 @@ export default function AlumnoLanding() {
     )
   }
 
+  // ── VISTA: ENTREGA EXITOSA ────────────────────────────────────────────────
+  if (view.type === 'submitted') {
+    const sub = view.submission
+    return (
+      <div style={styles.page}>
+        <header style={styles.header}>
+          <div style={styles.brand}><Logo dark size={36} /><h1 style={styles.headerTitle}>Panel de Alumno</h1></div>
+          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+        </header>
+        <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 68px)', padding: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #D8E8EC', borderRadius: 12, padding: '40px 48px', maxWidth: 480, textAlign: 'center' }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 8px' }}>¡Examen entregado!</h2>
+            <p style={{ color: '#536B76', marginBottom: 24 }}>{sub?.examTitle} · Tema: {sub?.topicName}</p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={() => setView({ type: 'dashboard' })} style={styles.primaryBtn}>Ir al inicio</button>
+              <button onClick={() => setView({ type: 'exam', submission: sub })} style={styles.secondaryBtn}>Ver mis respuestas</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   // ── VISTA: RESOLUCIÓN ─────────────────────────────────────────────────────
   if (view.type === 'exam' && current) {
     const bgColor = topicPastelColor(exams, current.examId, current.topicId)
+    const topicColor = exams.find(e => e.id === current.examId)?.topics?.find(t => t.id === current.topicId)?.colorHex || '#1956D8'
     return (
       <div style={{ ...styles.page, background: bgColor }}>
         <header style={styles.header}>
@@ -296,7 +320,7 @@ export default function AlumnoLanding() {
                 const treeQuestion = isDecisionTreeQuestion(question)
                 const tableQuestion = isDecisionTableQuestion(question)
                 return (
-                  <article key={question.questionId} style={styles.questionCard}>
+                  <article key={question.questionId} style={{ ...styles.questionCard, borderLeft: `4px solid ${topicColor}` }}>
                     <div style={styles.questionHeader}>
                       <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
                       <span style={styles.points}>{question.points} pts</span>

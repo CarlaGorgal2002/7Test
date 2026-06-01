@@ -59,7 +59,7 @@ export default function ProfesorLanding() {
   const [selectedId, setSelectedId] = useState(null)
   const [examForm, setExamForm] = useState(emptyExam)
   const [editExamForm, setEditExamForm] = useState(emptyExam)
-  const [topicName, setTopicName] = useState('Tema A')
+  const [topicAdding, setTopicAdding] = useState(false)
   const [selectedTopicId, setSelectedTopicId] = useState(null)
   const [questionForms, setQuestionForms] = useState({})
   const [editingQuestionForms, setEditingQuestionForms] = useState({})
@@ -168,22 +168,23 @@ export default function ProfesorLanding() {
 
       setExams((current) => [newExam, ...current])
       setSelectedId(newExam.id)
-      setTopicName('Tema B')
       setMessage('Examen creado en borrador con Tema A.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo crear el examen.')
     }
   }
 
-  async function addTopic(e) {
-    e.preventDefault()
-    if (!selectedExam) return
+  async function addTopic() {
+    if (!selectedExam || topicAdding) return
+    setTopicAdding(true)
     setMessage('')
+    const nextLetter = nextTopicLetter(selectedExam.topics || [])
+    const name = `Tema ${nextLetter}`
     try {
-      const previousTopicIds = new Set((selectedExam.topics || []).map((topic) => topic.id))
-      const res = await api.post(`/exams/${selectedExam.id}/topics`, { name: topicName })
+      const previousTopicIds = new Set((selectedExam.topics || []).map((t) => t.id))
+      const res = await api.post(`/exams/${selectedExam.id}/topics`, { name })
       let updated = res.data
-      const createdTopic = updated.topics?.find((topic) => !previousTopicIds.has(topic.id))
+      const createdTopic = updated.topics?.find((t) => !previousTopicIds.has(t.id))
       replaceExam(updated)
       if (createdTopic) {
         setTemplateLoading(createdTopic.id)
@@ -191,32 +192,38 @@ export default function ProfesorLanding() {
         replaceExam(updated)
         setSelectedTopicId(createdTopic.id)
       }
-      setTopicName(nextTopicName(res.data.topics.length + 1))
-      setMessage('Tema agregado con 6 teoricas vacias, tabla vacia y arbol vacio.')
+      setMessage(`Tema ${nextLetter} agregado.`)
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo agregar el tema o cargar la plantilla.')
+      setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
     } finally {
       setTemplateLoading('')
+      setTopicAdding(false)
     }
   }
 
   async function removeTopic(topicId) {
-  if (!selectedExam || !topicId) return
-  if (!window.confirm('¿Seguro que querés eliminar este tema? Se van a borrar también sus preguntas.')) return
-
-  setMessage('')
-  try {
-    const res = await api.delete(`/exams/${selectedExam.id}/topics/${topicId}`)
-    replaceExam(res.data)
-
-    const remainingTopics = res.data.topics || []
-    setSelectedTopicId(remainingTopics[0]?.id ?? null)
-
-    setMessage('Tema eliminado.')
-  } catch (err) {
-    setMessage(err.response?.data?.message || 'No se pudo eliminar el tema.')
+    if (!selectedExam || !topicId) return
+    if (!window.confirm('¿Seguro que querés eliminar este tema? Se van a borrar también sus preguntas.')) return
+    setMessage('')
+    try {
+      const res = await api.delete(`/exams/${selectedExam.id}/topics/${topicId}`)
+      let updated = res.data
+      // Renombrar temas restantes para mantener A, B, C... sin saltearse letras
+      const remaining = [...(updated.topics || [])].sort((a, b) => a.name.localeCompare(b.name))
+      for (let i = 0; i < remaining.length; i++) {
+        const expected = `Tema ${String.fromCharCode(65 + i)}`
+        if (remaining[i].name !== expected) {
+          const r = await api.put(`/exams/${updated.id}/topics/${remaining[i].id}`, { name: expected })
+          updated = r.data
+        }
+      }
+      replaceExam(updated)
+      setSelectedTopicId((updated.topics || [])[0]?.id ?? null)
+      setMessage('Tema eliminado.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo eliminar el tema.')
+    }
   }
-}
 async function renameTopic(topicId) {
   if (!selectedExam || !editingTopicName.trim()) return
   setMessage('')
@@ -636,16 +643,12 @@ async function renameTopic(topicId) {
                     </div>
                   </form>
 
-                  <form onSubmit={addTopic} style={styles.topicForm}>
-                    <input
-                      value={topicName}
-                      onChange={(e) => setTopicName(e.target.value)}
-                      style={styles.input}
-                      placeholder="Tema A"
-                      required
-                    />
-                    <button type="submit" style={styles.secondaryBtn}>Agregar tema</button>
-                  </form>
+                  <div style={styles.topicForm}>
+                    <span style={styles.muted}>Siguiente: <strong>Tema {nextTopicLetter(selectedExam.topics || [])}</strong></span>
+                    <button type="button" onClick={addTopic} disabled={topicAdding} style={topicAdding ? styles.disabledBtn : styles.secondaryBtn}>
+                      {topicAdding ? 'Agregando...' : 'Agregar tema'}
+                    </button>
+                  </div>
                 </>
               )}
 
@@ -1050,6 +1053,10 @@ async function renameTopic(topicId) {
   )
 }
 
+function nextTopicLetter(topics) {
+  return String.fromCharCode(65 + Math.min((topics || []).length, 25))
+}
+
 function toDatetimeLocal(isoString) {
   if (!isoString) return ''
   const d = new Date(isoString)
@@ -1090,10 +1097,6 @@ function statusStyle(status) {
   return { ...base, background: '#E6EEFF', color: '#1956D8' }
 }
 
-function nextTopicName(count) {
-  const letter = String.fromCharCode(64 + Math.min(count, 26))
-  return `Tema ${letter}`
-}
 
 function isBlankModelAnswer(answer) {
   if (!answer || answer.trim() === '') return true
