@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client.js'
 import { clearSession, getCurrentUser } from '../auth/session.js'
@@ -10,17 +10,25 @@ import Logo from '../components/Logo.jsx'
 export default function AlumnoLanding() {
   const navigate = useNavigate()
   const user = getCurrentUser() || {}
+
   const [exams, setExams] = useState([])
   const [submissions, setSubmissions] = useState([])
-  const [current, setCurrent] = useState(null)
+  // null = dashboard, { exam } = selección de tema, { submission } = resolviendo
+  const [view, setView] = useState({ type: 'dashboard' })
+  const [selectedTopicId, setSelectedTopicId] = useState(null)
   const [answers, setAnswers] = useState({})
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState('')
   const [message, setMessage] = useState('')
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(null)
+  const timerRef = useRef(null)
+
+  const current = view.type === 'exam' ? view.submission : null
 
   const submissionsByExam = useMemo(() => {
     const map = {}
-    submissions.forEach((submission) => { map[submission.examId] = submission })
+    submissions.forEach((s) => { map[s.examId] = s })
     return map
   }, [submissions])
 
@@ -37,44 +45,69 @@ export default function AlumnoLanding() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useEffect(() => { fetchData() }, [fetchData])
 
+  // Inicializar respuestas al abrir entrega
   useEffect(() => {
     if (!current) return
-    setAnswers(Object.fromEntries(current.questions.map((question) => [question.questionId, question.answerText || ''])))
+    setAnswers(Object.fromEntries(current.questions.map((q) => [q.questionId, q.answerText || ''])))
     setDirty(false)
   }, [current?.id])
 
+  // Autoguardado
   useEffect(() => {
     if (!dirty || !current || current.status !== 'EN_PROGRESO') return
-    const timer = setTimeout(() => saveAnswers(false), 900)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => saveAnswers(false), 900)
+    return () => clearTimeout(t)
   }, [answers, dirty, current?.id, current?.status])
 
+  // Timer: arranca cuando hay una entrega en progreso con duración y publishedAt del examen
+  useEffect(() => {
+    clearInterval(timerRef.current)
+    if (!current || current.status !== 'EN_PROGRESO') { setTimeLeft(null); return }
+    const exam = exams.find((e) => e.id === current.examId)
+    if (!exam?.publishedAt || !exam?.durationMinutes) { setTimeLeft(null); return }
+
+    const endMs = new Date(exam.publishedAt).getTime() + exam.durationMinutes * 60_000
+
+    function tick() {
+      const remaining = Math.floor((endMs - Date.now()) / 1000)
+      setTimeLeft(remaining)
+    }
+    tick()
+    timerRef.current = setInterval(tick, 1000)
+    return () => clearInterval(timerRef.current)
+  }, [current?.id, current?.status, exams])
+
   async function handleLogout() {
-    try {
-      await api.post('/auth/logout')
-    } finally {
+    try { await api.post('/auth/logout') } finally {
       clearSession()
       navigate('/login', { replace: true })
     }
   }
 
-  async function startExam(examId) {
+  function openTopicSelection(exam) {
+    const existing = submissionsByExam[exam.id]
+    if (existing) {
+      setView({ type: 'exam', submission: existing })
+      return
+    }
+    setSelectedTopicId(null)
+    setMessage('')
+    setView({ type: 'topicSelect', exam })
+  }
+
+  async function startExam() {
+    const exam = view.exam
+    if (!exam || !selectedTopicId) return
     setMessage('')
     try {
-      const res = await api.post(`/submissions/exams/${examId}/start`)
-      setCurrent(res.data)
+      const res = await api.post(`/submissions/exams/${exam.id}/start`, { topicId: selectedTopicId })
       upsertSubmission(res.data)
+      setView({ type: 'exam', submission: res.data })
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo iniciar el examen.')
     }
-  }
-
-  async function openSubmission(submission) {
-    setCurrent(submission)
   }
 
   async function saveAnswers(showMessage = true) {
@@ -82,16 +115,16 @@ export default function AlumnoLanding() {
     setSaving('Guardando...')
     try {
       const payload = {
-        answers: current.questions.map((question) => ({
-          questionId: question.questionId,
-          answerText: answers[question.questionId] || '',
+        answers: current.questions.map((q) => ({
+          questionId: q.questionId,
+          answerText: answers[q.questionId] || '',
         })),
       }
       const res = await api.put(`/submissions/${current.id}/answers`, payload)
-      setCurrent(res.data)
+      setView({ type: 'exam', submission: res.data })
       upsertSubmission(res.data)
       setDirty(false)
-      setSaving(showMessage ? 'Guardado' : 'Guardado automatico')
+      setSaving(showMessage ? 'Guardado' : 'Guardado automático')
       setTimeout(() => setSaving(''), 1500)
     } catch (err) {
       setSaving('')
@@ -105,30 +138,213 @@ export default function AlumnoLanding() {
     setMessage('')
     try {
       const res = await api.patch(`/submissions/${current.id}/submit`)
-      setCurrent(res.data)
+      setView({ type: 'exam', submission: res.data })
       upsertSubmission(res.data)
       setDirty(false)
+      setConfirmSubmit(false)
       setMessage('Examen entregado correctamente.')
     } catch (err) {
+      setConfirmSubmit(false)
       setMessage(err.response?.data?.message || 'No se pudo entregar el examen.')
     }
   }
 
   function upsertSubmission(updated) {
     setSubmissions((items) => {
-      const exists = items.some((item) => item.id === updated.id)
-      if (exists) return items.map((item) => item.id === updated.id ? updated : item)
+      const exists = items.some((s) => s.id === updated.id)
+      if (exists) return items.map((s) => s.id === updated.id ? updated : s)
       return [updated, ...items]
     })
   }
 
   function updateAnswer(questionId, value) {
-    setAnswers((currentAnswers) => ({ ...currentAnswers, [questionId]: value }))
+    setAnswers((a) => ({ ...a, [questionId]: value }))
     setDirty(true)
   }
 
-  const canAnswer = current?.status === 'EN_PROGRESO'
+  // Ordena: EN_PROGRESO/disponible primero, ENTREGADO/CERRADO después
+  const sortedExams = useMemo(() => {
+    return [...exams].sort((a, b) => {
+      const sub_a = submissionsByExam[a.id]
+      const sub_b = submissionsByExam[b.id]
+      const weight = (exam, sub) => {
+        if (sub?.status === 'EN_PROGRESO') return 0
+        if (!sub && exam.status === 'PUBLICADO') return 1
+        return 2
+      }
+      return weight(a, sub_a) - weight(b, sub_b)
+    })
+  }, [exams, submissionsByExam])
 
+  const canAnswer = current?.status === 'EN_PROGRESO'
+  const timedOut = timeLeft !== null && timeLeft <= 0
+
+  // ── VISTA: SELECCIÓN DE TEMA ──────────────────────────────────────────────
+  if (view.type === 'topicSelect') {
+    const exam = view.exam
+    return (
+      <div style={styles.page}>
+        <header style={styles.header}>
+          <div style={styles.brand}>
+            <Logo dark size={36} />
+            <div>
+              <h1 style={styles.headerTitle}>Panel de Alumno</h1>
+              <span style={styles.headerUser}>{user.fullName || user.email}</span>
+            </div>
+          </div>
+          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+        </header>
+
+        <main style={styles.topicSelectMain}>
+          <div style={styles.topicSelectCard}>
+            <button onClick={() => setView({ type: 'dashboard' })} style={styles.backBtn}>← Volver</button>
+            <h2 style={styles.topicSelectTitle}>{exam.title}</h2>
+            <p style={styles.topicSelectMeta}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min</p>
+            <p style={styles.topicSelectInstr}>Seleccioná el tema que te indicó el docente:</p>
+            {message && <div style={styles.message}>{message}</div>}
+            <div style={styles.topicBtns}>
+              {(exam.topics || []).map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => setSelectedTopicId(topic.id)}
+                  style={{
+                    ...styles.topicBtn,
+                    borderColor: selectedTopicId === topic.id ? (topic.colorHex || '#1956D8') : '#D8E8EC',
+                    background: selectedTopicId === topic.id ? (topic.colorHex || '#1956D8') : '#fff',
+                    color: selectedTopicId === topic.id ? '#fff' : '#09222A',
+                  }}
+                >
+                  {topic.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={startExam}
+              disabled={!selectedTopicId}
+              style={selectedTopicId ? styles.primaryBtn : styles.disabledBtn}
+            >
+              Comenzar examen
+            </button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ── VISTA: RESOLUCIÓN ─────────────────────────────────────────────────────
+  if (view.type === 'exam' && current) {
+    return (
+      <div style={styles.page}>
+        <header style={styles.header}>
+          <div style={styles.brand}>
+            <Logo dark size={36} />
+            <div>
+              <h1 style={styles.headerTitle}>Panel de Alumno</h1>
+              <span style={styles.headerUser}>{user.fullName || user.email}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {timeLeft !== null && (
+              <span style={timedOut ? styles.timerExpired : styles.timer}>
+                {timedOut ? '⏰ Tiempo vencido' : `⏱ ${formatTime(timeLeft)}`}
+              </span>
+            )}
+            <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+          </div>
+        </header>
+
+        <main style={{ ...styles.shell, gridTemplateColumns: '1fr' }}>
+          <section style={styles.workspace}>
+            {message && <div style={styles.message}>{message}</div>}
+            <div style={styles.examHeader}>
+              <div>
+                <h2 style={styles.currentTitle}>{current.examTitle}</h2>
+                <p style={styles.muted}>Tema: <strong>{current.topicName}</strong></p>
+              </div>
+              <div style={styles.headerActions}>
+                <span style={current.status === 'ENTREGADO' ? styles.doneBadge : styles.progressBadge}>
+                  {current.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
+                </span>
+                {saving && <span style={styles.saving}>{saving}</span>}
+                {canAnswer && <button onClick={() => setView({ type: 'dashboard' })} style={styles.secondaryBtn}>← Dashboard</button>}
+              </div>
+            </div>
+
+            <div style={styles.questions}>
+              {current.questions.map((question) => {
+                const treeQuestion = isDecisionTreeQuestion(question)
+                const tableQuestion = isDecisionTableQuestion(question)
+                return (
+                  <article key={question.questionId} style={styles.questionCard}>
+                    <div style={styles.questionHeader}>
+                      <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
+                      <span style={styles.points}>{question.points} pts</span>
+                    </div>
+                    {tableQuestion ? (
+                      <div style={styles.practicalAnswerContainer}>
+                        <DecisionTableEditor
+                          value={answers[question.questionId] || emptyDecisionTableValue()}
+                          onChange={(value) => updateAnswer(question.questionId, value)}
+                          readOnly={!canAnswer}
+                          compact
+                        />
+                      </div>
+                    ) : treeQuestion ? (
+                      <div style={styles.practicalAnswerContainer}>
+                        <DecisionTreeEditor
+                          value={answers[question.questionId] || emptyDecisionTreeValue()}
+                          onChange={(value) => updateAnswer(question.questionId, value)}
+                          readOnly={!canAnswer}
+                          compact
+                        />
+                      </div>
+                    ) : (
+                      <AutoGrowTextarea
+                        value={answers[question.questionId] || ''}
+                        onChange={(e) => updateAnswer(question.questionId, e.target.value)}
+                        disabled={!canAnswer}
+                        style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
+                        placeholder="Escribí tu respuesta..."
+                        minHeight={320}
+                        maxHeight={1400}
+                      />
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+
+            <div style={styles.footerActions}>
+              <button onClick={() => saveAnswers(true)} disabled={!canAnswer} style={canAnswer ? styles.secondaryBtn : styles.disabledBtn}>
+                Guardar ahora
+              </button>
+              <button onClick={() => setConfirmSubmit(true)} disabled={!canAnswer} style={canAnswer ? styles.primaryBtn : styles.disabledBtn}>
+                Entregar examen
+              </button>
+            </div>
+          </section>
+        </main>
+
+        {/* Modal de confirmación de entrega */}
+        {confirmSubmit && (
+          <div style={styles.modalOverlay} onClick={() => setConfirmSubmit(false)}>
+            <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+              <h3 style={styles.modalTitle}>Entregar examen</h3>
+              <p style={styles.modalText}>
+                Una vez que entregues, <strong>no vas a poder modificar tus respuestas</strong>. ¿Confirmás la entrega?
+              </p>
+              <div style={styles.modalActions}>
+                <button onClick={() => setConfirmSubmit(false)} style={styles.secondaryBtn}>Cancelar</button>
+                <button onClick={submitExam} style={styles.primaryBtn}>Sí, entregar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── VISTA: DASHBOARD ──────────────────────────────────────────────────────
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -144,102 +360,50 @@ export default function AlumnoLanding() {
 
       <main style={styles.shell}>
         <aside style={styles.sidebar}>
-          <h2 style={styles.panelTitle}>Examenes publicados</h2>
-          {exams.length === 0 ? (
-            <p style={styles.muted}>No hay examenes publicados.</p>
-          ) : exams.map((exam) => {
+          <h2 style={styles.panelTitle}>Mis exámenes</h2>
+          {message && <div style={styles.message}>{message}</div>}
+          {sortedExams.length === 0 ? (
+            <p style={styles.muted}>No hay exámenes publicados.</p>
+          ) : sortedExams.map((exam) => {
             const submission = submissionsByExam[exam.id]
+            const isClosed = exam.status === 'CERRADO'
+            const isDelivered = submission?.status === 'ENTREGADO'
+            const isInProgress = submission?.status === 'EN_PROGRESO'
             return (
               <article key={exam.id} style={styles.examCard}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <h3 style={styles.examTitle}>{exam.title}</h3>
-                  <p style={styles.muted}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min · {exam.topics?.length || 0} tema(s)</p>
+                  <p style={styles.muted}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min</p>
+                  <span style={examStatusBadgeStyle(submission, exam)}>
+                    {examStatusLabel(submission, exam)}
+                  </span>
                 </div>
-                {submission ? (
-                  <button onClick={() => openSubmission(submission)} style={styles.secondaryBtn}>
-                    {submission.status === 'ENTREGADO' ? 'Ver entrega' : 'Continuar'}
-                  </button>
-                ) : (
-                  <button onClick={() => startExam(exam.id)} style={styles.primaryBtn}>Iniciar</button>
-                )}
+                <div style={{ flexShrink: 0 }}>
+                  {isDelivered || isClosed ? (
+                    submission ? (
+                      <button onClick={() => setView({ type: 'exam', submission })} style={styles.secondaryBtn}>
+                        Ver entrega
+                      </button>
+                    ) : (
+                      <span style={styles.closedLabel}>Cerrado</span>
+                    )
+                  ) : isInProgress ? (
+                    <button onClick={() => setView({ type: 'exam', submission })} style={styles.primaryBtn}>
+                      Continuar
+                    </button>
+                  ) : (
+                    <button onClick={() => openTopicSelection(exam)} style={styles.primaryBtn}>
+                      Seleccionar tema
+                    </button>
+                  )}
+                </div>
               </article>
             )
           })}
         </aside>
 
         <section style={styles.workspace}>
-          {message && <div style={styles.message}>{message}</div>}
-          {!current ? (
-            <div style={styles.empty}>Selecciona un examen para comenzar o continuar tu entrega.</div>
-          ) : (
-            <>
-              <div style={styles.examHeader}>
-                <div>
-                  <h2 style={styles.currentTitle}>{current.examTitle}</h2>
-                  <p style={styles.muted}>Tema asignado: <strong>{current.topicName}</strong></p>
-                </div>
-                <div style={styles.headerActions}>
-                  <span style={current.status === 'ENTREGADO' ? styles.doneBadge : styles.progressBadge}>
-                    {current.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
-                  </span>
-                  {saving && <span style={styles.saving}>{saving}</span>}
-                </div>
-              </div>
-
-              <div style={styles.questions}>
-                {current.questions.map((question) => {
-                  const treeQuestion = isDecisionTreeQuestion(question)
-                  const tableQuestion = isDecisionTableQuestion(question)
-                  return (
-                    <article key={question.questionId} style={styles.questionCard}>
-                      <div style={styles.questionHeader}>
-                        <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
-                        <span style={styles.points}>{question.points} pts</span>
-                      </div>
-                      {tableQuestion ? (
-                            <div style={styles.practicalAnswerContainer}>
-                              <DecisionTableEditor
-                                value={answers[question.questionId] || emptyDecisionTableValue()}
-                                onChange={(value) => updateAnswer(question.questionId, value)}
-                                readOnly={!canAnswer}
-                                compact
-                              />
-                            </div>
-                          ) : treeQuestion ? (
-                            <div style={styles.practicalAnswerContainer}>
-                              <DecisionTreeEditor
-                                value={answers[question.questionId] || emptyDecisionTreeValue()}
-                                onChange={(value) => updateAnswer(question.questionId, value)}
-                                readOnly={!canAnswer}
-                                compact
-                              />
-                            </div>
-                          ) : (
-                        <AutoGrowTextarea
-                          value={answers[question.questionId] || ''}
-                          onChange={(e) => updateAnswer(question.questionId, e.target.value)}
-                          disabled={!canAnswer}
-                          style={canAnswer ? styles.answerBox : styles.answerBoxDisabled}
-                          placeholder="Escribi tu respuesta..."
-                          minHeight={320}
-                          maxHeight={1400}
-                        />
-                      )}
-                    </article>
-                  )
-                })}
-              </div>
-
-              <div style={styles.footerActions}>
-                <button onClick={() => saveAnswers(true)} disabled={!canAnswer} style={canAnswer ? styles.secondaryBtn : styles.disabledBtn}>
-                  Guardar ahora
-                </button>
-                <button onClick={submitExam} disabled={!canAnswer} style={canAnswer ? styles.primaryBtn : styles.disabledBtn}>
-                  Entregar examen
-                </button>
-              </div>
-            </>
-          )}
+          <div style={styles.empty}>Seleccioná un examen del panel izquierdo para comenzar o continuar tu entrega.</div>
         </section>
       </main>
     </div>
@@ -257,10 +421,34 @@ function isDecisionTableQuestion(question = {}) {
 }
 
 function questionFallbackTitle(question) {
-  if (isDecisionTableQuestion(question)) return 'Practico - Tabla de decision'
-  if (isDecisionTreeQuestion(question)) return 'Practico - Arbol de decision'
-  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teorica ${question.displayOrder}`
+  if (isDecisionTableQuestion(question)) return 'Práctico - Tabla de decisión'
+  if (isDecisionTreeQuestion(question)) return 'Práctico - Árbol de decisión'
+  if (Number(question.points) === 1 && question.displayOrder <= 6) return `Teórica ${question.displayOrder}`
   return 'Pregunta sin enunciado'
+}
+
+function examStatusLabel(submission, exam) {
+  if (submission?.status === 'ENTREGADO') return 'Entregado'
+  if (submission?.status === 'EN_PROGRESO') return 'En progreso'
+  if (exam.status === 'CERRADO') return 'Cerrado'
+  return 'Disponible'
+}
+
+function examStatusBadgeStyle(submission, exam) {
+  const base = { display: 'inline-block', marginTop: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800 }
+  if (submission?.status === 'ENTREGADO') return { ...base, background: '#DDF6EC', color: '#087A55' }
+  if (submission?.status === 'EN_PROGRESO') return { ...base, background: '#E6EEFF', color: '#1956D8' }
+  if (exam.status === 'CERRADO') return { ...base, background: '#ECEFF3', color: '#4A5565' }
+  return { ...base, background: '#FFF3CC', color: '#7A5C00' }
+}
+
+function formatTime(seconds) {
+  const s = Math.max(0, seconds)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
 const styles = {
@@ -274,27 +462,46 @@ const styles = {
   sidebar: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, alignSelf: 'start' },
   panelTitle: { fontSize: 16, fontWeight: 800, color: '#1956D8', margin: '0 0 12px' },
   examCard: { border: '1px solid #E7F0F3', borderRadius: 8, padding: 12, marginBottom: 10, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' },
-  examTitle: { fontSize: 15, margin: '0 0 5px' },
-  muted: { color: '#536B76', fontSize: 14, margin: 0 },
+  examTitle: { fontSize: 15, margin: '0 0 3px', fontWeight: 700 },
+  muted: { color: '#536B76', fontSize: 13, margin: 0 },
+  closedLabel: { color: '#4A5565', fontSize: 13, fontWeight: 600 },
   primaryBtn: { minHeight: 38, padding: '8px 16px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
-  workspace: { minWidth: 0, maxWidth: '100%', overflow: 'hidden' },  message: { background: '#FFF8DF', border: '1px solid #E7CE74', color: '#5D4700', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 14 },
+  disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'default' },
+  workspace: { minWidth: 0, maxWidth: '100%', overflow: 'hidden' },
+  message: { background: '#FFF8DF', border: '1px solid #E7CE74', color: '#5D4700', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 14 },
   empty: { background: '#fff', border: '1px dashed #B9CDD3', borderRadius: 8, padding: 24, color: '#536B76', textAlign: 'center' },
+  // Pantalla de selección de tema
+  topicSelectMain: { display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '48px 24px' },
+  topicSelectCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 12, padding: '32px 40px', maxWidth: 560, width: '100%', display: 'flex', flexDirection: 'column', gap: 16 },
+  topicSelectTitle: { fontSize: 26, fontWeight: 800, margin: 0 },
+  topicSelectMeta: { color: '#536B76', fontSize: 14, margin: 0 },
+  topicSelectInstr: { fontSize: 15, color: '#304653', margin: 0 },
+  topicBtns: { display: 'flex', flexWrap: 'wrap', gap: 12 },
+  topicBtn: { minWidth: 130, minHeight: 56, padding: '12px 24px', border: '2px solid #D8E8EC', borderRadius: 10, fontSize: 16, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' },
+  backBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 0 },
+  // Vista de resolución
   examHeader: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 20, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 16 },
   currentTitle: { fontSize: 24, margin: '0 0 6px' },
-  headerActions: { display: 'flex', alignItems: 'center', gap: 10 },
+  headerActions: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   doneBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   saving: { color: '#536B76', fontSize: 13, fontWeight: 700 },
+  timer: { background: '#E6EEFF', color: '#1956D8', padding: '6px 14px', borderRadius: 8, fontSize: 14, fontWeight: 800 },
+  timerExpired: { background: '#FDECEA', color: '#9B2C2C', padding: '6px 14px', borderRadius: 8, fontSize: 14, fontWeight: 800 },
   questions: { display: 'flex', flexDirection: 'column', gap: 14 },
-  questionCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, maxWidth: '100%', overflow: 'hidden'},
+  questionCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, maxWidth: '100%', overflow: 'hidden' },
   questionHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   questionTitle: { fontSize: 17, margin: 0, lineHeight: 1.35 },
   points: { color: '#1956D8', fontWeight: 800, whiteSpace: 'nowrap' },
-  templateBox: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 },
   answerBox: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
   answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
-  practicalAnswerContainer: { width: '100%', maxWidth: '100%',height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7'},
+  practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
+  // Modal
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 460, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },
+  modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 10px', color: '#09222A' },
+  modalText: { fontSize: 14, color: '#304653', margin: '0 0 20px' },
+  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end' },
 }

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ExamSubmissionUseCase {
-    ExamSubmission start(String studentEmail, UUID examId);
+    ExamSubmission start(String studentEmail, UUID examId, UUID topicId);
     ExamSubmission saveAnswers(String studentEmail, UUID submissionId, List<AnswerUpdate> answers);
     ExamSubmission submit(String studentEmail, UUID submissionId);
     List<ExamSubmission> listForStudent(String studentEmail);

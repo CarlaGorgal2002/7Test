@@ -35,15 +35,19 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
     private final UserRepository userRepository;
 
     @Override
-    public ExamSubmission start(String studentEmail, UUID examId) {
+    public ExamSubmission start(String studentEmail, UUID examId, UUID topicId) {
         User student = requireRole(studentEmail, Role.ALUMNO, "Solo un alumno puede rendir examenes");
         Exam exam = requireExam(examId);
         if (exam.getStatus() != ExamStatus.PUBLICADO) {
             throw new IllegalArgumentException("El examen no esta publicado");
         }
+        if (topicId == null) {
+            throw new IllegalArgumentException("Debes seleccionar un tema para comenzar");
+        }
+        requireAssignedTopic(exam, topicId);
 
         return submissionRepository.findByStudentIdAndExamId(student.getId(), examId)
-                .orElseGet(() -> createSubmission(student, exam));
+                .orElseGet(() -> createSubmission(student, exam, topicId));
     }
 
     @Override
@@ -111,8 +115,8 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
         return submissionRepository.findByExamId(examId);
     }
 
-    private ExamSubmission createSubmission(User student, Exam exam) {
-        ExamTopic topic = chooseTopicForStudent(exam, student);
+    private ExamSubmission createSubmission(User student, Exam exam, UUID topicId) {
+        ExamTopic topic = requireAssignedTopic(exam, topicId);
         Instant now = Instant.now();
         List<ExamAnswer> answers = topic.getQuestions().stream()
                 .sorted(Comparator.comparingInt(ExamQuestion::getDisplayOrder))
@@ -138,15 +142,6 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
                 .updatedAt(now)
                 .submittedAt(null)
                 .build());
-    }
-
-    private ExamTopic chooseTopicForStudent(Exam exam, User student) {
-        List<ExamTopic> topics = exam.getTopics();
-        if (topics == null || topics.isEmpty()) {
-            throw new IllegalArgumentException("El examen no tiene temas disponibles");
-        }
-        int index = student.getId().hashCode() % topics.size();
-        return topics.get(index);
     }
 
     private ExamSubmission requireOwnedSubmission(User student, UUID submissionId) {

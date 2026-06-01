@@ -35,7 +35,10 @@ public class ExamService implements ExamManagementUseCase {
     private static final String EMPTY_DECISION_TREE = "7TEST_DECISION_TREE:{\"nodes\":[],\"edges\":[]}";
     private static final String EMPTY_DECISION_TABLE = "7TEST_DECISION_TABLE:{\"rows\":2,\"cols\":2,\"cells\":[[\"\",\"\"],[\"\",\"\"]]}";
     private static final ObjectMapper EDITOR_JSON = new ObjectMapper();
-    private static final List<String> TOPIC_COLORS = List.of("#1956D8", "#03BB83", "#FFC012");
+    private static final List<String> TOPIC_COLORS = List.of(
+            "#1956D8", "#03BB83", "#FFC012", "#E05252", "#9B59B6",
+            "#E67E22", "#1ABC9C", "#2980B9", "#D35400", "#27AE60"
+    );
 
     private final ExamRepository examRepository;
     private final UserRepository userRepository;

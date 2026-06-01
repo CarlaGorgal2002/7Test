@@ -8,6 +8,7 @@ import com.seventest.domain.model.ExamTopic;
 import com.seventest.domain.port.in.ExamManagementUseCase;
 import com.seventest.domain.port.in.ExamSubmissionUseCase;
 import com.seventest.infrastructure.web.dto.request.SaveAnswersRequest;
+import com.seventest.infrastructure.web.dto.request.StartExamRequest;
 import com.seventest.infrastructure.web.dto.response.ExamSubmissionResponse;
 import com.seventest.infrastructure.web.dto.response.SubmissionQuestionResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,8 +44,10 @@ public class ExamSubmissionController {
     @Operation(summary = "Iniciar examen publicado")
     @PreAuthorize("hasRole('ALUMNO')")
     @PostMapping("/exams/{examId}/start")
-    public ResponseEntity<ExamSubmissionResponse> start(@PathVariable UUID examId, Principal principal) {
-        return ResponseEntity.ok(toResponse(submissionUseCase.start(principal.getName(), examId)));
+    public ResponseEntity<ExamSubmissionResponse> start(@PathVariable UUID examId,
+                                                        @Valid @RequestBody StartExamRequest request,
+                                                        Principal principal) {
+        return ResponseEntity.ok(toResponse(submissionUseCase.start(principal.getName(), examId, request.topicId())));
     }
 
     @Operation(summary = "Listar entregas del alumno autenticado")

@@ -139,9 +139,28 @@ export default function ProfesorLanding() {
         durationMinutes: Number(examForm.durationMinutes) || null,
       })
       setExamForm(emptyExam)
-      setExams((current) => [res.data, ...current])
-      setSelectedId(res.data.id)
-      setMessage('Examen creado en borrador.')
+      let newExam = res.data
+
+      // Crear Tema A automáticamente con la plantilla base
+      try {
+        const topicRes = await api.post(`/exams/${newExam.id}/topics`, { name: 'Tema A' })
+        newExam = topicRes.data
+        const createdTopic = newExam.topics?.[0]
+        if (createdTopic) {
+          setTemplateLoading(createdTopic.id)
+          newExam = await appendDefaultTemplate(newExam, createdTopic.id)
+          setSelectedTopicId(createdTopic.id)
+        }
+      } catch {
+        // si falla la plantilla el examen igual queda creado
+      } finally {
+        setTemplateLoading('')
+      }
+
+      setExams((current) => [newExam, ...current])
+      setSelectedId(newExam.id)
+      setTopicName('Tema B')
+      setMessage('Examen creado en borrador con Tema A.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo crear el examen.')
     }
@@ -335,8 +354,13 @@ async function renameTopic(topicId) {
     if (badTopics.length > 0) {
       setModal({ type: 'badPoints', topics: badTopics })
     } else {
-      publishExam()
+      setModal({ type: 'confirmPublish' })
     }
+  }
+
+  function handleCloseClick() {
+    if (!selectedExam) return
+    setModal({ type: 'confirmClose' })
   }
 
   async function redistributeAndPublish() {
@@ -551,7 +575,7 @@ async function renameTopic(topicId) {
                     <button onClick={handlePublishClick} style={styles.primaryBtn}>Publicar</button>
                   )}
                   {selectedExam.status === 'PUBLICADO' && (
-                    <button onClick={closeExam} style={styles.closeBtn}>Cerrar examen</button>
+                    <button onClick={handleCloseClick} style={styles.closeBtn}>Cerrar examen</button>
                   )}
                 </div>
               </div>
@@ -617,8 +641,8 @@ async function renameTopic(topicId) {
                             <strong>{submission.studentName}</strong>
                             <p style={styles.answer}>Tema: {submission.topicName}</p>
                           </div>
-                          <span style={submission.status !== _d([69,78,84,82,69,71,65,68,79]) ? styles.submittedBadge : styles.progressBadge}>
-                            {submission.status !== _d([69,78,84,82,69,71,65,68,79]) ? 'Entregado' : 'En progreso'}
+                          <span style={submission.status === 'ENTREGADO' ? styles.submittedBadge : styles.progressBadge}>
+                            {submission.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
                           </span>
                         </div>
                       ))}
@@ -899,7 +923,29 @@ async function renameTopic(topicId) {
       {modal && (
         <div style={styles.modalOverlay} onClick={() => setModal(null)}>
           <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            {modal.type === 'badPoints' ? (
+            {modal.type === 'confirmPublish' ? (
+              <>
+                <h3 style={styles.modalTitle}>Publicar examen</h3>
+                <p style={styles.modalText}>
+                  Al publicar, el examen estará disponible para los alumnos y <strong>no podrás volver a borrador</strong>.
+                </p>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
+                  <button onClick={() => { setModal(null); publishExam() }} style={styles.primaryBtn}>Publicar</button>
+                </div>
+              </>
+            ) : modal.type === 'confirmClose' ? (
+              <>
+                <h3 style={styles.modalTitle}>Cerrar examen</h3>
+                <p style={styles.modalText}>
+                  Al cerrar, <strong>no se aceptarán nuevas entregas</strong>. Los alumnos que ya iniciaron podrán seguir respondiendo.
+                </p>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
+                  <button onClick={() => { setModal(null); closeExam() }} style={styles.closeBtn}>Cerrar examen</button>
+                </div>
+              </>
+            ) : modal.type === 'badPoints' ? (
               <>
                 <h3 style={styles.modalTitle}>No se puede publicar todavía</h3>
                 <p style={styles.modalText}>Los siguientes temas no suman exactamente 10 puntos:</p>

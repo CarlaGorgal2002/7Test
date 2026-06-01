@@ -40,21 +40,62 @@ class ExamSubmissionServiceTest {
     @InjectMocks ExamSubmissionService submissionService;
 
     @Test
-    void iniciarExamenPublicado_creaEntregaEnProgresoConTemaAsignado() {
+    void iniciarExamenPublicado_conTemaValido_creaEntregaEnProgreso() {
         User student = user(Role.ALUMNO);
         Exam exam = publishedExam();
+        UUID topicId = exam.getTopics().getFirst().getId();
         when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
         when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
         when(submissionRepository.findByStudentIdAndExamId(student.getId(), exam.getId())).thenReturn(Optional.empty());
         when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ExamSubmission result = submissionService.start(student.getEmail(), exam.getId());
+        ExamSubmission result = submissionService.start(student.getEmail(), exam.getId(), topicId);
 
         assertThat(result.getStatus()).isEqualTo(SubmissionStatus.EN_PROGRESO);
         assertThat(result.getStudentId()).isEqualTo(student.getId());
-        assertThat(result.getExamId()).isEqualTo(exam.getId());
+        assertThat(result.getTopicId()).isEqualTo(topicId);
         assertThat(result.getAnswers()).hasSize(1);
         assertThat(result.getAnswers().getFirst().getAnswerText()).isEmpty();
+    }
+
+    @Test
+    void iniciarExamen_sinTopicId_rechaza() {
+        User student = user(Role.ALUMNO);
+        Exam exam = publishedExam();
+        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("seleccionar un tema");
+    }
+
+    @Test
+    void iniciarExamen_conTopicIdInexistente_rechaza() {
+        User student = user(Role.ALUMNO);
+        Exam exam = publishedExam();
+        UUID topicIdFalso = UUID.randomUUID();
+        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), topicIdFalso))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void iniciarExamen_conEntregaExistente_devuelveEntregaSinCambiarTema() {
+        User student = user(Role.ALUMNO);
+        Exam exam = publishedExam();
+        UUID topicId = exam.getTopics().getFirst().getId();
+        ExamSubmission existing = submission(student, exam, SubmissionStatus.EN_PROGRESO, "respuesta parcial");
+        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(submissionRepository.findByStudentIdAndExamId(student.getId(), exam.getId())).thenReturn(Optional.of(existing));
+
+        ExamSubmission result = submissionService.start(student.getEmail(), exam.getId(), topicId);
+
+        assertThat(result.getId()).isEqualTo(existing.getId());
+        assertThat(result.getTopicId()).isEqualTo(existing.getTopicId());
     }
 
     @Test
