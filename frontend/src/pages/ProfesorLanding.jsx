@@ -610,11 +610,11 @@ async function renameTopic(topicId) {
         items: exams.filter(e => derivedStatus(e) === 'BORRADOR'),
       },
       {
-        key: 'POR_DEVOLVER', label: 'Cerrados — Por devolver', color: '#9B2C2C',
+        key: 'POR_DEVOLVER', label: 'Cerrados -> Devueltos', color: '#9B2C2C',
         items: exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished),
       },
       {
-        key: 'DEVUELTOS', label: 'Cerrados — Devueltos', color: '#4A5565',
+        key: 'DEVUELTOS', label: 'Cerrados: ya devueltos', color: '#4A5565',
         items: exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished),
       },
     ]
