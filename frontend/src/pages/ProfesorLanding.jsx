@@ -591,9 +591,17 @@ async function renameTopic(topicId) {
 
   function openExamDetail(examId) {
     setSelectedId(examId)
-    setPageMode('detail')
+    const exam = exams.find(e => e.id === examId)
+    const mode = exam?.status === 'PUBLICADO' ? 'running' : 'detail'
+    setPageMode(mode)
     setMessage('')
-    window.history.pushState({ profe: 'detail' }, '', '/profesor')
+    window.history.pushState({ profe: mode }, '', '/profesor')
+  }
+
+  function goToExamList() {
+    setPageMode('examList')
+    setMessage('')
+    window.history.pushState({ profe: 'examList' }, '', '/profesor')
   }
 
   useEffect(() => {
@@ -605,56 +613,101 @@ async function renameTopic(topicId) {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
-  // ── LANDING PAGE ────────────────────────────────────────────────────────────
-  if (pageMode === 'landing') {
-    const groups = [
-      {
-        key: 'EN_CURSO', label: 'En curso', color: '#087A55',
-        items: exams.filter(e => derivedStatus(e) === 'EN_CURSO'),
-      },
-      {
-        key: 'PROGRAMADO', label: 'Programados', color: '#92400E',
-        items: exams.filter(e => derivedStatus(e) === 'PROGRAMADO'),
-      },
-      {
-        key: 'BORRADOR', label: 'Borradores', color: '#1956D8',
-        items: exams.filter(e => derivedStatus(e) === 'BORRADOR'),
-      },
-      {
-        key: 'POR_DEVOLVER', label: 'Cerrados (por devolver)', color: '#9B2C2C',
-        items: exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished),
-      },
-      {
-        key: 'DEVUELTOS', label: 'Cerrados (ya devueltos)', color: '#4A5565',
-        items: exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished),
-      },
-    ]
+  const figmaHeader = (backBtn = null) => (
+    <header style={styles.header}>
+      <div style={styles.brand}>
+        <Logo dark size={36} />
+        <div>
+          <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
+          <h1 style={{ ...styles.headerTitle, fontSize: 22, margin: 0 }}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
+        </div>
+      </div>
+      <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
+    </header>
+  )
 
+  // ── EXAM LIST (Crear / Editar) ────────────────────────────────────────────
+  if (pageMode === 'examList') {
     return (
       <div style={styles.page}>
-        <header style={styles.header}>
-          <div style={styles.brand}>
-            <Logo dark size={36} />
+        {figmaHeader()}
+        <main style={{ ...lStyles.detailMain, maxWidth: 1000 }}>
+          <button onClick={() => window.history.back()} style={fStyles.backLink}>← Volver</button>
+          <div style={fStyles.pageHeaderRow}>
             <div>
-              <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
-              <h1 style={{ ...styles.headerTitle, fontSize: 22, margin: 0 }}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
+              <h2 style={fStyles.pageTitle}>Creación y edición de exámenes</h2>
+              <p style={fStyles.pageSubtitle}>Creá uno nuevo o editá un examen del listado.</p>
             </div>
+            <button onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }} style={fStyles.createBtn}>
+              &#x2795; Crear examen
+            </button>
           </div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
-        </header>
+          {message && <div style={styles.message}>{message}</div>}
+          <div style={fStyles.tableCard}>
+            {exams.length === 0 && !loading && (
+              <div style={fStyles.emptyBox}>
+                <p style={{ color: '#9CA3AF', margin: 0 }}>📋 Todavía no hay exámenes. Creá el primero.</p>
+              </div>
+            )}
+            {exams.length > 0 && (
+              <table style={fStyles.table}>
+                <thead>
+                  <tr>
+                    <th style={fStyles.th}>Nombre de examen</th>
+                    <th style={fStyles.th}>Estado</th>
+                    <th style={fStyles.th}>Duración</th>
+                    <th style={fStyles.th}></th>
+                    <th style={fStyles.th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exams.map(exam => (
+                    <tr key={exam.id} style={fStyles.tr}>
+                      <td style={fStyles.td}>{exam.title}</td>
+                      <td style={fStyles.td}><span style={statusStyle(exam)}>{labelStatus(exam)}</span></td>
+                      <td style={{ ...fStyles.td, color: '#6B7280' }}>{exam.durationMinutes || '-'} min</td>
+                      <td style={fStyles.td}>
+                        <button
+                          onClick={() => { setSelectedId(exam.id); setPageMode(exam.status === 'PUBLICADO' ? 'running' : 'detail'); window.history.pushState({}, '', '/profesor') }}
+                          style={fStyles.editBtn}
+                        >
+                          {exam.status === 'PUBLICADO' ? 'Monitorear' : '✎ Editar'}
+                        </button>
+                      </td>
+                      <td style={fStyles.td}>
+                        {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
+                          <button onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })} style={fStyles.deleteBtn}>🗑</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </main>
+      </div>
+    )
+  }
 
-        <main style={lStyles.landingMain}>
-          {/* Nuevo examen */}
-          <div style={lStyles.createCard}>
-            <h2 style={lStyles.createTitle}>Nuevo examen</h2>
-            <form onSubmit={createExam} style={lStyles.createForm}>
+  // ── NEW EXAM FORM ─────────────────────────────────────────────────────────
+  if (pageMode === 'newExam') {
+    return (
+      <div style={styles.page}>
+        {figmaHeader()}
+        <main style={{ ...lStyles.detailMain, maxWidth: 600 }}>
+          <button onClick={() => { setPageMode('examList'); setMessage('') }} style={fStyles.backLink}>← Volver</button>
+          <h2 style={fStyles.pageTitle}>Nuevo examen</h2>
+          {message && <div style={styles.message}>{message}</div>}
+          <div style={fStyles.formCard}>
+            <form onSubmit={createExam} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <label style={styles.label}>Título</label>
               <input value={examForm.title} onChange={e => setExamForm({ ...examForm, title: e.target.value })} style={styles.input} placeholder="Primer parcial" required />
               <label style={styles.label}>Descripción</label>
-              <textarea value={examForm.description} onChange={e => setExamForm({ ...examForm, description: e.target.value })} style={styles.textarea} rows={2} placeholder="Evaluación de Testing" />
+              <textarea value={examForm.description} onChange={e => setExamForm({ ...examForm, description: e.target.value })} style={styles.textarea} rows={2} placeholder="Evaluación de Testing de Aplicaciones" />
               <label style={styles.label}>Materia</label>
               <input value={examForm.courseName} onChange={e => setExamForm({ ...examForm, courseName: e.target.value })} style={styles.input} placeholder="Testing de Aplicaciones" />
-              <label style={styles.label}>Duración (min)</label>
+              <label style={styles.label}>Duración estimada (min)</label>
               <input type="number" min="1" value={examForm.durationMinutes} onChange={e => setExamForm({ ...examForm, durationMinutes: e.target.value })} style={styles.input} />
               <label style={styles.label}>Fecha de inicio (opcional)</label>
               <input type="date" min={todayStr()} value={examForm.availableDate} onChange={e => setExamForm({ ...examForm, availableDate: e.target.value })} style={styles.input} />
@@ -665,43 +718,196 @@ async function renameTopic(topicId) {
                   {examForm.availableTime && !isValidTime(examForm.availableTime) && <span style={styles.fieldError}>Hora inválida</span>}
                 </>
               )}
-              {message && <div style={styles.message}>{message}</div>}
               <button type="submit" style={{ ...styles.primaryBtn, marginTop: 8 }}>Crear borrador</button>
             </form>
           </div>
+        </main>
+      </div>
+    )
+  }
 
-          {/* Mis examenes */}
-          <div style={lStyles.examPanel}>
-            <h2 style={lStyles.examPanelTitle}>Mis exámenes</h2>
-            {loading && <p style={styles.muted}>Cargando...</p>}
-            {!loading && exams.length === 0 && <p style={styles.muted}>Todavía no hay exámenes. Creá el primero.</p>}
-            <div style={lStyles.groupsContainer}>
-              {groups.map(({ key, label, color, items }) => {
-                if (items.length === 0) return null
-                return (
-                  <div key={key} style={lStyles.group}>
-                    <div style={{ ...lStyles.groupHeader, borderColor: color }}>
-                      <span style={{ ...lStyles.groupLabel, color }}>{label}</span>
-                      <span style={lStyles.groupCount}>{items.length}</span>
-                    </div>
-                    <div style={lStyles.examCards}>
-                      {items.map(exam => (
-                        <button
-                          key={exam.id}
-                          onClick={() => openExamDetail(exam.id)}
-                          style={lStyles.examCard}
-                        >
-                          <div style={lStyles.examCardTitle}>{exam.title}</div>
-                          <div style={lStyles.examCardMeta}>{exam.courseName || 'Testing'} · {exam.durationMinutes || '-'} min</div>
-                          <span style={statusStyle(exam)}>{labelStatus(exam)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+  // ── RUNNING EXAM (vista estilo Figma) ────────────────────────────────────
+  if (pageMode === 'running' && selectedExam) {
+    const topicColorMap = {}
+    selectedExam.topics?.forEach(t => { topicColorMap[t.id] = t.colorHex || '#333' })
+    const startRef = selectedExam.availableFrom || selectedExam.publishedAt
+    const examEndMs = startRef && selectedExam.durationMinutes
+      ? new Date(startRef).getTime() + selectedExam.durationMinutes * 60_000 : null
+    const secondsLeft = examEndMs ? Math.max(0, Math.floor((examEndMs - profNow) / 1000)) : null
+    const isExpired = secondsLeft !== null && secondsLeft === 0
+    const isBeforeStart = selectedExam.availableFrom && new Date(selectedExam.availableFrom) > new Date()
+
+    const statusLabelRunning = (s) => {
+      if (s.status === 'ENTREGADO') return { label: 'Entregado', bg: '#D1FAE5', color: '#065F46' }
+      return { label: 'En proceso', bg: '#FEF3C7', color: '#92400E' }
+    }
+
+    return (
+      <div style={styles.page}>
+        {figmaHeader()}
+        <main style={fStyles.runningMain}>
+          <div style={fStyles.runningLeft}>
+            <button onClick={() => window.history.back()} style={fStyles.backLink}>← Volver</button>
+            <h2 style={fStyles.pageTitle}>{isBeforeStart ? 'Examen programado' : 'Examen en curso'}</h2>
+            <p style={fStyles.pageSubtitle}>{selectedExam.courseName} · {selectedExam.title}</p>
+            {message && <div style={styles.message}>{message}</div>}
+            <div style={fStyles.tableCard}>
+              {submissions.length === 0 ? (
+                <p style={{ color: '#6B7280', padding: '24px 0', textAlign: 'center', margin: 0 }}>Todavía no hay alumnos que hayan iniciado este examen.</p>
+              ) : (
+                <table style={fStyles.table}>
+                  <thead>
+                    <tr>
+                      <th style={fStyles.th}>Alumnos</th>
+                      <th style={{ ...fStyles.th, textAlign: 'center' }}>Tema</th>
+                      <th style={{ ...fStyles.th, textAlign: 'center' }}>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map(s => {
+                      const badge = statusLabelRunning(s)
+                      const color = topicColorMap[s.topicId] || '#1956D8'
+                      const letter = s.topicName?.replace('Tema ', '') || '?'
+                      const excedido = examEndMs && s.status !== 'ENTREGADO' && profNow > examEndMs
+                      return (
+                        <tr key={s.id} style={fStyles.tr}>
+                          <td style={fStyles.td}>{s.studentName}</td>
+                          <td style={{ ...fStyles.td, textAlign: 'center' }}>
+                            <span style={{ background: color, color: '#fff', padding: '4px 18px', borderRadius: 6, fontWeight: 800, fontSize: 15, display: 'inline-block' }}>{letter}</span>
+                          </td>
+                          <td style={{ ...fStyles.td, textAlign: 'center' }}>
+                            <span style={{ background: badge.bg, color: badge.color, padding: '4px 12px', borderRadius: 999, fontSize: 13, fontWeight: 700 }}>{badge.label}</span>
+                            {excedido && <div style={{ fontSize: 11, color: '#9B2C2C', marginTop: 4 }}>Excedido de tiempo</div>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
+
+          <div style={fStyles.runningRight}>
+            {isExpired ? (
+              <div style={fStyles.examFinishedBtn}>Examen finalizado</div>
+            ) : isBeforeStart ? (
+              <button onClick={() => { setSelectedId(selectedExam.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') }} style={fStyles.iniciarBtn}>
+                ▶ Publicar examen
+              </button>
+            ) : (
+              <button onClick={handleCloseClick} style={fStyles.finalizeBtn}>
+                ⏸ Finalizar examen
+              </button>
+            )}
+            {secondsLeft !== null && (
+              <div style={fStyles.timerWidget}>
+                <p style={fStyles.timerLabel}>TIEMPO DE EXAMEN RESTANTE:</p>
+                <p style={{ ...fStyles.timerValue, color: isExpired ? '#9CA3AF' : secondsLeft < 600 ? '#DC2626' : '#1956D8' }}>
+                  ⏰ {formatProfTime(secondsLeft)}
+                </p>
+              </div>
+            )}
+            {/* Contadores */}
+            {submissions.length > 0 && (
+              <div style={fStyles.countersWidget}>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#1956D8' }}>{submissions.filter(s => s.status !== 'ENTREGADO').length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>En proceso</span></div>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#065F46' }}>{submissions.filter(s => s.status === 'ENTREGADO').length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>Entregados</span></div>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#374151' }}>{submissions.length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>Total</span></div>
+              </div>
+            )}
+          </div>
+        </main>
+        {/* Timeout popup */}
+        {timeoutPopup && (
+          <div style={styles.modalOverlay}>
+            <div style={{ ...styles.modalBox, maxWidth: 480 }}>
+              <h3 style={styles.modalTitle}>⏰ Terminó el tiempo</h3>
+              <p style={styles.modalText}>El tiempo del examen <strong>{timeoutPopup.examTitle}</strong> llegó a su fin. ¿Deseás agregar tiempo extra?</p>
+              <p style={{ color: '#DC2626', fontWeight: 700, fontSize: 14 }}>El examen se cerrará automáticamente en {formatProfTime(popupCountdown)}</p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                <button onClick={async () => { const mins = Math.min(60, Math.max(1, Number(popupExtraMinutes) || 15)); try { const res = await api.patch(`/exams/${timeoutPopup.examId}/add-extra-time`, { extraMinutes: mins }); replaceExam(res.data) } catch (err) { setMessage(err.response?.data?.message || 'No se pudo agregar tiempo.') } setTimeoutPopup(null) }} style={styles.primaryBtn}>
+                  Sí, agregar
+                </button>
+                <input type="number" min="1" max="60" value={popupExtraMinutes} onChange={e => setPopupExtraMinutes(e.target.value)} style={{ width: 70, ...styles.input }} />
+                <span style={{ fontSize: 13, color: '#6B7280' }}>min (máx. 60)</span>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <button onClick={async () => { try { const res = await api.patch(`/exams/${timeoutPopup.examId}/close`); replaceExam(res.data) } catch {} setTimeoutPopup(null) }} style={styles.closeBtn}>No, cerrar examen</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── LANDING PAGE (4 cards) ─────────────────────────────────────────────
+  if (pageMode === 'landing') {
+    const enCurso = exams.filter(e => derivedStatus(e) === 'EN_CURSO')
+    const programados = exams.filter(e => derivedStatus(e) === 'PROGRAMADO')
+    const borradores = exams.filter(e => derivedStatus(e) === 'BORRADOR')
+    const porDevolver = exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished)
+    const devueltos = exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
+
+    const cards = [
+      {
+        title: 'Crear / Editar exámenes',
+        subtitle: 'Gestioná el contenido de tus parciales',
+        stats: [{ n: borradores.length, label: 'borradores' }, { n: exams.length, label: 'exámenes totales' }],
+        action: goToExamList,
+        color: '#1956D8',
+      },
+      {
+        title: 'Exámenes activos',
+        subtitle: 'Monitoreá los exámenes en curso o programados',
+        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }],
+        action: () => { const first = [...enCurso, ...programados][0]; if (first) openExamDetail(first.id) },
+        color: '#087A55',
+        disabled: enCurso.length + programados.length === 0,
+      },
+      {
+        title: 'Revisión pendiente',
+        subtitle: 'Calificá las entregas de los exámenes cerrados',
+        stats: [{ n: porDevolver.length, label: 'por calificar' }],
+        action: () => { const first = porDevolver[0]; if (first) { setSelectedId(first.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') } },
+        color: '#9B2C2C',
+        disabled: porDevolver.length === 0,
+      },
+      {
+        title: 'Historial',
+        subtitle: 'Exámenes cerrados ya devueltos',
+        stats: [{ n: devueltos.length, label: 'devueltos' }],
+        action: goToExamList,
+        color: '#4A5565',
+      },
+    ]
+
+    return (
+      <div style={styles.page}>
+        {figmaHeader()}
+        <main style={fStyles.landingCards}>
+          {message && <div style={{ ...styles.message, gridColumn: '1/-1', marginBottom: 0 }}>{message}</div>}
+          {cards.map((card, i) => (
+            <div
+              key={i}
+              onClick={!card.disabled ? card.action : undefined}
+              style={{ ...fStyles.navCard, opacity: card.disabled ? 0.5 : 1, cursor: card.disabled ? 'not-allowed' : 'pointer', borderTop: `4px solid ${card.color}` }}
+            >
+              <h3 style={{ ...fStyles.navCardTitle, color: card.color }}>{card.title}</h3>
+              <p style={fStyles.navCardSub}>{card.subtitle}</p>
+              <div style={fStyles.navCardDivider} />
+              <div style={fStyles.navCardStats}>
+                {card.stats.map((s, j) => (
+                  <div key={j} style={fStyles.navStat}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: card.color }}>{s.n}</span>
+                    <span style={{ fontSize: 12, color: '#6B7280' }}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={fStyles.navCardArrow}>→</div>
+            </div>
+          ))}
         </main>
       </div>
     )
@@ -1402,6 +1608,43 @@ async function renameTopic(topicId) {
       )}
     </div>
   )
+}
+
+const fStyles = {
+  landingCards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20, padding: '40px', maxWidth: 1200, margin: '0 auto' },
+  navCard: { background: '#fff', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 8, transition: 'box-shadow .15s' },
+  navCardTitle: { fontSize: 20, fontWeight: 800, margin: 0 },
+  navCardSub: { fontSize: 13, color: '#6B7280', margin: 0 },
+  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '12px 0' },
+  navCardStats: { display: 'flex', gap: 24 },
+  navStat: { display: 'flex', flexDirection: 'column', gap: 2 },
+  navCardArrow: { fontSize: 20, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
+  backLink: { background: 'none', border: 'none', color: '#6B7280', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: 6 },
+  pageHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  pageTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
+  pageSubtitle: { fontSize: 14, color: '#6B7280', margin: 0 },
+  createBtn: { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer' },
+  tableCard: { background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: { padding: '14px 20px', textAlign: 'left', fontSize: 13, fontWeight: 700, color: '#374151', borderBottom: '2px solid #E5E7EB' },
+  tr: { borderBottom: '1px solid #F3F4F6' },
+  td: { padding: '14px 20px', fontSize: 14, color: '#09222A' },
+  editBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, cursor: 'pointer', fontSize: 14 },
+  deleteBtn: { background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 16 },
+  emptyBox: { padding: '48px', textAlign: 'center' },
+  formCard: { background: '#fff', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' },
+  // Running exam
+  runningMain: { display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28, padding: '32px 40px', maxWidth: 1200, margin: '0 auto' },
+  runningLeft: {},
+  runningRight: { display: 'flex', flexDirection: 'column', gap: 16, alignSelf: 'start', position: 'sticky', top: 24 },
+  finalizeBtn: { padding: '16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  iniciarBtn: { padding: '16px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center' },
+  examFinishedBtn: { padding: '16px', background: '#6B7280', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 700, textAlign: 'center' },
+  timerWidget: { background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', textAlign: 'center' },
+  timerLabel: { fontSize: 12, fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' },
+  timerValue: { fontSize: 44, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  countersWidget: { background: '#fff', borderRadius: 12, padding: '16px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', display: 'flex', justifyContent: 'space-around' },
+  counterItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
 }
 
 const lStyles = {
