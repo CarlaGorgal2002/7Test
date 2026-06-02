@@ -370,8 +370,8 @@ public class ExamService implements ExamManagementUseCase {
         try {
             List<JsonNode> rows = new ArrayList<>();
             EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path("cells").forEach(rows::add);
-            for (int i = 1; i < rows.size(); i++) {
-                for (JsonNode cell : rows.get(i)) {
+            for (JsonNode row : rows) {
+                for (JsonNode cell : row) {
                     if (!cell.asText("").isBlank()) {
                         return true;
                     }
