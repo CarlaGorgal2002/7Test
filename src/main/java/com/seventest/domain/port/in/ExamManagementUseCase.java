@@ -26,5 +26,6 @@ public interface ExamManagementUseCase {
     List<Exam> listPublishedForStudents();
     Exam findById(UUID examId);
     Exam publishFeedback(String teacherEmail, UUID examId);
+    Exam addExtraTime(String teacherEmail, UUID examId, int extraMinutes);
     void deleteExam(String teacherEmail, UUID examId);
 }

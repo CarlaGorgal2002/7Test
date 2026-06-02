@@ -24,4 +24,5 @@ public class Exam {
     private final Instant updatedAt;
     private final Instant publishedAt;
     private final boolean feedbackPublished;
+    private final boolean extraTimeUsed;
 }

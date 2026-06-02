@@ -62,6 +62,10 @@ public class ExamEntity {
     @Builder.Default
     private boolean feedbackPublished = false;
 
+    @Column(name = "extra_time_used", nullable = false)
+    @Builder.Default
+    private boolean extraTimeUsed = false;
+
     @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ExamTopicEntity> topics = new LinkedHashSet<>();

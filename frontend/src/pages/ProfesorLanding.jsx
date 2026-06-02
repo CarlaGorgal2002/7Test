@@ -74,6 +74,9 @@ export default function ProfesorLanding() {
   const [gradingSubmission, setGradingSubmission] = useState(null)
   const [gradeData, setGradeData] = useState({})
   const [gradeSaving, setGradeSaving] = useState(false)
+  const [timeoutPopup, setTimeoutPopup] = useState(null)
+  const [popupExtraMinutes, setPopupExtraMinutes] = useState(15)
+  const [popupCountdown, setPopupCountdown] = useState(600)
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || exams[0] || null,
@@ -534,6 +537,35 @@ async function renameTopic(topicId) {
   const _isLocked = (status) => status !== _d([66,79,82,82,65,68,79,82])
   const canEdit = selectedExam != null && !_isLocked(selectedExam.status)
 
+  const profExamEndMs = selectedExam?.publishedAt && selectedExam?.durationMinutes
+    ? new Date(selectedExam.publishedAt).getTime() + selectedExam.durationMinutes * 60_000
+    : null
+
+  // Dispara el popup cuando el timer del examen PUBLICADO llega a 0 (solo una vez)
+  useEffect(() => {
+    if (!selectedExam || selectedExam.status !== 'PUBLICADO') return
+    if (selectedExam.extraTimeUsed) return
+    if (!profExamEndMs || profNow <= profExamEndMs) return
+    if (timeoutPopup) return
+    setTimeoutPopup({ examId: selectedExam.id, examTitle: selectedExam.title })
+    setPopupCountdown(600)
+    setPopupExtraMinutes(15)
+  }, [profNow, selectedExam?.id, selectedExam?.status, selectedExam?.extraTimeUsed, profExamEndMs])
+
+  // Cuenta regresiva del popup — si llega a 0 cierra el examen automáticamente
+  useEffect(() => {
+    if (!timeoutPopup) return
+    if (popupCountdown <= 0) {
+      api.patch(`/exams/${timeoutPopup.examId}/close`)
+        .then(res => replaceExam(res.data))
+        .catch(() => {})
+      setTimeoutPopup(null)
+      return
+    }
+    const t = setTimeout(() => setPopupCountdown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [timeoutPopup, popupCountdown])
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -691,9 +723,7 @@ async function renameTopic(topicId) {
               )}
 
               {!canEdit && (() => {
-                const examEndMs = selectedExam.publishedAt && selectedExam.durationMinutes
-                  ? new Date(selectedExam.publishedAt).getTime() + selectedExam.durationMinutes * 60_000
-                  : null
+                const examEndMs = profExamEndMs
                 const secondsLeft = examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
                 const enProgreso = submissions.filter(s => s.status !== 'ENTREGADO').length
                 const entregados = submissions.filter(s => s.status === 'ENTREGADO').length
@@ -1048,6 +1078,61 @@ async function renameTopic(topicId) {
           )}
         </section>
       </main>
+
+      {timeoutPopup && (
+        <div style={styles.modalOverlay} onClick={e => e.stopPropagation()}>
+          <div style={{ ...styles.modalBox, maxWidth: 480 }}>
+            <h3 style={styles.modalTitle}>⏰ Terminó el tiempo</h3>
+            <p style={styles.modalText}>
+              El tiempo del examen <strong>{timeoutPopup.examTitle}</strong> llegó a su fin.
+              ¿Deseás agregar tiempo extra?
+            </p>
+            <p style={{ ...styles.modalText, color: '#9B2C2C', fontWeight: 700 }}>
+              El examen se cerrará automáticamente en {Math.floor(popupCountdown / 60)}:{String(popupCountdown % 60).padStart(2, '0')}
+            </p>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+              <button
+                onClick={async () => {
+                  const mins = Math.min(60, Math.max(1, Number(popupExtraMinutes) || 15))
+                  try {
+                    const res = await api.patch(`/exams/${timeoutPopup.examId}/add-extra-time`, { extraMinutes: mins })
+                    replaceExam(res.data)
+                  } catch (err) {
+                    setMessage(err.response?.data?.message || 'No se pudo agregar tiempo.')
+                  }
+                  setTimeoutPopup(null)
+                }}
+                style={styles.primaryBtn}
+              >
+                Sí, agregar
+              </button>
+              <input
+                type="number"
+                min="1"
+                max="60"
+                value={popupExtraMinutes}
+                onChange={e => setPopupExtraMinutes(e.target.value)}
+                style={{ ...styles.smallInput, width: 70 }}
+              />
+              <span style={styles.muted}>min (máx. 60)</span>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.patch(`/exams/${timeoutPopup.examId}/close`)
+                    replaceExam(res.data)
+                  } catch {}
+                  setTimeoutPopup(null)
+                }}
+                style={styles.closeBtn}
+              >
+                No, cerrar examen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {gradingSubmission && (
         <div style={styles.gradingOverlay}>

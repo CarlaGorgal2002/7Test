@@ -20,6 +20,7 @@ public record ExamResponse(
         Instant createdAt,
         Instant updatedAt,
         Instant publishedAt,
-        boolean feedbackPublished
+        boolean feedbackPublished,
+        boolean extraTimeUsed
 ) {
 }

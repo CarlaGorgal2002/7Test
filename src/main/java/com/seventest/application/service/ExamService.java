@@ -212,13 +212,36 @@ public class ExamService implements ExamManagementUseCase {
 
     @Override
     public List<Exam> listPublishedForStudents() {
-        return examRepository.findByStatus(ExamStatus.PUBLICADO);
+        List<Exam> result = new java.util.ArrayList<>();
+        result.addAll(examRepository.findByStatus(ExamStatus.PUBLICADO));
+        result.addAll(examRepository.findByStatus(ExamStatus.CERRADO));
+        return result;
     }
 
     @Override
     public Exam findById(UUID examId) {
         return examRepository.findById(examId)
                 .orElseThrow(() -> new ExamNotFoundException(examId));
+    }
+
+    @Override
+    public Exam addExtraTime(String teacherEmail, UUID examId, int extraMinutes) {
+        Exam exam = requireOwnedExam(teacherEmail, examId);
+        if (exam.getStatus() != ExamStatus.PUBLICADO) {
+            throw new IllegalArgumentException("Solo se puede agregar tiempo en un examen publicado");
+        }
+        if (exam.isExtraTimeUsed()) {
+            throw new IllegalArgumentException("El tiempo extra solo puede usarse una vez");
+        }
+        if (extraMinutes < 1 || extraMinutes > 60) {
+            throw new IllegalArgumentException("El tiempo extra debe ser entre 1 y 60 minutos");
+        }
+        int base = exam.getDurationMinutes() != null ? exam.getDurationMinutes() : 0;
+        return examRepository.save(exam.toBuilder()
+                .durationMinutes(base + extraMinutes)
+                .extraTimeUsed(true)
+                .updatedAt(Instant.now())
+                .build());
     }
 
     @Override

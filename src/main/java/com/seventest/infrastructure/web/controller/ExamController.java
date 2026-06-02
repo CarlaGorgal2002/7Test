@@ -8,6 +8,7 @@ import com.seventest.domain.port.in.ExamManagementUseCase;
 import com.seventest.infrastructure.web.dto.request.ExamQuestionRequest;
 import com.seventest.infrastructure.web.dto.request.ExamRequest;
 import com.seventest.infrastructure.web.dto.request.ExamTopicRequest;
+import com.seventest.infrastructure.web.dto.request.ExtraTimeRequest;
 import com.seventest.infrastructure.web.dto.response.ExamQuestionResponse;
 import com.seventest.infrastructure.web.dto.response.ExamResponse;
 import com.seventest.infrastructure.web.dto.response.ExamTopicResponse;
@@ -138,6 +139,15 @@ public class ExamController {
         return ResponseEntity.ok(toResponse(examManagementUseCase.close(principal.getName(), examId)));
     }
 
+    @Operation(summary = "Agregar tiempo extra al examen (max 1 vez, max 60 min)")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @PatchMapping("/{examId}/add-extra-time")
+    public ResponseEntity<ExamResponse> addExtraTime(@PathVariable UUID examId,
+                                                      @Valid @RequestBody ExtraTimeRequest request,
+                                                      Principal principal) {
+        return ResponseEntity.ok(toResponse(examManagementUseCase.addExtraTime(principal.getName(), examId, request.extraMinutes())));
+    }
+
     @Operation(summary = "Publicar devoluciones del examen a los alumnos")
     @PreAuthorize("hasRole('PROFESOR')")
     @PatchMapping("/{examId}/publish-feedback")
@@ -189,7 +199,8 @@ public class ExamController {
                 exam.getCreatedAt(),
                 exam.getUpdatedAt(),
                 exam.getPublishedAt(),
-                exam.isFeedbackPublished());
+                exam.isFeedbackPublished(),
+                exam.isExtraTimeUsed());
     }
 
     private ExamTopicResponse toTopicResponse(ExamTopic topic) {
