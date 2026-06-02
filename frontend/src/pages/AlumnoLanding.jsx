@@ -86,9 +86,11 @@ export default function AlumnoLanding() {
     clearInterval(timerRef.current)
     if (!current || current.status !== 'EN_PROGRESO') { setTimeLeft(null); return }
     const exam = exams.find((e) => e.id === current.examId)
-    if (!exam?.publishedAt || !exam?.durationMinutes) { setTimeLeft(null); return }
+    if (!exam?.durationMinutes) { setTimeLeft(null); return }
+    const startRef = exam.availableFrom || exam.publishedAt
+    if (!startRef) { setTimeLeft(null); return }
 
-    const endMs = new Date(exam.publishedAt).getTime() + exam.durationMinutes * 60_000
+    const endMs = new Date(startRef).getTime() + exam.durationMinutes * 60_000
 
     function tick() {
       const remaining = Math.floor((endMs - Date.now()) / 1000)
@@ -195,6 +197,7 @@ export default function AlumnoLanding() {
     })
   }, [exams, submissionsByExam])
 
+  const timedOut = timeLeft !== null && timeLeft <= 0
   const canAnswer = current?.status === 'EN_PROGRESO' && !timedOut
 
   // Polling cada 15s cuando el timer vence — detecta tiempo extra o cierre del examen
@@ -203,7 +206,6 @@ export default function AlumnoLanding() {
     const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
   }, [timedOut, current?.id, fetchData])
-  const timedOut = timeLeft !== null && timeLeft <= 0
 
   // ── VISTA: SELECCIÓN DE TEMA ──────────────────────────────────────────────
   if (view.type === 'topicSelect') {

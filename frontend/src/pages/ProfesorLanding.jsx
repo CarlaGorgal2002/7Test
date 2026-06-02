@@ -19,7 +19,7 @@ import Logo from '../components/Logo.jsx'
 
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
-const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableFrom: '' }
+const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableDate: '', availableTime: '' }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 const theoryTemplate = {
@@ -128,7 +128,8 @@ export default function ProfesorLanding() {
       description: selectedExam.description || '',
       courseName: selectedExam.courseName || 'Testing de Aplicaciones',
       durationMinutes: selectedExam.durationMinutes || 120,
-      availableFrom: selectedExam.availableFrom ? toDatetimeLocal(selectedExam.availableFrom) : '',
+      availableDate: selectedExam.availableFrom ? isoToDate(selectedExam.availableFrom) : '',
+      availableTime: selectedExam.availableFrom ? isoToTime(selectedExam.availableFrom) : '',
     })
     setSelectedTopicId(selectedExam.topics?.[0]?.id ?? null)
   }, [selectedExam?.id])
@@ -151,7 +152,7 @@ export default function ProfesorLanding() {
         description: examForm.description,
         courseName: examForm.courseName,
         durationMinutes: Number(examForm.durationMinutes) || null,
-        availableFrom: examForm.availableFrom ? new Date(examForm.availableFrom).toISOString() : null,
+        availableFrom: combineDateTime(examForm.availableDate, examForm.availableTime),
       })
       setExamForm(emptyExam)
       let newExam = res.data
@@ -256,7 +257,7 @@ async function renameTopic(topicId) {
         description: editExamForm.description,
         courseName: editExamForm.courseName || selectedExam.courseName || 'Testing de Aplicaciones',
         durationMinutes: Number(editExamForm.durationMinutes || selectedExam.durationMinutes) || null,
-        availableFrom: editExamForm.availableFrom ? new Date(editExamForm.availableFrom).toISOString() : null,
+        availableFrom: combineDateTime(editExamForm.availableDate, editExamForm.availableTime),
       })
       replaceExam(res.data)
       setMessage('Datos del borrador actualizados.')
@@ -537,8 +538,9 @@ async function renameTopic(topicId) {
   const _isLocked = (status) => status !== _d([66,79,82,82,65,68,79,82])
   const canEdit = selectedExam != null && !_isLocked(selectedExam.status)
 
-  const profExamEndMs = selectedExam?.publishedAt && selectedExam?.durationMinutes
-    ? new Date(selectedExam.publishedAt).getTime() + selectedExam.durationMinutes * 60_000
+  const profStartRef = selectedExam?.availableFrom || selectedExam?.publishedAt
+  const profExamEndMs = profStartRef && selectedExam?.durationMinutes
+    ? new Date(profStartRef).getTime() + selectedExam.durationMinutes * 60_000
     : null
 
   // Dispara el popup cuando el timer del examen PUBLICADO llega a 0 (solo una vez)
@@ -614,13 +616,30 @@ async function renameTopic(topicId) {
               onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })}
               style={styles.input}
             />
-            <label style={styles.label}>Fecha y hora (opcional)</label>
+            <label style={styles.label}>Fecha de inicio (opcional)</label>
             <input
-              type="datetime-local"
-              value={examForm.availableFrom}
-              onChange={(e) => setExamForm({ ...examForm, availableFrom: e.target.value })}
+              type="date"
+              min={todayStr()}
+              value={examForm.availableDate}
+              onChange={(e) => setExamForm({ ...examForm, availableDate: e.target.value })}
               style={styles.input}
             />
+            {examForm.availableDate && (
+              <>
+                <label style={styles.label}>Hora de inicio — formato 24h (HH:MM)</label>
+                <input
+                  type="text"
+                  value={examForm.availableTime}
+                  onChange={(e) => setExamForm({ ...examForm, availableTime: e.target.value })}
+                  style={styles.input}
+                  placeholder="14:00"
+                  maxLength={5}
+                />
+                {examForm.availableTime && !isValidTime(examForm.availableTime) && (
+                  <span style={styles.fieldError}>Hora inválida. Usá formato HH:MM (ej: 14:00)</span>
+                )}
+              </>
+            )}
             <button type="submit" style={styles.primaryBtn}>Crear borrador</button>
           </form>
 
@@ -635,7 +654,7 @@ async function renameTopic(topicId) {
                   style={styles.examItemSelect}
                 >
                   <span style={styles.examItemTitle}>{exam.title}</span>
-                  <span style={statusStyle(exam.status)}>{labelStatus(exam.status)}</span>
+                  <span style={statusStyle(exam)}>{labelStatus(exam)}</span>
                 </button>
                 {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
                   <button
@@ -664,7 +683,7 @@ async function renameTopic(topicId) {
                   </p>
                 </div>
                 <div style={styles.headerActions}>
-                  <span style={statusStyle(selectedExam.status)}>{labelStatus(selectedExam.status)}</span>
+                  <span style={statusStyle(selectedExam)}>{labelStatus(selectedExam)}</span>
                   {canEdit && (
                     <button onClick={handlePublishClick} style={styles.primaryBtn}>Publicar</button>
                   )}
@@ -699,13 +718,30 @@ async function renameTopic(topicId) {
                         />
                       </div>
                       <div style={styles.fieldBlock}>
-                        <label style={styles.label}>Fecha y hora (opcional)</label>
+                        <label style={styles.label}>Fecha de inicio (opcional)</label>
                         <input
-                          type="datetime-local"
-                          value={editExamForm.availableFrom || ''}
-                          onChange={(e) => setEditExamForm({ ...editExamForm, availableFrom: e.target.value })}
+                          type="date"
+                          min={todayStr()}
+                          value={editExamForm.availableDate || ''}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, availableDate: e.target.value })}
                           style={styles.input}
                         />
+                        {editExamForm.availableDate && (
+                          <>
+                            <label style={{ ...styles.label, marginTop: 6 }}>Hora — formato 24h (HH:MM)</label>
+                            <input
+                              type="text"
+                              value={editExamForm.availableTime || ''}
+                              onChange={(e) => setEditExamForm({ ...editExamForm, availableTime: e.target.value })}
+                              style={styles.input}
+                              placeholder="14:00"
+                              maxLength={5}
+                            />
+                            {editExamForm.availableTime && !isValidTime(editExamForm.availableTime) && (
+                              <span style={styles.fieldError}>Hora inválida. Usá formato HH:MM (ej: 14:00)</span>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div style={styles.editActions}>
@@ -1309,11 +1345,35 @@ function nextTopicLetter(topics) {
   return String.fromCharCode(65 + Math.min((topics || []).length, 25))
 }
 
-function toDatetimeLocal(isoString) {
+function isoToDate(isoString) {
   if (!isoString) return ''
   const d = new Date(isoString)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function isoToTime(isoString) {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  const pad = n => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function isValidTime(t) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
+}
+
+function todayStr() {
+  const d = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function combineDateTime(date, time) {
+  if (!date) return null
+  if (!time) return null
+  if (!isValidTime(time)) return null
+  return new Date(`${date}T${time}:00`).toISOString()
 }
 
 function formatProfTime(seconds) {
@@ -1326,26 +1386,29 @@ function formatProfTime(seconds) {
   return `${pad(m)}:${pad(sec)}`
 }
 
-function labelStatus(status) {
-  return {
-    BORRADOR: 'Borrador',
-    PUBLICADO: 'Publicado',
-    CERRADO: 'Cerrado',
-  }[status] || status
+function derivedStatus(exam) {
+  if (!exam) return 'BORRADOR'
+  if (exam.status === 'BORRADOR') return 'BORRADOR'
+  if (exam.status === 'CERRADO') return 'CERRADO'
+  if (exam.status === 'PUBLICADO') {
+    if (exam.availableFrom && new Date(exam.availableFrom).getTime() > Date.now()) return 'PROGRAMADO'
+    return 'EN_CURSO'
+  }
+  return exam.status
 }
 
-function statusStyle(status) {
-  const base = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    height: 24,
-    padding: '0 10px',
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
-  }
-  if (status === 'PUBLICADO') return { ...base, background: '#DDF6EC', color: '#087A55' }
-  if (status === 'CERRADO') return { ...base, background: '#ECEFF3', color: '#4A5565' }
+function labelStatus(examOrStatus) {
+  const s = typeof examOrStatus === 'string' ? examOrStatus : derivedStatus(examOrStatus)
+  return { BORRADOR: 'Borrador', PUBLICADO: 'Publicado', EN_CURSO: 'En curso', PROGRAMADO: 'Programado', CERRADO: 'Cerrado' }[s] || s
+}
+
+function statusStyle(examOrStatus) {
+  const s = typeof examOrStatus === 'string' ? examOrStatus : derivedStatus(examOrStatus)
+  const base = { display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 }
+  if (s === 'EN_CURSO')   return { ...base, background: '#DDF6EC', color: '#087A55' }
+  if (s === 'PUBLICADO')  return { ...base, background: '#DDF6EC', color: '#087A55' }
+  if (s === 'PROGRAMADO') return { ...base, background: '#FEF3C7', color: '#92400E' }
+  if (s === 'CERRADO')    return { ...base, background: '#ECEFF3', color: '#4A5565' }
   return { ...base, background: '#E6EEFF', color: '#1956D8' }
 }
 
@@ -1515,6 +1578,7 @@ const styles = {
   templateActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   inlineFields: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
   muted: { color: '#536B76', fontSize: 14, margin: 0 },
+  fieldError: { color: '#9B2C2C', fontSize: 12, fontWeight: 600 },
   submissionPanel: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, marginBottom: 16 },
   submissionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 },
   submissionTitle: { fontSize: 17, margin: 0 },
