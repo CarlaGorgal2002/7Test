@@ -33,8 +33,8 @@ public final class ExamMapper {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .publishedAt(entity.getPublishedAt())
-                .feedbackPublished(entity.isFeedbackPublished())
-                .extraTimeUsed(entity.isExtraTimeUsed())
+                .feedbackPublished(Boolean.TRUE.equals(entity.getFeedbackPublished()))
+                .extraTimeUsed(Boolean.TRUE.equals(entity.getExtraTimeUsed()))
                 .build();
     }
 
@@ -74,6 +74,7 @@ public final class ExamMapper {
         entity.setPublishedAt(exam.getPublishedAt());
         entity.setFeedbackPublished(exam.isFeedbackPublished());
         entity.setExtraTimeUsed(exam.isExtraTimeUsed());
+
         entity.getTopics().clear();
         syncTopics(entity, exam.getTopics());
     }

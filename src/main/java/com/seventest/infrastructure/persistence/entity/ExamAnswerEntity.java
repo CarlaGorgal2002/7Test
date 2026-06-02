@@ -24,11 +24,12 @@ public class ExamAnswerEntity {
     @Column(name = "answer_text", nullable = false, length = 20000)
     private String answerText;
 
-    @Column(name = "score", precision = 5, scale = 2)
+    @Column(name = "score", precision = 6, scale = 2)
     private java.math.BigDecimal score;
 
     @Column(name = "comment", length = 3000)
     private String comment;
+
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

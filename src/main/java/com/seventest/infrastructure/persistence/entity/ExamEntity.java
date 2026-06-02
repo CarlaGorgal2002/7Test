@@ -58,13 +58,13 @@ public class ExamEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    @Column(name = "feedback_published", nullable = false)
+    @Column(name = "feedback_published")
     @Builder.Default
-    private boolean feedbackPublished = false;
+    private Boolean feedbackPublished = false;
 
-    @Column(name = "extra_time_used", nullable = false)
+    @Column(name = "extra_time_used")
     @Builder.Default
-    private boolean extraTimeUsed = false;
+    private Boolean extraTimeUsed = false;
 
     @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
