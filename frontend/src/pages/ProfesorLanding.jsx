@@ -251,6 +251,11 @@ async function renameTopic(topicId) {
     e.preventDefault()
     if (!selectedExam || selectedExam.status !== 'BORRADOR') return
     setMessage('')
+    const af = combineDateTime(editExamForm.availableDate, editExamForm.availableTime)
+    if (af && new Date(af) < new Date()) {
+      setMessage('La fecha y hora de inicio no puede ser anterior al momento actual.')
+      return
+    }
     try {
       const res = await api.put(`/exams/${selectedExam.id}`, {
         title: editExamForm.title,
@@ -369,6 +374,13 @@ async function renameTopic(topicId) {
 
   function handlePublishClick() {
     if (!selectedExam) return
+
+    // Validar que availableFrom no sea pasado
+    if (selectedExam.availableFrom && new Date(selectedExam.availableFrom) < new Date()) {
+      setModal({ type: 'pastDate', isoDate: selectedExam.availableFrom })
+      return
+    }
+
     const missingAnswers = findMissingAnswers(selectedExam)
     if (missingAnswers.length > 0) {
       setModal({ type: 'missingAnswers', items: missingAnswers })
@@ -1266,7 +1278,21 @@ async function renameTopic(topicId) {
       {modal && (
         <div style={styles.modalOverlay} onClick={() => setModal(null)}>
           <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            {modal.type === 'confirmPublish' ? (
+            {modal.type === 'pastDate' ? (
+              <>
+                <h3 style={styles.modalTitle}>⚠️ Fecha y hora ya pasaron</h3>
+                <p style={styles.modalText}>
+                  La fecha programada ({new Date(modal.isoDate).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}) ya pasó.
+                  No podés publicar con una hora anterior a la actual.
+                </p>
+                <p style={styles.modalText}>
+                  Actualizá la fecha y hora en <strong>Datos del borrador</strong> antes de publicar.
+                </p>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.primaryBtn}>Entendido</button>
+                </div>
+              </>
+            ) : modal.type === 'confirmPublish' ? (
               <>
                 <h3 style={styles.modalTitle}>Publicar examen</h3>
                 <p style={styles.modalText}>
