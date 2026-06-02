@@ -4,7 +4,7 @@ export const DECISION_TREE_PREFIX = '7TEST_DECISION_TREE:'
 
 const emptyTree = { nodes: [], edges: [] }
 const boardSize = { width: 1800, height: 1200 }
-const nodeSize = { oval: { width: 200, height: 116 }, rect: { width: 196, height: 106 } }
+const nodeSize = { oval: { width: 158, height: 88 }, rect: { width: 156, height: 80 } }
 const sides = ['top', 'right', 'bottom', 'left']
 
 export function emptyDecisionTreeValue() {
@@ -52,7 +52,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   const [selected, setSelected] = useState(null)
   const [drag, setDrag] = useState(null)
   const [draftEdge, setDraftEdge] = useState(null)
-  const [zoom, setZoom] = useState(compact ? 0.55 : 0.8)
+  const [zoom, setZoom] = useState(compact ? 0.6 : 0.85)
 
   useEffect(() => {
     if ((value || '') !== lastEmitted.current) {
@@ -222,7 +222,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
         <div style={{ ...styles.board, transform: `scale(${zoom})` }} onPointerDown={() => setSelected(null)}>
           <svg width={boardSize.width} height={boardSize.height} style={styles.svgLayer}>
             <defs>
-              <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#304653" />
               </marker>
             </defs>
@@ -234,7 +234,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
                 x2={to.x}
                 y2={to.y}
                 stroke={selected?.type === 'edge' && selected.id === edge.id ? '#1956D8' : '#304653'}
-                strokeWidth={selected?.type === 'edge' && selected.id === edge.id ? 3 : 2}
+                strokeWidth={selected?.type === 'edge' && selected.id === edge.id ? 4 : 3}
                 markerEnd="url(#arrow-head)"
                 onPointerDown={(event) => {
                   event.stopPropagation()
@@ -259,7 +259,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
           {edgeModels.map(({ edge, from, to }) => {
             const midpoint = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
             return readOnly ? (
-              edge.label && <span key={edge.id} style={{ ...styles.edgeLabelReadOnly, left: midpoint.x - 34, top: midpoint.y - 14 }}>{edge.label}</span>
+              edge.label && <span key={edge.id} style={{ ...styles.edgeLabelReadOnly, left: midpoint.x - 45, top: midpoint.y - 15 }}>{edge.label}</span>
             ) : (
               <input
                 key={edge.id}
@@ -272,8 +272,8 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
                 style={{
                   ...styles.edgeLabel,
                   ...(selected?.type === 'edge' && selected.id === edge.id ? styles.edgeLabelActive : {}),
-                  left: midpoint.x - 34,
-                  top: midpoint.y - 14,
+                  left: midpoint.x - 45,
+                  top: midpoint.y - 15,
                 }}
                 placeholder="si/no"
               />
@@ -433,7 +433,7 @@ const styles = {
   nodeText: { width: '100%', height: 'calc(100% - 18px)', boxSizing: 'border-box', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: '#09222A', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, lineHeight: 1.3, textAlign: 'center', padding: '10px 16px' },
   magnet: { position: 'absolute', width: 14, height: 14, borderRadius: '50%', border: '2px solid #1956D8', background: '#fff', cursor: 'crosshair', zIndex: 4, padding: 0 },
   magnetActive: { background: '#DDE8FF' },
-  edgeLabel: { position: 'absolute', zIndex: 5, width: 68, minHeight: 26, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 999, background: '#fff', color: '#09222A', fontSize: 12, fontWeight: 700, textAlign: 'center', outline: 'none' },
+  edgeLabel: { position: 'absolute', zIndex: 5, width: 90, minHeight: 30, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 999, background: '#fff', color: '#09222A', fontSize: 15, fontWeight: 700, textAlign: 'center', outline: 'none' },
   edgeLabelActive: { borderColor: '#1956D8', boxShadow: '0 0 0 3px rgba(25,86,216,0.12)' },
-  edgeLabelReadOnly: { position: 'absolute', zIndex: 5, minWidth: 68, minHeight: 24, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 999, background: '#fff', color: '#09222A', fontSize: 12, fontWeight: 700, textAlign: 'center', padding: '4px 8px' },
+  edgeLabelReadOnly: { position: 'absolute', zIndex: 5, minWidth: 90, minHeight: 30, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 999, background: '#fff', color: '#09222A', fontSize: 15, fontWeight: 700, textAlign: 'center', padding: '5px 10px' },
 }
