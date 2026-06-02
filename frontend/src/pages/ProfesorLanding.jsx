@@ -785,9 +785,6 @@ async function renameTopic(topicId) {
                             {secondsLeft <= 0 ? '⏰ Tiempo vencido' : `⏱ ${formatProfTime(secondsLeft)} restantes`}
                           </span>
                         )}
-                        <button onClick={() => {
-                          api.get(`/submissions/exams/${selectedExam.id}`).then((res) => setSubmissions(res.data)).catch(() => setSubmissions([]))
-                        }} style={styles.secondaryBtn}>Actualizar</button>
                       </div>
                     </div>
                     {submissions.length > 0 && (
