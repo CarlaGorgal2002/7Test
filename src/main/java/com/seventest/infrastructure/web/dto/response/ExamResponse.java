@@ -19,6 +19,7 @@ public record ExamResponse(
         List<ExamTopicResponse> topics,
         Instant createdAt,
         Instant updatedAt,
-        Instant publishedAt
+        Instant publishedAt,
+        boolean feedbackPublished
 ) {
 }

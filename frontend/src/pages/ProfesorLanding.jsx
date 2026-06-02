@@ -717,6 +717,31 @@ async function renameTopic(topicId) {
                         <span style={styles.counterBadgeProgress}>En progreso: {enProgreso}</span>
                         <span style={styles.counterBadgeDone}>Entregado: {entregados}</span>
                         <span style={styles.counterBadgeTotal}>Total: {submissions.length}</span>
+                        {(() => {
+                          const allGraded = submissions.length > 0
+                            && submissions.every(s => s.status === 'ENTREGADO' && isGraded(s))
+                          if (selectedExam.feedbackPublished) {
+                            return <span style={styles.feedbackPublishedBadge}>✓ Devoluciones entregadas</span>
+                          }
+                          if (allGraded) {
+                            return (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const res = await api.patch(`/exams/${selectedExam.id}/publish-feedback`)
+                                    replaceExam(res.data)
+                                  } catch (err) {
+                                    setMessage(err.response?.data?.message || 'No se pudieron entregar las devoluciones.')
+                                  }
+                                }}
+                                style={styles.publishFeedbackBtn}
+                              >
+                                Entregar devoluciones
+                              </button>
+                            )
+                          }
+                          return null
+                        })()}
                       </div>
                     )}
                     {submissions.length === 0 ? (
@@ -1035,9 +1060,9 @@ async function renameTopic(topicId) {
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {message && <span style={{ color: '#087A55', fontSize: 13, fontWeight: 700 }}>{message}</span>}
                 <button onClick={saveGrade} disabled={gradeSaving} style={gradeSaving ? styles.disabledBtn : styles.primaryBtn}>
-                  {gradeSaving ? 'Guardando...' : 'Guardar calificación'}
+                  {gradeSaving ? 'Guardando...' : 'Guardar'}
                 </button>
-                <button onClick={() => { setGradingSubmission(null); setMessage('') }} style={styles.secondaryBtn}>Cerrar</button>
+                <button onClick={() => { setGradingSubmission(null); setMessage('') }} style={styles.closeXBtn} title="Cerrar">✕</button>
               </div>
             </div>
             <div style={styles.gradingBody}>
@@ -1401,9 +1426,12 @@ const styles = {
   submissionList: { display: 'flex', flexDirection: 'column', gap: 8 },
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   gradeBtn: { minHeight: 28, padding: '4px 10px', background: '#fff', color: '#7C3AED', border: '1px solid #7C3AED', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' },
-  gradingOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.55)', zIndex: 2000, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' },
-  gradingPanel: { width: '70%', maxWidth: 900, background: '#F4F8FA', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 32px rgba(9,34,42,0.18)' },
-  gradingHeader: { background: '#09222A', color: '#fff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' },
+  publishFeedbackBtn: { minHeight: 30, padding: '5px 14px', background: '#087A55', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  feedbackPublishedBadge: { background: '#087A55', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
+  closeXBtn: { width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(203,238,243,0.4)', background: 'rgba(203,238,243,0.1)', color: '#CBEEF3', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  gradingOverlay: { position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'stretch' },
+  gradingPanel: { width: '100%', background: '#F4F8FA', display: 'flex', flexDirection: 'column' },
+  gradingHeader: { background: '#09222A', color: '#fff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
   gradingTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 4px', color: '#fff' },
   gradingBody: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 },
   gradeCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },

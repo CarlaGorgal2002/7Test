@@ -58,6 +58,10 @@ public class ExamEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    @Column(name = "feedback_published", nullable = false)
+    @Builder.Default
+    private boolean feedbackPublished = false;
+
     @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ExamTopicEntity> topics = new LinkedHashSet<>();

@@ -18,6 +18,7 @@ public record ExamSubmissionResponse(
         List<SubmissionQuestionResponse> questions,
         Instant startedAt,
         Instant updatedAt,
-        Instant submittedAt
+        Instant submittedAt,
+        boolean feedbackPublished
 ) {
 }

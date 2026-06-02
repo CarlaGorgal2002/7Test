@@ -222,6 +222,15 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     @Override
+    public Exam publishFeedback(String teacherEmail, UUID examId) {
+        Exam exam = requireOwnedExam(teacherEmail, examId);
+        if (exam.getStatus() == ExamStatus.BORRADOR) {
+            throw new IllegalArgumentException("No se puede publicar devoluciones de un examen en borrador");
+        }
+        return examRepository.save(exam.toBuilder().feedbackPublished(true).updatedAt(Instant.now()).build());
+    }
+
+    @Override
     public void deleteExam(String teacherEmail, UUID examId) {
         Exam exam = requireOwnedExam(teacherEmail, examId);
         if (exam.getStatus() == ExamStatus.PUBLICADO) {

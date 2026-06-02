@@ -321,6 +321,12 @@ export default function AlumnoLanding() {
                 const tableQuestion = isDecisionTableQuestion(question)
                 return (
                   <article key={question.questionId} style={{ ...styles.questionCard, borderLeft: `4px solid ${topicColor}` }}>
+                    {current.feedbackPublished && question.score != null && (
+                      <div style={styles.feedbackBox}>
+                        <span style={styles.feedbackScore}>{question.score} / {question.points} pts</span>
+                        {question.comment && <p style={styles.feedbackComment}>💬 {question.comment}</p>}
+                      </div>
+                    )}
                     <div style={styles.questionHeader}>
                       <h3 style={styles.questionTitle}>{question.displayOrder}. {question.prompt || questionFallbackTitle(question)}</h3>
                       <span style={styles.points}>{question.points} pts</span>
@@ -543,6 +549,9 @@ const styles = {
   answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
   practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
+  feedbackBox: { background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', marginBottom: 10 },
+  feedbackScore: { fontWeight: 800, color: '#087A55', fontSize: 14 },
+  feedbackComment: { margin: '4px 0 0', color: '#304653', fontSize: 13, lineHeight: 1.4 },
   // Modal
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 460, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },

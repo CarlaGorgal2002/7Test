@@ -146,7 +146,8 @@ public class ExamSubmissionController {
                 questions,
                 submission.getStartedAt(),
                 submission.getUpdatedAt(),
-                submission.getSubmittedAt());
+                submission.getSubmittedAt(),
+                exam.isFeedbackPublished());
     }
 
     private String interactionType(ExamQuestion question) {

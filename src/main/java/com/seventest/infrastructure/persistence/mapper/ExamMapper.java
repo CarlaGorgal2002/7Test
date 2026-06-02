@@ -33,6 +33,7 @@ public final class ExamMapper {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .publishedAt(entity.getPublishedAt())
+                .feedbackPublished(entity.isFeedbackPublished())
                 .build();
     }
 
@@ -50,6 +51,7 @@ public final class ExamMapper {
                 .createdAt(exam.getCreatedAt())
                 .updatedAt(exam.getUpdatedAt())
                 .publishedAt(exam.getPublishedAt())
+                .feedbackPublished(exam.isFeedbackPublished())
                 .topics(new LinkedHashSet<>())
                 .build();
         syncTopics(entity, exam.getTopics());
@@ -68,6 +70,7 @@ public final class ExamMapper {
         entity.setCreatedAt(exam.getCreatedAt());
         entity.setUpdatedAt(exam.getUpdatedAt());
         entity.setPublishedAt(exam.getPublishedAt());
+        entity.setFeedbackPublished(exam.isFeedbackPublished());
         entity.getTopics().clear();
         syncTopics(entity, exam.getTopics());
     }

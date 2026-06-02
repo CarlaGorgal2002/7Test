@@ -23,4 +23,5 @@ public class Exam {
     private final Instant createdAt;
     private final Instant updatedAt;
     private final Instant publishedAt;
+    private final boolean feedbackPublished;
 }

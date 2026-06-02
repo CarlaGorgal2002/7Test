@@ -138,6 +138,13 @@ public class ExamController {
         return ResponseEntity.ok(toResponse(examManagementUseCase.close(principal.getName(), examId)));
     }
 
+    @Operation(summary = "Publicar devoluciones del examen a los alumnos")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @PatchMapping("/{examId}/publish-feedback")
+    public ResponseEntity<ExamResponse> publishFeedback(@PathVariable UUID examId, Principal principal) {
+        return ResponseEntity.ok(toResponse(examManagementUseCase.publishFeedback(principal.getName(), examId)));
+    }
+
     @Operation(summary = "Eliminar examen (borrador siempre; cerrado solo sin entregas)")
     @PreAuthorize("hasRole('PROFESOR')")
     @DeleteMapping("/{examId}")
@@ -181,7 +188,8 @@ public class ExamController {
                         .toList(),
                 exam.getCreatedAt(),
                 exam.getUpdatedAt(),
-                exam.getPublishedAt());
+                exam.getPublishedAt(),
+                exam.isFeedbackPublished());
     }
 
     private ExamTopicResponse toTopicResponse(ExamTopic topic) {
