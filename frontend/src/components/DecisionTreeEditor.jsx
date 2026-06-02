@@ -52,6 +52,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   const [selected, setSelected] = useState(null)
   const [drag, setDrag] = useState(null)
   const [draftEdge, setDraftEdge] = useState(null)
+  const [movingEdge, setMovingEdge] = useState(null) // { edgeId, endpoint:'from'|'to', point }
   const [zoom, setZoom] = useState(0.85)
 
   useEffect(() => {
@@ -127,14 +128,23 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
         y: clamp(snap(point.y - drag.offsetY), 8, boardSize.height - node.height - 8),
       })
     }
-    if (draftEdge) {
-      setDraftEdge({ ...draftEdge, point: boardPoint(event) })
-    }
+    if (draftEdge) setDraftEdge({ ...draftEdge, point: boardPoint(event) })
+    if (movingEdge) setMovingEdge({ ...movingEdge, point: boardPoint(event) })
   }
 
   function stopPointer() {
     setDrag(null)
     setDraftEdge(null)
+    setMovingEdge(null)
+  }
+
+  function startMoveEdgeEndpoint(event, edge, endpoint) {
+    if (readOnly) return
+    event.preventDefault()
+    event.stopPropagation()
+    const anchor = edgeAnchor(tree.nodes, endpoint === 'from' ? edge.from : edge.to)
+    setMovingEdge({ edgeId: edge.id, endpoint, point: anchor || { x: 0, y: 0 } })
+    setSelected({ type: 'edge', id: edge.id })
   }
 
   function startEdge(event, node, side) {
@@ -149,9 +159,27 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   }
 
   function finishEdge(event, node, side) {
-    if (readOnly || !draftEdge) return
+    if (readOnly) return
     event.preventDefault()
     event.stopPropagation()
+
+    if (movingEdge) {
+      const edge = tree.edges.find(e => e.id === movingEdge.edgeId)
+      if (edge) {
+        const other = movingEdge.endpoint === 'from' ? edge.to : edge.from
+        if (node.id !== other.nodeId || side !== other.side) {
+          const updated = movingEdge.endpoint === 'from'
+            ? { ...edge, from: { nodeId: node.id, side } }
+            : { ...edge, to: { nodeId: node.id, side } }
+          emit({ ...tree, edges: tree.edges.map(e => e.id === movingEdge.edgeId ? updated : e) })
+          setSelected({ type: 'edge', id: movingEdge.edgeId })
+        }
+      }
+      setMovingEdge(null)
+      return
+    }
+
+    if (!draftEdge) return
     if (draftEdge.from.nodeId === node.id && draftEdge.from.side === side) {
       setDraftEdge(null)
       return
@@ -248,12 +276,43 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
                 y1={edgeAnchor(tree.nodes, draftEdge.from)?.y || draftEdge.point.y}
                 x2={draftEdge.point.x}
                 y2={draftEdge.point.y}
-                stroke="#1956D8"
-                strokeWidth="2"
-                strokeDasharray="5 5"
+                stroke="#1956D8" strokeWidth="3" strokeDasharray="6 4"
                 markerEnd="url(#arrow-head)"
               />
             )}
+
+            {movingEdge && (() => {
+              const edge = tree.edges.find(e => e.id === movingEdge.edgeId)
+              if (!edge) return null
+              const fixedEnd = movingEdge.endpoint === 'from' ? edge.to : edge.from
+              const fixedAnchor = edgeAnchor(tree.nodes, fixedEnd)
+              if (!fixedAnchor) return null
+              const x1 = movingEdge.endpoint === 'to' ? fixedAnchor.x : movingEdge.point.x
+              const y1 = movingEdge.endpoint === 'to' ? fixedAnchor.y : movingEdge.point.y
+              const x2 = movingEdge.endpoint === 'from' ? fixedAnchor.x : movingEdge.point.x
+              const y2 = movingEdge.endpoint === 'from' ? fixedAnchor.y : movingEdge.point.y
+              return (
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="#1956D8" strokeWidth="3" strokeDasharray="6 4"
+                  markerEnd="url(#arrow-head)"
+                />
+              )
+            })()}
+
+            {selected?.type === 'edge' && !readOnly && !movingEdge && edgeModels
+              .filter(({ edge }) => edge.id === selected.id)
+              .map(({ edge, from, to }) => (
+                <g key={`handles-${edge.id}`}>
+                  <circle cx={from.x} cy={from.y} r={8} fill="#fff" stroke="#1956D8" strokeWidth={2}
+                    style={{ cursor: 'crosshair', pointerEvents: 'all' }}
+                    onPointerDown={(e) => startMoveEdgeEndpoint(e, edge, 'from')} />
+                  <circle cx={to.x} cy={to.y} r={8} fill="#1956D8" stroke="#1956D8" strokeWidth={2}
+                    style={{ cursor: 'crosshair', pointerEvents: 'all' }}
+                    onPointerDown={(e) => startMoveEdgeEndpoint(e, edge, 'to')} />
+                </g>
+              ))
+            }
           </svg>
 
           {edgeModels.map(({ edge, from, to }) => {
@@ -311,7 +370,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
                   type="button"
                   onPointerDown={(event) => startEdge(event, node, side)}
                   onPointerUp={(event) => finishEdge(event, node, side)}
-                  style={{ ...styles.magnet, ...magnetStyle(side), ...(draftEdge ? styles.magnetActive : {}) }}
+                  style={{ ...styles.magnet, ...magnetStyle(side), ...((draftEdge || movingEdge) ? styles.magnetActive : {}) }}
                   title="Flecha"
                 />
               ))}
