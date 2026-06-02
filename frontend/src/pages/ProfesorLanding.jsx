@@ -1592,7 +1592,7 @@ function questionDisplayTitle(question) {
 
 const styles = {
   page: { minHeight: '100vh', background: '#F4F8FA', color: '#09222A' },
-  header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { background: 'linear-gradient(120deg, #09222A 0%, #1956D8 100%)', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { display: 'flex', alignItems: 'center', gap: 12 },
   headerTitle: { fontSize: 20, fontWeight: 700, margin: 0 },
   headerUser: { fontSize: 13, opacity: 0.72 },
