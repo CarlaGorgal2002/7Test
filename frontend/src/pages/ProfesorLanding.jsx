@@ -1134,7 +1134,16 @@ async function renameTopic(topicId) {
         </div>
       )}
 
-      {gradingSubmission && (
+      {gradingSubmission && (() => {
+        const PROF_TOPIC_PASTEL = {
+          '#2563eb': '#BFDBFE', '#16a34a': '#BBF7D0', '#d97706': '#FDE68A',
+          '#dc2626': '#FECACA', '#7c3aed': '#DDD6FE', '#ea580c': '#FDBA74',
+          '#0891b2': '#A5F3FC', '#65a30d': '#D9F99D', '#db2777': '#FBCFE8', '#0d9488': '#99F6E4',
+        }
+        const gradingExam = exams.find(e => e.id === gradingSubmission.examId)
+        const gradingTopic = gradingExam?.topics?.find(t => t.id === gradingSubmission.topicId)
+        const gradingPastel = PROF_TOPIC_PASTEL[gradingTopic?.colorHex?.toLowerCase()] || '#F4F8FA'
+        return (
         <div style={styles.gradingOverlay}>
           <div style={styles.gradingPanel}>
             <div style={styles.gradingHeader}>
@@ -1147,10 +1156,10 @@ async function renameTopic(topicId) {
                 <button onClick={saveGrade} disabled={gradeSaving} style={gradeSaving ? styles.disabledBtn : styles.primaryBtn}>
                   {gradeSaving ? 'Guardando...' : 'Guardar'}
                 </button>
-                <button onClick={() => { setGradingSubmission(null); setMessage('') }} style={styles.closeXBtn} title="Cerrar">✕</button>
+                <button onClick={async () => { await saveGrade(); setGradingSubmission(null); setMessage('') }} style={styles.closeXBtn} title="Guardar y cerrar">✕</button>
               </div>
             </div>
-            <div style={styles.gradingBody}>
+            <div style={{ ...styles.gradingBody, background: gradingPastel }}>
               {gradingSubmission.questions.map((q, i) => {
                 const gd = gradeData[q.questionId] || { score: '', comment: '' }
                 const maxPts = Number(q.points)
@@ -1215,7 +1224,8 @@ async function renameTopic(topicId) {
             </div>
           </div>
         </div>
-      )}
+      )
+      })()}
 
       {modal && (
         <div style={styles.modalOverlay} onClick={() => setModal(null)}>
@@ -1522,7 +1532,7 @@ const styles = {
   gradeCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
   gradeCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   gradeQuestionNum: { fontSize: 13, fontWeight: 800, color: '#304653' },
-  gradePrompt: { fontSize: 14, color: '#09222A', margin: '0 0 10px', lineHeight: 1.4 },
+  gradePrompt: { fontSize: 16, fontWeight: 700, color: '#09222A', margin: '0 0 10px', lineHeight: 1.4 },
   gradeAnswerBox: { background: '#F4F8FA', borderRadius: 6, padding: '10px 12px', marginBottom: 12 },
   gradeAnswerLabel: { fontSize: 11, fontWeight: 700, color: '#536B76', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' },
   gradeAnswerText: { margin: 0, fontSize: 13, color: '#09222A', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.5 },
