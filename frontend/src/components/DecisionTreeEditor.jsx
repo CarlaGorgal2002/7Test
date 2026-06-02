@@ -52,7 +52,7 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   const [selected, setSelected] = useState(null)
   const [drag, setDrag] = useState(null)
   const [draftEdge, setDraftEdge] = useState(null)
-  const [zoom, setZoom] = useState(compact ? 0.6 : 0.85)
+  const [zoom, setZoom] = useState(0.85)
 
   useEffect(() => {
     if ((value || '') !== lastEmitted.current) {
@@ -335,8 +335,8 @@ function safeNodes(nodes) {
         type: node.type,
         x: Number.isFinite(Number(node.x)) ? Number(node.x) : 40,
         y: Number.isFinite(Number(node.y)) ? Number(node.y) : 40,
-        width: Number.isFinite(Number(node.width)) ? Number(node.width) : size.width,
-        height: Number.isFinite(Number(node.height)) ? Number(node.height) : size.height,
+        width: size.width,
+        height: size.height,
         text: String(node.text || '').slice(0, 200),
       }
     })
