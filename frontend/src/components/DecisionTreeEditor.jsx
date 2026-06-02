@@ -4,7 +4,7 @@ export const DECISION_TREE_PREFIX = '7TEST_DECISION_TREE:'
 
 const emptyTree = { nodes: [], edges: [] }
 const boardSize = { width: 1800, height: 1200 }
-const nodeSize = { oval: { width: 154, height: 84 }, rect: { width: 150, height: 74 } }
+const nodeSize = { oval: { width: 200, height: 116 }, rect: { width: 196, height: 106 } }
 const sides = ['top', 'right', 'bottom', 'left']
 
 export function emptyDecisionTreeValue() {
@@ -406,11 +406,11 @@ const styles = {
   zoomControls: { display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   zoomButton: { width: 32, height: 32, border: '1px solid #1956D8', borderRadius: 6, background: '#fff', color: '#1956D8', fontSize: 16, fontWeight: 800, cursor: 'pointer' },
   zoomLabel: { minWidth: 46, color: '#304653', fontSize: 13, fontWeight: 800, textAlign: 'center' },
-  boardFrame: { width: '100%', height: 680, overflow: 'auto', background: '#EEF5F7' },
+  boardFrame: { width: '100%', height: 860, overflow: 'auto', background: '#EEF5F7' },
   boardFrameCompact: {
     width: '100%',
     maxWidth: '100%',
-    height: 320,
+    height: 500,
     overflow: 'auto',
     background: '#EEF5F7',
     boxSizing: 'border-box',
@@ -430,7 +430,7 @@ const styles = {
   rectNode: { borderRadius: 4 },
   selectedNode: { borderColor: '#1956D8', boxShadow: '0 0 0 3px rgba(25,86,216,0.14)' },
   dragHandle: { height: 18, cursor: 'move', borderBottom: '1px solid rgba(48,70,83,0.12)' },
-  nodeText: { width: '100%', height: 'calc(100% - 18px)', boxSizing: 'border-box', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: '#09222A', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, lineHeight: 1.25, textAlign: 'center', padding: '8px 14px' },
+  nodeText: { width: '100%', height: 'calc(100% - 18px)', boxSizing: 'border-box', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: '#09222A', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, lineHeight: 1.3, textAlign: 'center', padding: '10px 16px' },
   magnet: { position: 'absolute', width: 14, height: 14, borderRadius: '50%', border: '2px solid #1956D8', background: '#fff', cursor: 'crosshair', zIndex: 4, padding: 0 },
   magnetActive: { background: '#DDE8FF' },
   edgeLabel: { position: 'absolute', zIndex: 5, width: 68, minHeight: 26, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 999, background: '#fff', color: '#09222A', fontSize: 12, fontWeight: 700, textAlign: 'center', outline: 'none' },
