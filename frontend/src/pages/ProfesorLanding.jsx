@@ -732,13 +732,17 @@ async function renameTopic(topicId) {
                                 <p style={styles.answer}>Tema: {submission.topicName}</p>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                                <span style={submission.status === 'ENTREGADO' ? styles.submittedBadge : styles.progressBadge}>
-                                  {submission.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
-                                </span>
+                                {submission.status === 'ENTREGADO' ? (
+                                  isGraded(submission)
+                                    ? <span style={styles.gradedBadge}>Calificado</span>
+                                    : <span style={styles.submittedBadge}>Entregado</span>
+                                ) : (
+                                  <span style={styles.progressBadge}>En progreso</span>
+                                )}
                                 {excedido && <span style={styles.exceededBadge}>Excedido de tiempo</span>}
                                 {submission.status === 'ENTREGADO' && (
                                   <button onClick={() => openGrading(submission)} style={styles.gradeBtn}>
-                                    Calificar
+                                    {isGraded(submission) ? 'Volver a calificar' : 'Calificar'}
                                   </button>
                                 )}
                               </div>
@@ -1177,6 +1181,10 @@ async function renameTopic(topicId) {
   )
 }
 
+function isGraded(submission) {
+  return submission.questions?.some(q => q.score != null)
+}
+
 function nextTopicLetter(topics) {
   return String.fromCharCode(65 + Math.min((topics || []).length, 25))
 }
@@ -1408,6 +1416,7 @@ const styles = {
   gradeInputRow: { display: 'flex', gap: 16, alignItems: 'flex-start' },
   gradeScoreBlock: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 },
   gradeTotalRow: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: '12px 16px', textAlign: 'right', fontSize: 15 },
+  gradedBadge: { background: '#087A55', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   submittedBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   exceededBadge: { background: '#FDECEA', color: '#9B2C2C', padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800 },
