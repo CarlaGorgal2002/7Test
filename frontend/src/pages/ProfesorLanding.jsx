@@ -71,6 +71,9 @@ export default function ProfesorLanding() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [profNow, setProfNow] = useState(Date.now())
+  const [gradingSubmission, setGradingSubmission] = useState(null)
+  const [gradeData, setGradeData] = useState({})
+  const [gradeSaving, setGradeSaving] = useState(false)
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || exams[0] || null,
@@ -448,6 +451,41 @@ async function renameTopic(topicId) {
     }
   }
 
+  async function openGrading(submission) {
+    setMessage('')
+    try {
+      const res = await api.get(`/submissions/${submission.id}`)
+      const detail = res.data
+      setGradingSubmission(detail)
+      const initial = {}
+      detail.questions.forEach(q => {
+        initial[q.questionId] = { score: q.score ?? '', comment: q.comment ?? '' }
+      })
+      setGradeData(initial)
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo cargar la entrega.')
+    }
+  }
+
+  async function saveGrade() {
+    if (!gradingSubmission) return
+    setGradeSaving(true)
+    try {
+      const answers = gradingSubmission.questions.map(q => ({
+        questionId: q.questionId,
+        score: gradeData[q.questionId]?.score === '' ? null : Number(gradeData[q.questionId]?.score ?? null),
+        comment: gradeData[q.questionId]?.comment || '',
+      }))
+      const res = await api.put(`/submissions/${gradingSubmission.id}/grade`, { answers })
+      setGradingSubmission(res.data)
+      setMessage('Calificación guardada.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo guardar la calificación.')
+    } finally {
+      setGradeSaving(false)
+    }
+  }
+
   function replaceExam(updated) {
     setExams((current) => current.map((exam) => exam.id === updated.id ? updated : exam))
     setSelectedId(updated.id)
@@ -689,7 +727,7 @@ async function renameTopic(topicId) {
                           const excedido = examEndMs && submission.status !== 'ENTREGADO' && profNow > examEndMs
                           return (
                             <div key={submission.id} style={styles.submissionRow}>
-                              <div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
                                 <strong>{submission.studentName}</strong>
                                 <p style={styles.answer}>Tema: {submission.topicName}</p>
                               </div>
@@ -697,8 +735,11 @@ async function renameTopic(topicId) {
                                 <span style={submission.status === 'ENTREGADO' ? styles.submittedBadge : styles.progressBadge}>
                                   {submission.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
                                 </span>
-                                {excedido && (
-                                  <span style={styles.exceededBadge}>Excedido de tiempo</span>
+                                {excedido && <span style={styles.exceededBadge}>Excedido de tiempo</span>}
+                                {submission.status === 'ENTREGADO' && (
+                                  <button onClick={() => openGrading(submission)} style={styles.gradeBtn}>
+                                    Calificar
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -978,6 +1019,89 @@ async function renameTopic(topicId) {
           )}
         </section>
       </main>
+
+      {gradingSubmission && (
+        <div style={styles.gradingOverlay}>
+          <div style={styles.gradingPanel}>
+            <div style={styles.gradingHeader}>
+              <div>
+                <h2 style={styles.gradingTitle}>{gradingSubmission.examTitle}</h2>
+                <p style={styles.muted}>{gradingSubmission.studentName} · Tema: {gradingSubmission.topicName}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {message && <span style={{ color: '#087A55', fontSize: 13, fontWeight: 700 }}>{message}</span>}
+                <button onClick={saveGrade} disabled={gradeSaving} style={gradeSaving ? styles.disabledBtn : styles.primaryBtn}>
+                  {gradeSaving ? 'Guardando...' : 'Guardar calificación'}
+                </button>
+                <button onClick={() => { setGradingSubmission(null); setMessage('') }} style={styles.secondaryBtn}>Cerrar</button>
+              </div>
+            </div>
+            <div style={styles.gradingBody}>
+              {gradingSubmission.questions.map((q, i) => {
+                const gd = gradeData[q.questionId] || { score: '', comment: '' }
+                const maxPts = Number(q.points)
+                const isTree = q.interactionType === 'DECISION_TREE'
+                const isTable = q.interactionType === 'DECISION_TABLE'
+                return (
+                  <div key={q.questionId} style={styles.gradeCard}>
+                    <div style={styles.gradeCardHeader}>
+                      <span style={styles.gradeQuestionNum}>Pregunta {q.displayOrder}</span>
+                      <span style={{ color: '#1956D8', fontWeight: 800, fontSize: 13 }}>{maxPts} pts</span>
+                    </div>
+                    {q.prompt && <p style={styles.gradePrompt}>{q.prompt}</p>}
+                    <div style={styles.gradeAnswerBox}>
+                      <p style={styles.gradeAnswerLabel}>Respuesta del alumno:</p>
+                      {isTable || isTree ? (
+                        <p style={{ color: '#536B76', fontSize: 13, fontStyle: 'italic' }}>
+                          {isTable ? '[Tabla de decisión — ver en vista del alumno]' : '[Árbol de decisión — ver en vista del alumno]'}
+                        </p>
+                      ) : (
+                        <pre style={styles.gradeAnswerText}>{q.answerText || '(sin respuesta)'}</pre>
+                      )}
+                    </div>
+                    <div style={styles.gradeInputRow}>
+                      <div style={styles.gradeScoreBlock}>
+                        <label style={styles.label}>Puntaje otorgado</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxPts}
+                            step="0.25"
+                            value={gd.score}
+                            onChange={e => setGradeData(prev => ({ ...prev, [q.questionId]: { ...gd, score: e.target.value } }))}
+                            style={{ ...styles.smallInput, width: 90 }}
+                          />
+                          <span style={styles.muted}>/ {maxPts}</span>
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={styles.label}>Comentario de devolución</label>
+                        <textarea
+                          value={gd.comment}
+                          onChange={e => setGradeData(prev => ({ ...prev, [q.questionId]: { ...gd, comment: e.target.value } }))}
+                          style={{ ...styles.textarea, minHeight: 60, marginTop: 4 }}
+                          placeholder="Feedback para el alumno..."
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <div style={styles.gradeTotalRow}>
+                <strong>Total calificado: </strong>
+                <span style={{ color: '#1956D8', fontWeight: 800, fontSize: 16 }}>
+                  {gradingSubmission.questions.reduce((sum, q) => {
+                    const s = Number(gradeData[q.questionId]?.score || 0)
+                    return sum + (isNaN(s) ? 0 : s)
+                  }, 0).toFixed(2)} / {gradingSubmission.questions.reduce((sum, q) => sum + Number(q.points), 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal && (
         <div style={styles.modalOverlay} onClick={() => setModal(null)}>
@@ -1268,6 +1392,22 @@ const styles = {
   submissionTitle: { fontSize: 17, margin: 0 },
   submissionList: { display: 'flex', flexDirection: 'column', gap: 8 },
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  gradeBtn: { minHeight: 28, padding: '4px 10px', background: '#fff', color: '#7C3AED', border: '1px solid #7C3AED', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  gradingOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.55)', zIndex: 2000, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' },
+  gradingPanel: { width: '70%', maxWidth: 900, background: '#F4F8FA', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 32px rgba(9,34,42,0.18)' },
+  gradingHeader: { background: '#09222A', color: '#fff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' },
+  gradingTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 4px', color: '#fff' },
+  gradingBody: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 },
+  gradeCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
+  gradeCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  gradeQuestionNum: { fontSize: 13, fontWeight: 800, color: '#304653' },
+  gradePrompt: { fontSize: 14, color: '#09222A', margin: '0 0 10px', lineHeight: 1.4 },
+  gradeAnswerBox: { background: '#F4F8FA', borderRadius: 6, padding: '10px 12px', marginBottom: 12 },
+  gradeAnswerLabel: { fontSize: 11, fontWeight: 700, color: '#536B76', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  gradeAnswerText: { margin: 0, fontSize: 13, color: '#09222A', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.5 },
+  gradeInputRow: { display: 'flex', gap: 16, alignItems: 'flex-start' },
+  gradeScoreBlock: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 },
+  gradeTotalRow: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: '12px 16px', textAlign: 'right', fontSize: 15 },
   submittedBadge: { background: '#DDF6EC', color: '#087A55', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   progressBadge: { background: '#E6EEFF', color: '#1956D8', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   exceededBadge: { background: '#FDECEA', color: '#9B2C2C', padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800 },

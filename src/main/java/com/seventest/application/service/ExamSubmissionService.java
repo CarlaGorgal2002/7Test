@@ -19,6 +19,7 @@ import com.seventest.domain.port.out.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -103,6 +104,55 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
     public List<ExamSubmission> listForStudent(String studentEmail) {
         User student = requireRole(studentEmail, Role.ALUMNO, "Solo un alumno puede consultar sus entregas");
         return submissionRepository.findByStudentId(student.getId());
+    }
+
+    @Override
+    public ExamSubmission findForTeacher(String teacherEmail, UUID submissionId) {
+        User teacher = requireRole(teacherEmail, Role.PROFESOR, "Solo un profesor puede ver esta entrega");
+        ExamSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ExamSubmissionNotFoundException(submissionId));
+        Exam exam = requireExam(submission.getExamId());
+        if (!exam.getTeacherId().equals(teacher.getId())) {
+            throw new IllegalArgumentException("El examen pertenece a otro profesor");
+        }
+        return submission;
+    }
+
+    @Override
+    public ExamSubmission grade(String teacherEmail, UUID submissionId, List<GradeUpdate> updates) {
+        User teacher = requireRole(teacherEmail, Role.PROFESOR, "Solo un profesor puede calificar entregas");
+        ExamSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ExamSubmissionNotFoundException(submissionId));
+        Exam exam = requireExam(submission.getExamId());
+        if (!exam.getTeacherId().equals(teacher.getId())) {
+            throw new IllegalArgumentException("El examen pertenece a otro profesor");
+        }
+        ExamTopic topic = requireAssignedTopic(exam, submission.getTopicId());
+        Map<UUID, BigDecimal> maxPoints = topic.getQuestions().stream()
+                .collect(Collectors.toMap(ExamQuestion::getId, ExamQuestion::getPoints));
+        Map<UUID, GradeUpdate> updateMap = updates == null ? Map.of() : updates.stream()
+                .collect(Collectors.toMap(GradeUpdate::questionId, u -> u, (a, b) -> b));
+        Instant now = Instant.now();
+        List<ExamAnswer> answers = submission.getAnswers().stream()
+                .map(answer -> {
+                    GradeUpdate u = updateMap.get(answer.getQuestionId());
+                    if (u == null) return answer;
+                    BigDecimal score = u.score();
+                    if (score != null) {
+                        if (score.compareTo(BigDecimal.ZERO) < 0)
+                            throw new IllegalArgumentException("El puntaje no puede ser negativo");
+                        BigDecimal max = maxPoints.get(answer.getQuestionId());
+                        if (max != null && score.compareTo(max) > 0)
+                            throw new IllegalArgumentException("El puntaje no puede superar el valor máximo de la pregunta");
+                    }
+                    return answer.toBuilder()
+                            .score(score)
+                            .comment(u.comment() == null ? null : u.comment().trim())
+                            .updatedAt(now)
+                            .build();
+                })
+                .toList();
+        return submissionRepository.save(submission.toBuilder().answers(answers).updatedAt(now).build());
     }
 
     @Override

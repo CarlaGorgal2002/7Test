@@ -11,7 +11,9 @@ public interface ExamSubmissionUseCase {
     ExamSubmission submit(String studentEmail, UUID submissionId);
     List<ExamSubmission> listForStudent(String studentEmail);
     List<ExamSubmission> listForTeacherExam(String teacherEmail, UUID examId);
+    ExamSubmission findForTeacher(String teacherEmail, UUID submissionId);
+    ExamSubmission grade(String teacherEmail, UUID submissionId, List<GradeUpdate> updates);
 
-    record AnswerUpdate(UUID questionId, String answerText) {
-    }
+    record AnswerUpdate(UUID questionId, String answerText) {}
+    record GradeUpdate(UUID questionId, java.math.BigDecimal score, String comment) {}
 }

@@ -67,6 +67,8 @@ public final class ExamSubmissionMapper {
                 .id(entity.getId())
                 .questionId(entity.getQuestionId())
                 .answerText(entity.getAnswerText())
+                .score(entity.getScore())
+                .comment(entity.getComment())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
     }
@@ -80,6 +82,8 @@ public final class ExamSubmissionMapper {
                     .id(answer.getId())
                     .questionId(answer.getQuestionId())
                     .answerText(answer.getAnswerText())
+                    .score(answer.getScore())
+                    .comment(answer.getComment())
                     .updatedAt(answer.getUpdatedAt())
                     .submission(entity)
                     .build());

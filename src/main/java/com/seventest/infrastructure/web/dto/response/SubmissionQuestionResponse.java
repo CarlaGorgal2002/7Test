@@ -11,6 +11,8 @@ public record SubmissionQuestionResponse(
         int displayOrder,
         String answerText,
         Instant answerUpdatedAt,
-        String interactionType
+        String interactionType,
+        BigDecimal score,
+        String comment
 ) {
 }

@@ -7,6 +7,7 @@ import com.seventest.domain.model.ExamSubmission;
 import com.seventest.domain.model.ExamTopic;
 import com.seventest.domain.port.in.ExamManagementUseCase;
 import com.seventest.domain.port.in.ExamSubmissionUseCase;
+import com.seventest.infrastructure.web.dto.request.GradeRequest;
 import com.seventest.infrastructure.web.dto.request.SaveAnswersRequest;
 import com.seventest.infrastructure.web.dto.request.StartExamRequest;
 import com.seventest.infrastructure.web.dto.response.ExamSubmissionResponse;
@@ -87,6 +88,25 @@ public class ExamSubmissionController {
                 .toList());
     }
 
+    @Operation(summary = "Ver detalle de una entrega (profesor)")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @GetMapping("/{submissionId}")
+    public ResponseEntity<ExamSubmissionResponse> getSubmission(@PathVariable UUID submissionId, Principal principal) {
+        return ResponseEntity.ok(toResponse(submissionUseCase.findForTeacher(principal.getName(), submissionId)));
+    }
+
+    @Operation(summary = "Calificar entrega")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @PutMapping("/{submissionId}/grade")
+    public ResponseEntity<ExamSubmissionResponse> grade(@PathVariable UUID submissionId,
+                                                        @Valid @RequestBody GradeRequest request,
+                                                        Principal principal) {
+        List<ExamSubmissionUseCase.GradeUpdate> updates = request.answers().stream()
+                .map(a -> new ExamSubmissionUseCase.GradeUpdate(a.questionId(), a.score(), a.comment()))
+                .toList();
+        return ResponseEntity.ok(toResponse(submissionUseCase.grade(principal.getName(), submissionId, updates)));
+    }
+
     private ExamSubmissionResponse toResponse(ExamSubmission submission) {
         Exam exam = examManagementUseCase.findById(submission.getExamId());
         ExamTopic topic = exam.getTopics().stream()
@@ -108,7 +128,9 @@ public class ExamSubmissionController {
                             question.getDisplayOrder(),
                             answer == null ? "" : answer.getAnswerText(),
                             answer == null ? null : answer.getUpdatedAt(),
-                            interactionType(question));
+                            interactionType(question),
+                            answer == null ? null : answer.getScore(),
+                            answer == null ? null : answer.getComment());
                 })
                 .toList();
 
