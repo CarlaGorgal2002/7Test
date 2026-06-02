@@ -375,9 +375,15 @@ async function renameTopic(topicId) {
   function handlePublishClick() {
     if (!selectedExam) return
 
-    // Validar que availableFrom no sea pasado
+    // Validar fecha guardada
     if (selectedExam.availableFrom && new Date(selectedExam.availableFrom) < new Date()) {
       setModal({ type: 'pastDate', isoDate: selectedExam.availableFrom })
+      return
+    }
+    // Validar fecha del formulario aunque no se haya guardado
+    const unsaved = combineDateTime(editExamForm.availableDate, editExamForm.availableTime)
+    if (unsaved && new Date(unsaved) < new Date()) {
+      setMessage('La fecha y hora de inicio ya pasó. Corregila en "Datos del borrador" antes de publicar.')
       return
     }
 
@@ -659,24 +665,35 @@ async function renameTopic(topicId) {
             <h2 style={styles.panelTitle}>Mis examenes</h2>
             {loading && <p style={styles.muted}>Cargando...</p>}
             {exams.length === 0 && !loading && <p style={styles.muted}>Todavia no hay examenes.</p>}
-            {exams.map((exam) => (
-              <div key={exam.id} style={exam.id === selectedExam?.id ? styles.examItemActive : styles.examItem}>
-                <button
-                  onClick={() => setSelectedId(exam.id)}
-                  style={styles.examItemSelect}
-                >
-                  <span style={styles.examItemTitle}>{exam.title}</span>
-                  <span style={statusStyle(exam)}>{labelStatus(exam)}</span>
-                </button>
-                {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
-                  <button
-                    onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })}
-                    style={styles.deleteExamBtn}
-                    title="Eliminar examen"
-                  >✕</button>
-                )}
-              </div>
-            ))}
+            {[
+              { label: 'En curso', filter: e => derivedStatus(e) === 'EN_CURSO' },
+              { label: 'Programados', filter: e => derivedStatus(e) === 'PROGRAMADO' },
+              { label: 'Borradores', filter: e => derivedStatus(e) === 'BORRADOR' },
+              { label: 'Cerrados', filter: e => derivedStatus(e) === 'CERRADO' },
+            ].map(({ label, filter }) => {
+              const group = exams.filter(filter)
+              if (group.length === 0) return null
+              return (
+                <div key={label} style={styles.examGroup}>
+                  <p style={styles.examGroupLabel}>{label}</p>
+                  {group.map((exam) => (
+                    <div key={exam.id} style={exam.id === selectedExam?.id ? styles.examItemActive : styles.examItem}>
+                      <button onClick={() => setSelectedId(exam.id)} style={styles.examItemSelect}>
+                        <span style={styles.examItemTitle}>{exam.title}</span>
+                        <span style={statusStyle(exam)}>{labelStatus(exam)}</span>
+                      </button>
+                      {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
+                        <button
+                          onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })}
+                          style={styles.deleteExamBtn}
+                          title="Eliminar examen"
+                        >✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         </aside>
 
@@ -1547,6 +1564,8 @@ const styles = {
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
   closeBtn: { minHeight: 38, padding: '8px 16px', background: '#fff', color: '#9B2C2C', border: '1px solid #9B2C2C', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  examGroup: { marginBottom: 10 },
+  examGroupLabel: { fontSize: 11, fontWeight: 800, color: '#7B919B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '10px 0 4px', paddingLeft: 4 },
   examItem: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#fff', padding: '8px 4px', display: 'flex', alignItems: 'center', gap: 4 },
   examItemActive: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#F0F5FF', padding: '8px 8px', display: 'flex', alignItems: 'center', gap: 4, borderRadius: 6 },
   examItemSelect: { flex: 1, border: 'none', background: 'none', padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left', minWidth: 0 },
