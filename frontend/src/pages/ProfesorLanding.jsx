@@ -177,6 +177,7 @@ export default function ProfesorLanding() {
       setExams((current) => [newExam, ...current])
       setSelectedId(newExam.id)
       setPageMode('detail')
+      window.history.pushState({ profe: 'detail' }, '', '/profesor')
       setMessage('Examen creado en borrador con Tema A.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo crear el examen.')
@@ -592,7 +593,17 @@ async function renameTopic(topicId) {
     setSelectedId(examId)
     setPageMode('detail')
     setMessage('')
+    window.history.pushState({ profe: 'detail' }, '', '/profesor')
   }
+
+  useEffect(() => {
+    function onPopState() {
+      setPageMode('landing')
+      setMessage('')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   // ── LANDING PAGE ────────────────────────────────────────────────────────────
   if (pageMode === 'landing') {
@@ -701,7 +712,7 @@ async function renameTopic(topicId) {
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.brand}>
-          <button onClick={() => { setPageMode('landing'); setMessage('') }} style={lStyles.backBtn}>← Volver</button>
+          <button onClick={() => window.history.back()} style={lStyles.backBtn}>← Volver</button>
           <Logo dark size={32} />
           <div>
             <h1 style={styles.headerTitle}>{selectedExam?.title || 'Detalle de examen'}</h1>
