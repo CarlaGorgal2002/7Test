@@ -18,11 +18,14 @@ import java.util.UUID;
 public class HardcodedUsers {
 
     private static final List<Definition> DEFINITIONS = List.of(
-            new Definition("Carla Gorgal", "CarlaGorgal@uade.edu.ar", Role.ALUMNO, "CarlaGorgal123"),
-            new Definition("Mario Besednjak", "MarioBesednjak@uade.edu.ar", Role.ALUMNO, "MarioBesednjak123"),
-            new Definition("Martin Gueler", "MartinGueler@uade.edu.ar", Role.ALUMNO, "MartinGueler123"),
-            new Definition("Claudio Godio", "ClaudioGodio@uade.edu.ar", Role.DIRECTOR_DE_CATEDRA, "ClaudioGodio123"),
-            new Definition("Pablo Farias", "PabloFarias@uade.edu.ar", Role.PROFESOR, "PabloFarias123")
+            new Definition("Carla Gorgal", "cgorgal@uade.edu.ar", Role.ALUMNO, "CarlaGorgal123"),
+            new Definition("Carla Gorgal", "prof.cgorgal@uade.edu.ar", Role.PROFESOR, "CarlaGorgal123"),
+            new Definition("Mario Besednjak", "mbesednjak@uade.edu.ar", Role.ALUMNO, "MarioBesednjak123"),
+            new Definition("Mario Besednjak", "prof.mbesednjak@uade.edu.ar", Role.PROFESOR, "MarioBesednjak123"),
+            new Definition("Martin Gueler", "mgueler@uade.edu.ar", Role.ALUMNO, "MartinGueler123"),
+            new Definition("Martin Gueler", "prof.mgueler@uade.edu.ar", Role.PROFESOR, "MartinGueler123"),
+            new Definition("Claudio Godio", "cgodio@uade.edu.ar", Role.DIRECTOR_DE_CATEDRA, "ClaudioGodio123"),
+            new Definition("Pablo Farias", "pfarias@uade.edu.ar", Role.PROFESOR, "PabloFarias123")
     );
 
     private final PasswordEncoder passwordEncoder;
