@@ -783,7 +783,7 @@ const styles = {
   answerBox: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
   answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
-  practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
+  practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 460, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
   waitingBanner: { background: '#FFF3CC', border: '1px solid #F9A825', borderRadius: 8, padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 600, color: '#7A5C00', textAlign: 'center' },
   feedbackBox: { background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', marginBottom: 10 },
   feedbackScore: { fontWeight: 800, color: '#087A55', fontSize: 14 },

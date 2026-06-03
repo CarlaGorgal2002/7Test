@@ -120,7 +120,6 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
   }
 
   function startPan(event) {
-    if (readOnly) return
     if (drag || draftEdge || movingEdge) return
     setPanning({
       startX: event.clientX,
@@ -238,22 +237,24 @@ export default function DecisionTreeEditor({ value, onChange, readOnly = false, 
 
   return (
     <div style={compact ? styles.editorCompact : styles.editor}>
-      {!readOnly && (
-        <div style={styles.toolbar}>
-          <button type="button" draggable onDragStart={(event) => event.dataTransfer.setData('shape', 'oval')} onClick={() => addNode('oval')} style={styles.toolButton} title="Ovalo">
-            <span style={styles.ovalTool} />
-          </button>
-          <button type="button" draggable onDragStart={(event) => event.dataTransfer.setData('shape', 'rect')} onClick={() => addNode('rect')} style={styles.toolButton} title="Rectangulo">
-            <span style={styles.rectTool} />
-          </button>
-          <button type="button" onClick={removeSelected} disabled={!selected} style={selected ? styles.deleteButton : styles.disabledButton}>Eliminar</button>
-          <div style={styles.zoomControls}>
-            <button type="button" onClick={() => changeZoom(-0.1)} style={styles.zoomButton}>-</button>
-            <span style={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
-            <button type="button" onClick={() => changeZoom(0.1)} style={styles.zoomButton}>+</button>
-          </div>
+      <div style={styles.toolbar}>
+        {!readOnly && (
+          <>
+            <button type="button" draggable onDragStart={(event) => event.dataTransfer.setData('shape', 'oval')} onClick={() => addNode('oval')} style={styles.toolButton} title="Ovalo">
+              <span style={styles.ovalTool} />
+            </button>
+            <button type="button" draggable onDragStart={(event) => event.dataTransfer.setData('shape', 'rect')} onClick={() => addNode('rect')} style={styles.toolButton} title="Rectangulo">
+              <span style={styles.rectTool} />
+            </button>
+            <button type="button" onClick={removeSelected} disabled={!selected} style={selected ? styles.deleteButton : styles.disabledButton}>Eliminar</button>
+          </>
+        )}
+        <div style={styles.zoomControls}>
+          <button type="button" onClick={() => changeZoom(-0.1)} style={styles.zoomButton}>−</button>
+          <span style={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
+          <button type="button" onClick={() => changeZoom(0.1)} style={styles.zoomButton}>+</button>
         </div>
-      )}
+      </div>
 
       <div
         ref={boardRef}
@@ -489,7 +490,7 @@ const styles = {
   boardFrameCompact: {
     width: '100%',
     maxWidth: '100%',
-    height: 500,
+    height: 420,
     overflow: 'auto',
     background: '#EEF5F7',
     boxSizing: 'border-box',

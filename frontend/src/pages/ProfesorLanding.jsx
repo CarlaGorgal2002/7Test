@@ -2178,7 +2178,7 @@ const styles = {
 practicalAnswerContainer: {
   width: '100%',
   maxWidth: '100%',
-  height: 220,
+  height: 460,
   overflow: 'auto',
   boxSizing: 'border-box',
   border: '1px solid #D8E8EC',
