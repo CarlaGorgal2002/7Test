@@ -147,13 +147,24 @@ export default function ProfesorLanding() {
   async function createExam(e) {
     e.preventDefault()
     setMessage('')
+    let availableFrom
+    try {
+      availableFrom = scheduleIsoFromForm(examForm)
+    } catch (err) {
+      setMessage(err.message)
+      return
+    }
+    if (availableFrom && new Date(availableFrom) < new Date()) {
+      setMessage('La fecha y hora de inicio no puede ser anterior al momento actual.')
+      return
+    }
     try {
       const res = await api.post('/exams', {
         title: examForm.title,
         description: examForm.description,
         courseName: examForm.courseName,
         durationMinutes: Number(examForm.durationMinutes) || null,
-        availableFrom: combineDateTime(examForm.availableDate, examForm.availableTime),
+        availableFrom,
       })
       setExamForm(emptyExam)
       let newExam = res.data
@@ -254,7 +265,13 @@ async function renameTopic(topicId) {
     e.preventDefault()
     if (!selectedExam || selectedExam.status !== 'BORRADOR') return
     setMessage('')
-    const af = combineDateTime(editExamForm.availableDate, editExamForm.availableTime)
+    let af
+    try {
+      af = scheduleIsoFromForm(editExamForm)
+    } catch (err) {
+      setMessage(err.message)
+      return
+    }
     if (af && new Date(af) < new Date()) {
       setMessage('La fecha y hora de inicio no puede ser anterior al momento actual.')
       return
@@ -265,7 +282,7 @@ async function renameTopic(topicId) {
         description: editExamForm.description,
         courseName: editExamForm.courseName || selectedExam.courseName || 'Testing de Aplicaciones',
         durationMinutes: Number(editExamForm.durationMinutes || selectedExam.durationMinutes) || null,
-        availableFrom: combineDateTime(editExamForm.availableDate, editExamForm.availableTime),
+        availableFrom: af,
       })
       replaceExam(res.data)
       setMessage('Datos del borrador actualizados.')
@@ -367,24 +384,42 @@ async function renameTopic(topicId) {
     if (!selectedExam) return
     setMessage('')
     try {
-      const res = await api.patch(`/exams/${selectedExam.id}/publish`)
+      const examToPublish = await saveDraftBeforePublish(selectedExam)
+      const res = await api.patch(`/exams/${examToPublish.id}/publish`)
       replaceExam(res.data)
-      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
+      setMessage(publishSuccessMessage(res.data))
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+      setMessage(err.response?.data?.message || err.message || 'No se pudo publicar el examen.')
     }
+  }
+
+  async function saveDraftBeforePublish(exam) {
+    if (!exam || exam.status !== 'BORRADOR') return exam
+    const availableFrom = scheduleIsoFromForm(editExamForm)
+    if (availableFrom && new Date(availableFrom) < new Date()) {
+      throw new Error('La fecha y hora de inicio ya paso. Corregila en "Datos del borrador" antes de publicar.')
+    }
+    const res = await api.put(`/exams/${exam.id}`, {
+      title: editExamForm.title,
+      description: editExamForm.description,
+      courseName: editExamForm.courseName || exam.courseName || 'Testing de Aplicaciones',
+      durationMinutes: Number(editExamForm.durationMinutes || exam.durationMinutes) || null,
+      availableFrom,
+    })
+    replaceExam(res.data)
+    return res.data
   }
 
   function handlePublishClick() {
     if (!selectedExam) return
 
-    // Validar fecha guardada
-    if (selectedExam.availableFrom && new Date(selectedExam.availableFrom) < new Date()) {
-      setModal({ type: 'pastDate', isoDate: selectedExam.availableFrom })
+    let unsaved
+    try {
+      unsaved = scheduleIsoFromForm(editExamForm)
+    } catch (err) {
+      setMessage(err.message)
       return
     }
-    // Validar fecha del formulario aunque no se haya guardado
-    const unsaved = combineDateTime(editExamForm.availableDate, editExamForm.availableTime)
     if (unsaved && new Date(unsaved) < new Date()) {
       setMessage('La fecha y hora de inicio ya pasó. Corregila en "Datos del borrador" antes de publicar.')
       return
@@ -414,15 +449,16 @@ async function renameTopic(topicId) {
     setMessage('')
     try {
       let exam = selectedExam
+      exam = await saveDraftBeforePublish(exam)
       for (const topic of exam.topics.filter((t) => topicsToFix.some((bt) => bt.id === t.id))) {
         exam = await redistributeTopicPoints(exam, topic)
         replaceExam(exam)
       }
       const res = await api.patch(`/exams/${exam.id}/publish`)
       replaceExam(res.data)
-      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
+      setMessage(publishSuccessMessage(res.data))
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+      setMessage(err.response?.data?.message || err.message || 'No se pudo publicar el examen.')
     }
   }
 
@@ -559,7 +595,8 @@ async function renameTopic(topicId) {
   const _isLocked = (status) => status !== _d([66,79,82,82,65,68,79,82])
   const canEdit = selectedExam != null && !_isLocked(selectedExam.status)
 
-  const profStartRef = selectedExam?.availableFrom || selectedExam?.publishedAt
+  const profIsScheduled = selectedExam ? derivedStatus(selectedExam) === 'PROGRAMADO' : false
+  const profStartRef = profIsScheduled ? null : (selectedExam?.availableFrom || selectedExam?.publishedAt)
   const profExamEndMs = profStartRef && selectedExam?.durationMinutes
     ? new Date(profStartRef).getTime() + selectedExam.durationMinutes * 60_000
     : null
@@ -730,12 +767,12 @@ async function renameTopic(topicId) {
   if (pageMode === 'running' && selectedExam) {
     const topicColorMap = {}
     selectedExam.topics?.forEach(t => { topicColorMap[t.id] = t.colorHex || '#333' })
+    const isBeforeStart = derivedStatus(selectedExam) === 'PROGRAMADO'
     const startRef = selectedExam.availableFrom || selectedExam.publishedAt
-    const examEndMs = startRef && selectedExam.durationMinutes
+    const examEndMs = !isBeforeStart && startRef && selectedExam.durationMinutes
       ? new Date(startRef).getTime() + selectedExam.durationMinutes * 60_000 : null
     const secondsLeft = examEndMs ? Math.max(0, Math.floor((examEndMs - profNow) / 1000)) : null
     const isExpired = secondsLeft !== null && secondsLeft === 0
-    const isBeforeStart = selectedExam.availableFrom && new Date(selectedExam.availableFrom) > new Date()
 
     const statusLabelRunning = (s) => {
       if (s.status === 'ENTREGADO') return { label: 'Entregado', bg: '#D1FAE5', color: '#065F46' }
@@ -792,13 +829,19 @@ async function renameTopic(topicId) {
             {isExpired ? (
               <div style={fStyles.examFinishedBtn}>Examen finalizado</div>
             ) : isBeforeStart ? (
-              <button onClick={() => { setSelectedId(selectedExam.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') }} style={fStyles.iniciarBtn}>
-                ▶ Publicar examen
-              </button>
+              <div style={fStyles.examScheduledBtn}>
+                Programado
+              </div>
             ) : (
               <button onClick={handleCloseClick} style={fStyles.finalizeBtn}>
                 ⏸ Finalizar examen
               </button>
+            )}
+            {isBeforeStart && (
+              <div style={fStyles.timerWidget}>
+                <p style={fStyles.timerLabel}>INICIO PROGRAMADO:</p>
+                <p style={fStyles.timerValue}>{formatScheduleDateTime(selectedExam.availableFrom)}</p>
+              </div>
             )}
             {secondsLeft !== null && (
               <div style={fStyles.timerWidget}>
@@ -1021,8 +1064,9 @@ async function renameTopic(topicId) {
               )}
 
               {!canEdit && (() => {
+                const isScheduled = derivedStatus(selectedExam) === 'PROGRAMADO'
                 const examEndMs = profExamEndMs
-                const secondsLeft = examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
+                const secondsLeft = !isScheduled && examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
                 const enProgreso = submissions.filter(s => s.status !== 'ENTREGADO').length
                 const entregados = submissions.filter(s => s.status === 'ENTREGADO').length
                 return (
@@ -1030,6 +1074,9 @@ async function renameTopic(topicId) {
                     <div style={styles.submissionHeader}>
                       <h3 style={styles.submissionTitle}>Entregas de alumnos</h3>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {isScheduled && (
+                          <span style={styles.timerProf}>Programado para {formatScheduleDateTime(selectedExam.availableFrom)}</span>
+                        )}
                         {secondsLeft !== null && (
                           <span style={secondsLeft <= 0 ? styles.timerExpiredProf : styles.timerProf}>
                             {secondsLeft <= 0 ? '⏰ Tiempo vencido' : `⏱ ${formatProfTime(secondsLeft)} restantes`}
@@ -1644,6 +1691,7 @@ const fStyles = {
   finalizeBtn: { padding: '16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
   iniciarBtn: { padding: '16px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center' },
   examFinishedBtn: { padding: '16px', background: '#6B7280', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 700, textAlign: 'center' },
+  examScheduledBtn: { padding: '16px', background: '#FEF3C7', color: '#92400E', border: '1px solid #F0D36A', borderRadius: 12, fontSize: 18, fontWeight: 800, textAlign: 'center' },
   timerWidget: { background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', textAlign: 'center' },
   timerLabel: { fontSize: 12, fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' },
   timerValue: { fontSize: 44, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
@@ -1709,6 +1757,31 @@ function combineDateTime(date, time) {
   if (!time) return null
   if (!isValidTime(time)) return null
   return new Date(`${date}T${time}:00`).toISOString()
+}
+
+function scheduleIsoFromForm(form) {
+  const hasDate = Boolean(form.availableDate)
+  const hasTime = Boolean(form.availableTime)
+  if (!hasDate && !hasTime) return null
+  if (!hasDate || !hasTime) {
+    throw new Error('Completa fecha y hora de inicio, o deja ambos campos vacios.')
+  }
+  if (!isValidTime(form.availableTime)) {
+    throw new Error('La hora de inicio es invalida. Usa formato HH:MM.')
+  }
+  return combineDateTime(form.availableDate, form.availableTime)
+}
+
+function formatScheduleDateTime(isoString) {
+  if (!isoString) return 'fecha a definir'
+  return new Date(isoString).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function publishSuccessMessage(exam) {
+  if (derivedStatus(exam) === 'PROGRAMADO') {
+    return `Examen programado. Estara disponible el ${formatScheduleDateTime(exam.availableFrom)}.`
+  }
+  return 'Examen publicado. Los alumnos ya pueden iniciarlo.'
 }
 
 function formatProfTime(seconds) {
