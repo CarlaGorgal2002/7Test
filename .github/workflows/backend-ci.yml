@@ -21,9 +21,49 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Configure Maven for Spring snapshots
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <profiles>
+              <profile>
+                <id>spring-snapshots</id>
+                <repositories>
+                  <repository>
+                    <id>spring-snapshots</id>
+                    <url>https://repo.spring.io/snapshot</url>
+                    <snapshots><enabled>true</enabled></snapshots>
+                    <releases><enabled>false</enabled></releases>
+                  </repository>
+                  <repository>
+                    <id>spring-milestones</id>
+                    <url>https://repo.spring.io/milestone</url>
+                    <snapshots><enabled>false</enabled></snapshots>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>spring-snapshots</id>
+                    <url>https://repo.spring.io/snapshot</url>
+                    <snapshots><enabled>true</enabled></snapshots>
+                    <releases><enabled>false</enabled></releases>
+                  </pluginRepository>
+                  <pluginRepository>
+                    <id>spring-milestones</id>
+                    <url>https://repo.spring.io/milestone</url>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>spring-snapshots</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+
       - name: Run tests with coverage
         run: ./mvnw verify -B
-        # -B = batch mode (sin color interactivo), verify incluye test + jacoco
 
       - name: Upload coverage report
         if: always()
