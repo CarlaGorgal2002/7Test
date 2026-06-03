@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -92,6 +93,49 @@ class ExamServiceTest {
 
         assertThat(result.getStatus()).isEqualTo(ExamStatus.PUBLICADO);
         assertThat(result.getPublishedAt()).isNotNull();
+    }
+
+    @Test
+    void listarExamenesProfesor_traeSoloLosDelProfesorAutenticado() {
+        User teacher = teacher("profesor-a@test.com");
+        Exam ownDraft = exam(teacher, ExamStatus.BORRADOR, List.of());
+        Exam ownPublished = exam(teacher, ExamStatus.PUBLICADO, List.of(topic("Tema A", question("P1", "R1", "10"))));
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(examRepository.findByTeacherId(teacher.getId())).thenReturn(List.of(ownDraft, ownPublished));
+
+        List<Exam> result = examService.listForTeacher(teacher.getEmail());
+
+        assertThat(result).containsExactly(ownDraft, ownPublished);
+        assertThat(result).allMatch(exam -> exam.getTeacherId().equals(teacher.getId()));
+        verify(examRepository).findByTeacherId(teacher.getId());
+    }
+
+    @Test
+    void listarPublicadosParaAlumnos_traeExamenesPublicadosDeTodosLosProfesores() {
+        User teacherA = teacher("profesor-a@test.com");
+        User teacherB = teacher("profesor-b@test.com");
+        Exam publishedByA = exam(teacherA, ExamStatus.PUBLICADO, List.of(topic("Tema A", question("P1", "R1", "10"))));
+        Exam publishedByB = exam(teacherB, ExamStatus.PUBLICADO, List.of(topic("Tema A", question("P1", "R1", "10"))));
+        Exam closedByB = exam(teacherB, ExamStatus.CERRADO, List.of(topic("Tema A", question("P1", "R1", "10"))));
+        when(examRepository.findByStatus(ExamStatus.PUBLICADO)).thenReturn(List.of(publishedByA, publishedByB));
+        when(examRepository.findByStatus(ExamStatus.CERRADO)).thenReturn(List.of(closedByB));
+
+        List<Exam> result = examService.listPublishedForStudents();
+
+        assertThat(result).containsExactly(publishedByA, publishedByB, closedByB);
+    }
+
+    @Test
+    void cerrarExamen_deOtroProfesor_rechazaOperacion() {
+        User owner = teacher("profesor-duenio@test.com");
+        User otherTeacher = teacher("profesor-ajeno@test.com");
+        Exam exam = exam(owner, ExamStatus.PUBLICADO, List.of(topic("Tema A", question("P1", "R1", "10"))));
+        when(userRepository.findByEmail(otherTeacher.getEmail())).thenReturn(Optional.of(otherTeacher));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> examService.close(otherTeacher.getEmail(), exam.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("otro profesor");
     }
 
     @Test
@@ -228,10 +272,14 @@ class ExamServiceTest {
     }
 
     private User teacher() {
+        return teacher("profe@test.com");
+    }
+
+    private User teacher(String email) {
         return User.builder()
                 .id(UUID.randomUUID())
                 .fullName("Profesora Test")
-                .email("profe@test.com")
+                .email(email)
                 .role(Role.PROFESOR)
                 .status(UserStatus.ACTIVO)
                 .passwordHash("hash")
