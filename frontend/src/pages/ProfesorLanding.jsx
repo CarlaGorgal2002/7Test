@@ -642,9 +642,10 @@ async function renameTopic(topicId) {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
-  const figmaHeader = (backBtn = null) => (
+  const figmaHeader = (onBack = null) => (
     <header style={styles.header}>
       <div style={styles.brand}>
+        {onBack && <button onClick={onBack} style={lStyles.backBtn}>← Volver</button>}
         <Logo dark size={36} />
         <div>
           <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
@@ -662,23 +663,28 @@ async function renameTopic(topicId) {
       ? editableExams.filter(e => derivedStatus(e) === 'BORRADOR')
       : examListFilter === 'listo'
       ? editableExams.filter(e => derivedStatus(e) === 'SIN_PROGRAMAR')
+      : examListFilter === 'historial'
+      ? exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
       : editableExams
     const listTitle = examListFilter === 'borrador'
       ? 'Borradores en proceso'
       : examListFilter === 'listo'
       ? 'Exámenes listos'
+      : examListFilter === 'historial'
+      ? 'Historial'
       : 'Todos los exámenes'
     const listSubtitle = examListFilter === 'borrador'
       ? 'Borradores que todavía están siendo editados'
       : examListFilter === 'listo'
       ? 'Finalizados y listos para iniciar cuando quieras'
+      : examListFilter === 'historial'
+      ? 'Exámenes cerrados ya devueltos a los alumnos'
       : 'Exámenes activos y en borrador'
 
     return (
       <div style={styles.page}>
-        {figmaHeader()}
+        {figmaHeader(() => setPageMode('landing'))}
         <main style={{ ...lStyles.detailMain, maxWidth: 1000 }}>
-          <button onClick={() => setPageMode('landing')} style={fStyles.backLink}>← Volver</button>
           <div style={fStyles.pageHeaderRow}>
             <div>
               <h2 style={fStyles.pageTitle}>{listTitle}</h2>
@@ -693,7 +699,7 @@ async function renameTopic(topicId) {
             {displayedExams.length === 0 && !loading && (
               <div style={fStyles.emptyBox}>
                 <p style={{ color: '#9CA3AF', margin: 0 }}>
-                  {examListFilter === 'borrador' ? '📋 No hay borradores en proceso.' : examListFilter === 'listo' ? '✅ No hay exámenes listos todavía.' : '📋 Todavía no hay exámenes. Creá el primero.'}
+                  {examListFilter === 'borrador' ? '📋 No hay borradores en proceso.' : examListFilter === 'listo' ? '✅ No hay exámenes listos todavía.' : examListFilter === 'historial' ? '📚 Todavía no hay exámenes devueltos.' : '📋 Todavía no hay exámenes. Creá el primero.'}
                 </p>
               </div>
             )}
@@ -721,6 +727,13 @@ async function renameTopic(topicId) {
                             style={{ ...fStyles.editBtn, color: '#087A55', fontWeight: 800 }}
                           >
                             ▶ Iniciar ahora
+                          </button>
+                        ) : examListFilter === 'historial' ? (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') }}
+                            style={fStyles.editBtn}
+                          >
+                            Ver
                           </button>
                         ) : (
                           <button
@@ -751,9 +764,8 @@ async function renameTopic(topicId) {
   if (pageMode === 'newExam') {
     return (
       <div style={styles.page}>
-        {figmaHeader()}
+        {figmaHeader(() => { setPageMode('landing'); setMessage('') })}
         <main style={{ ...lStyles.detailMain, maxWidth: 600 }}>
-          <button onClick={() => { setPageMode('examList'); setMessage('') }} style={fStyles.backLink}>← Volver</button>
           <h2 style={fStyles.pageTitle}>Nuevo examen</h2>
           {message && <div style={styles.message}>{message}</div>}
           <div style={fStyles.formCard}>
@@ -801,10 +813,9 @@ async function renameTopic(topicId) {
 
     return (
       <div style={styles.page}>
-        {figmaHeader()}
+        {figmaHeader(() => setPageMode('landing'))}
         <main style={fStyles.runningMain}>
           <div style={fStyles.runningLeft}>
-            <button onClick={() => setPageMode('landing')} style={fStyles.backLink}>← Volver</button>
             <h2 style={fStyles.pageTitle}>{isBeforeStart ? 'Examen programado' : 'Examen en curso'}</h2>
             <p style={fStyles.pageSubtitle}>{selectedExam.courseName} · {selectedExam.title}</p>
             {message && <div style={styles.message}>{message}</div>}
@@ -951,7 +962,7 @@ async function renameTopic(topicId) {
         title: 'Historial',
         subtitle: 'Exámenes cerrados ya devueltos',
         stats: [{ n: devueltos.length, label: 'devueltos' }],
-        action: () => { setExamListFilter(null); goToExamList() },
+        action: () => { setExamListFilter('historial'); goToExamList() },
         color: '#4A5565',
       },
     ]
