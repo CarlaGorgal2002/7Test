@@ -666,6 +666,7 @@ async function renameTopic(topicId) {
 
   // ── EXAM LIST (Crear / Editar) ────────────────────────────────────────────
   if (pageMode === 'examList') {
+    const editableExams = exams.filter(e => e.status !== 'CERRADO')
     return (
       <div style={styles.page}>
         {figmaHeader()}
@@ -682,12 +683,12 @@ async function renameTopic(topicId) {
           </div>
           {message && <div style={styles.message}>{message}</div>}
           <div style={fStyles.tableCard}>
-            {exams.length === 0 && !loading && (
+            {editableExams.length === 0 && !loading && (
               <div style={fStyles.emptyBox}>
                 <p style={{ color: '#9CA3AF', margin: 0 }}>📋 Todavía no hay exámenes. Creá el primero.</p>
               </div>
             )}
-            {exams.length > 0 && (
+            {editableExams.length > 0 && (
               <table style={fStyles.table}>
                 <thead>
                   <tr>
@@ -699,7 +700,7 @@ async function renameTopic(topicId) {
                   </tr>
                 </thead>
                 <tbody>
-                  {exams.map(exam => (
+                  {editableExams.map(exam => (
                     <tr key={exam.id} style={fStyles.tr}>
                       <td style={fStyles.td}>{exam.title}</td>
                       <td style={fStyles.td}><span style={statusStyle(exam)}>{labelStatus(exam)}</span></td>
@@ -961,8 +962,8 @@ async function renameTopic(topicId) {
               <div style={fStyles.navCardStats}>
                 {card.stats.map((s, j) => (
                   <div key={j} style={fStyles.navStat}>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: card.color }}>{s.n}</span>
-                    <span style={{ fontSize: 12, color: '#6B7280' }}>{s.label}</span>
+                    <span style={{ fontSize: 48, fontWeight: 800, color: card.color, lineHeight: 1 }}>{s.n}</span>
+                    <span style={{ fontSize: 15, color: '#6B7280' }}>{s.label}</span>
                   </div>
                 ))}
               </div>
@@ -1140,6 +1141,11 @@ async function renameTopic(topicId) {
                       <div style={styles.submissionList}>
                         {submissions.map((submission) => {
                           const excedido = examEndMs && submission.status !== 'ENTREGADO' && profNow > examEndMs
+                          const graded = isGraded(submission)
+                          const totalScore = graded
+                            ? submission.questions?.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0)
+                            : null
+                          const totalPoints = submission.questions?.reduce((sum, q) => sum + Number(q.points || 0), 0)
                           return (
                             <div key={submission.id} style={styles.submissionRow}>
                               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1148,8 +1154,15 @@ async function renameTopic(topicId) {
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                                 {submission.status === 'ENTREGADO' ? (
-                                  isGraded(submission)
-                                    ? <span style={styles.gradedBadge}>Calificado</span>
+                                  graded
+                                    ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 16, fontWeight: 800, color: '#087A55' }}>
+                                          {totalScore % 1 === 0 ? totalScore : totalScore?.toFixed(2)} / {totalPoints}
+                                        </span>
+                                        <span style={styles.gradedBadge}>Calificado</span>
+                                      </div>
+                                    )
                                     : <span style={styles.submittedBadge}>Entregado</span>
                                 ) : (
                                   <span style={styles.progressBadge}>En progreso</span>
@@ -1680,14 +1693,14 @@ async function renameTopic(topicId) {
 }
 
 const fStyles = {
-  landingCards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20, padding: '40px', maxWidth: 1200, margin: '0 auto' },
-  navCard: { background: '#fff', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 8, transition: 'box-shadow .15s' },
-  navCardTitle: { fontSize: 20, fontWeight: 800, margin: 0 },
-  navCardSub: { fontSize: 13, color: '#6B7280', margin: 0 },
-  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '12px 0' },
-  navCardStats: { display: 'flex', gap: 24 },
-  navStat: { display: 'flex', flexDirection: 'column', gap: 2 },
-  navCardArrow: { fontSize: 20, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
+  landingCards: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: '1fr', gap: 24, padding: '28px 32px', boxSizing: 'border-box', height: 'calc(100vh - 72px)' },
+  navCard: { background: '#fff', borderRadius: 16, padding: '48px 40px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 20, transition: 'box-shadow .15s' },
+  navCardTitle: { fontSize: 28, fontWeight: 800, margin: 0, lineHeight: 1.2 },
+  navCardSub: { fontSize: 16, color: '#6B7280', margin: 0, lineHeight: 1.5 },
+  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '8px 0' },
+  navCardStats: { display: 'flex', gap: 36, flexWrap: 'wrap' },
+  navStat: { display: 'flex', flexDirection: 'column', gap: 6 },
+  navCardArrow: { fontSize: 28, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
   backLink: { background: 'none', border: 'none', color: '#6B7280', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: 6 },
   pageHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   pageTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
