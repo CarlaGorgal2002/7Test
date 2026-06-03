@@ -62,7 +62,7 @@ export default function LoginPage({ recovery = false }) {
       <div style={styles.leftPanel}>
         <div style={styles.leftContent}>
           <div style={styles.logoRow}>
-            <Logo dark={false} size={48} />
+            <Logo dark size={48} />
             <span style={styles.brandName}>7test</span>
           </div>
           <h2 style={styles.tagline}>

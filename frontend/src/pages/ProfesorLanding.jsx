@@ -1213,6 +1213,8 @@ async function renameTopic(topicId) {
                                       max="10"
                                       value={editForm.points}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'points', e.target.value)}
+                                      onInput={clearNumberInputValidity}
+                                      onInvalid={setNumberInputValidity}
                                       style={styles.smallInput}
                                       required
                                     />
@@ -1358,6 +1360,8 @@ async function renameTopic(topicId) {
                                 max="10"
                                 value={form.points}
                                 onChange={(e) => updateQuestionForm(topic.id, 'points', e.target.value)}
+                                onInput={clearNumberInputValidity}
+                                onInvalid={setNumberInputValidity}
                                 style={styles.smallInput}
                                 required
                               />
@@ -1715,6 +1719,25 @@ function formatProfTime(seconds) {
   const pad = (n) => String(n).padStart(2, '0')
   if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`
   return `${pad(m)}:${pad(sec)}`
+}
+
+function clearNumberInputValidity(event) {
+  event.currentTarget.setCustomValidity('')
+}
+
+function setNumberInputValidity(event) {
+  const input = event.currentTarget
+  if (input.validity.rangeOverflow) {
+    input.setCustomValidity(`El valor debe ser menor o igual a ${input.max}.`)
+  } else if (input.validity.rangeUnderflow) {
+    input.setCustomValidity(`El valor debe ser mayor o igual a ${input.min}.`)
+  } else if (input.validity.stepMismatch) {
+    input.setCustomValidity(`Usá incrementos de ${input.step}.`)
+  } else if (input.validity.valueMissing) {
+    input.setCustomValidity('Completá este campo.')
+  } else {
+    input.setCustomValidity('')
+  }
 }
 
 function derivedStatus(exam) {
