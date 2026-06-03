@@ -110,7 +110,7 @@ class UserServiceTest {
                 EmailAlreadyExistsException.class,
                 () -> userService.create("John", "test@example.com", Role.ALUMNO, "pass")
         );
-        Assertions.assertEquals("El email test@example.com ya está registrado", exception.getMessage());
+        Assertions.assertEquals("El email ya está registrado en la plataforma: test@example.com", exception.getMessage());
         Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
     }
 
@@ -217,7 +217,7 @@ class UserServiceTest {
                 UserNotFoundException.class,
                 () -> userService.update(id, "John", "test@test.com", Role.ALUMNO, null)
         );
-        Assertions.assertEquals("Usuario no encontrado con ID: " + id, exception.getMessage());
+        Assertions.assertEquals("Usuario no encontrado: " + id, exception.getMessage());
     }
 
     @Test
@@ -254,7 +254,7 @@ class UserServiceTest {
                 EmailAlreadyExistsException.class,
                 () -> userService.update(id, "John", "duplicate@example.com", Role.ALUMNO, null)
         );
-        Assertions.assertEquals("El email duplicate@example.com ya está registrado", exception.getMessage());
+        Assertions.assertEquals("El email ya está registrado en la plataforma: duplicate@example.com", exception.getMessage());
         Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
     }
 

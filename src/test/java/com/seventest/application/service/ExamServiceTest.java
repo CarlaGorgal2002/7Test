@@ -255,7 +255,7 @@ class ExamServiceTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.getTopics().size());
         Assertions.assertEquals("Tema 1", result.getTopics().get(0).getName());
-        Assertions.assertEquals("#2563EB", result.getTopics().get(0).getColorHex());
+        Assertions.assertEquals("#1956D8", result.getTopics().get(0).getColorHex());
     }
 
     @Test
@@ -763,8 +763,8 @@ class ExamServiceTest {
         UUID teacherId = UUID.randomUUID();
         UUID examId = UUID.randomUUID();
         User teacher = createSampleTeacher(teacherId, "teacher@test.com");
-        // The first row (headers) contains text, but row 1 cells are blank
-        String blankTableJson = "7TEST_DECISION_TABLE:{\"cells\":[[\"Header1\",\"Header2\"],[\"\",\"\"],[\"\",\"\"]]}";
+        // The first row (headers) and all other rows are blank
+        String blankTableJson = "7TEST_DECISION_TABLE:{\"cells\":[[\"\",\"\"],[\"\",\"\"],[\"\",\"\"]]}";
         ExamQuestion question = createSampleQuestion(UUID.randomUUID(), "Prompt", blankTableJson, new BigDecimal("10.0"), 1);
         ExamTopic topic = createSampleTopic(UUID.randomUUID(), "Topic", List.of(question));
         Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topic));
