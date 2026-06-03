@@ -746,7 +746,7 @@ async function renameTopic(topicId) {
                       </td>
                       <td style={fStyles.td}>
                         {exam.status === 'BORRADOR' && (
-                          <button onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })} style={fStyles.deleteBtn}>🗑</button>
+                          <button onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })} style={fStyles.deleteBtnVisible}>Eliminar</button>
                         )}
                       </td>
                     </tr>
@@ -1821,6 +1821,7 @@ const fStyles = {
   td: { padding: '14px 20px', fontSize: 14, color: '#09222A' },
   editBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, cursor: 'pointer', fontSize: 14 },
   deleteBtn: { background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 16 },
+  deleteBtnVisible: { background: 'none', border: '1px solid #9B2C2C', color: '#9B2C2C', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   emptyBox: { padding: '48px', textAlign: 'center' },
   formCard: { background: '#fff', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' },
   // Running exam
