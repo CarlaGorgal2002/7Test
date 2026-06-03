@@ -10,6 +10,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.text.Normalizer;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -97,18 +100,78 @@ public class DataInitializer implements CommandLineRunner {
         );
     }
 
-    private void ensureStudentOnce(String fullName, String email, String password) {
-        if (userRepository.existsByEmail(email)) return;
+    private void ensureStudentOnce(String fullName, String legacyEmail, String password) {
+        String studentEmail = initialSurnameEmail(fullName, legacyEmail);
+        ensureSeedUser(fullName, studentEmail, Role.ALUMNO, password, legacyEmail);
+        ensureSeedUser(fullName, teacherEmailFor(studentEmail), Role.PROFESOR, password, null);
+    }
+
+    private void ensureSeedUser(String fullName, String email, Role role, String password, String legacyEmail) {
+        Optional<User> existingUser = userRepository.findByEmail(email)
+                .or(() -> legacyEmail == null ? Optional.empty() : userRepository.findByEmail(legacyEmail));
+
+        existingUser.ifPresentOrElse(
+                existing -> {
+                    userRepository.save(existing.toBuilder()
+                            .fullName(fullName)
+                            .email(email)
+                            .role(role)
+                            .status(UserStatus.ACTIVO)
+                            .passwordHash(passwordEncoder.encode(password))
+                            .failedLoginAttempts(0)
+                            .lockedUntil(null)
+                            .build());
+                    log.info("Usuario semilla actualizado: {}", email);
+                },
+                () -> createSeedUser(fullName, email, role, password)
+        );
+    }
+
+    private void createSeedUser(String fullName, String email, Role role, String password) {
         userRepository.save(User.builder()
                 .id(UUID.randomUUID())
                 .fullName(fullName)
                 .email(email)
-                .role(Role.ALUMNO)
+                .role(role)
                 .status(UserStatus.ACTIVO)
                 .passwordHash(passwordEncoder.encode(password))
                 .failedLoginAttempts(0)
                 .lockedUntil(null)
                 .build());
-        log.info("Alumno creado: {}", email);
+        log.info("Usuario semilla creado: {}", email);
+    }
+
+    private String initialSurnameEmail(String fullName, String legacyEmail) {
+        String[] nameParts = fullName.trim().split("\\s+");
+        String firstInitial = normalizeForEmail(nameParts[0]).substring(0, 1);
+        String legacyLocalPart = normalizeForEmail(localPart(legacyEmail));
+        String surname = surnameFromLegacyEmail(nameParts, legacyLocalPart);
+        return firstInitial + surname + "@uade.edu.ar";
+    }
+
+    private String surnameFromLegacyEmail(String[] nameParts, String legacyLocalPart) {
+        for (int i = 1; i < nameParts.length; i++) {
+            String candidate = normalizeForEmail(nameParts[i]);
+            if (legacyLocalPart.endsWith(candidate)) {
+                return candidate;
+            }
+        }
+        return nameParts.length > 1 ? normalizeForEmail(nameParts[1]) : legacyLocalPart.substring(1);
+    }
+
+    private String teacherEmailFor(String studentEmail) {
+        return "prof." + localPart(studentEmail) + "@uade.edu.ar";
+    }
+
+    private String localPart(String email) {
+        int atIndex = email.indexOf('@');
+        return atIndex >= 0 ? email.substring(0, atIndex) : email;
+    }
+
+    private String normalizeForEmail(String value) {
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^A-Za-z0-9]", "")
+                .toLowerCase(Locale.ROOT);
     }
 }
