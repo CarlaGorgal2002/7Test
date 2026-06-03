@@ -1,5 +1,17 @@
 export default function Logo({ dark = false, size = 48 }) {
   const fill = dark ? '#ffffff' : '#09222A'
+  if (dark) {
+    return (
+      <img
+        src="/7test_w.png"
+        alt=""
+        width={size}
+        height={size}
+        style={{ display: 'block', objectFit: 'contain' }}
+      />
+    )
+  }
+
   return (
     <svg
       width={size}

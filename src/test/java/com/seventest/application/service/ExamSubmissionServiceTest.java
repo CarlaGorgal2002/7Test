@@ -83,6 +83,21 @@ class ExamSubmissionServiceTest {
     }
 
     @Test
+    void iniciarExamen_programadoAFuturo_rechazaAntesDeLaFecha() {
+        User student = user(Role.ALUMNO);
+        Exam exam = publishedExam().toBuilder()
+                .availableFrom(Instant.now().plusSeconds(3600))
+                .build();
+        UUID topicId = exam.getTopics().getFirst().getId();
+        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), topicId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("todavia no esta disponible");
+    }
+
+    @Test
     void iniciarExamen_conEntregaExistente_devuelveEntregaSinCambiarTema() {
         User student = user(Role.ALUMNO);
         Exam exam = publishedExam();
