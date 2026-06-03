@@ -79,6 +79,9 @@ export default function ProfesorLanding() {
   const [popupExtraMinutes, setPopupExtraMinutes] = useState(15)
   const [popupCountdown, setPopupCountdown] = useState(600)
   const [finalizeConfirm, setFinalizeConfirm] = useState(false)
+  const [hoveredCard, setHoveredCard] = useState(null)
+  const [hoveredSubCard, setHoveredSubCard] = useState(null)
+  const [examListFilter, setExamListFilter] = useState(null) // 'borrador' | 'listo' | null
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || null,
@@ -170,20 +173,14 @@ export default function ProfesorLanding() {
       setExamForm(emptyExam)
       let newExam = res.data
 
-      // Crear Tema A automáticamente con la plantilla base
+      // Crear Tema A automáticamente
       try {
         const topicRes = await api.post(`/exams/${newExam.id}/topics`, { name: 'Tema A' })
         newExam = topicRes.data
         const createdTopic = newExam.topics?.[0]
-        if (createdTopic) {
-          setTemplateLoading(createdTopic.id)
-          newExam = await appendDefaultTemplate(newExam, createdTopic.id)
-          setSelectedTopicId(createdTopic.id)
-        }
+        if (createdTopic) setSelectedTopicId(createdTopic.id)
       } catch {
-        // si falla la plantilla el examen igual queda creado
-      } finally {
-        setTemplateLoading('')
+        // si falla la creación del tema el examen igual queda creado
       }
 
       setExams((current) => [newExam, ...current])
@@ -205,20 +202,14 @@ export default function ProfesorLanding() {
     try {
       const previousTopicIds = new Set((selectedExam.topics || []).map((t) => t.id))
       const res = await api.post(`/exams/${selectedExam.id}/topics`, { name })
-      let updated = res.data
+      const updated = res.data
       const createdTopic = updated.topics?.find((t) => !previousTopicIds.has(t.id))
       replaceExam(updated)
-      if (createdTopic) {
-        setTemplateLoading(createdTopic.id)
-        updated = await appendDefaultTemplate(updated, createdTopic.id)
-        replaceExam(updated)
-        setSelectedTopicId(createdTopic.id)
-      }
+      if (createdTopic) setSelectedTopicId(createdTopic.id)
       setMessage(`Tema ${nextLetter} agregado.`)
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
     } finally {
-      setTemplateLoading('')
       setTopicAdding(false)
     }
   }
@@ -667,6 +658,22 @@ async function renameTopic(topicId) {
   // ── EXAM LIST (Crear / Editar) ────────────────────────────────────────────
   if (pageMode === 'examList') {
     const editableExams = exams.filter(e => e.status !== 'CERRADO')
+    const displayedExams = examListFilter === 'borrador'
+      ? editableExams.filter(e => derivedStatus(e) === 'BORRADOR')
+      : examListFilter === 'listo'
+      ? editableExams.filter(e => derivedStatus(e) === 'SIN_PROGRAMAR')
+      : editableExams
+    const listTitle = examListFilter === 'borrador'
+      ? 'Borradores en proceso'
+      : examListFilter === 'listo'
+      ? 'Exámenes listos'
+      : 'Todos los exámenes'
+    const listSubtitle = examListFilter === 'borrador'
+      ? 'Borradores que todavía están siendo editados'
+      : examListFilter === 'listo'
+      ? 'Finalizados y listos para iniciar cuando quieras'
+      : 'Exámenes activos y en borrador'
+
     return (
       <div style={styles.page}>
         {figmaHeader()}
@@ -674,8 +681,8 @@ async function renameTopic(topicId) {
           <button onClick={() => setPageMode('landing')} style={fStyles.backLink}>← Volver</button>
           <div style={fStyles.pageHeaderRow}>
             <div>
-              <h2 style={fStyles.pageTitle}>Creación y edición de exámenes</h2>
-              <p style={fStyles.pageSubtitle}>Creá uno nuevo o editá un examen del listado.</p>
+              <h2 style={fStyles.pageTitle}>{listTitle}</h2>
+              <p style={fStyles.pageSubtitle}>{listSubtitle}</p>
             </div>
             <button onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }} style={fStyles.createBtn}>
               &#x2795; Crear examen
@@ -683,12 +690,14 @@ async function renameTopic(topicId) {
           </div>
           {message && <div style={styles.message}>{message}</div>}
           <div style={fStyles.tableCard}>
-            {editableExams.length === 0 && !loading && (
+            {displayedExams.length === 0 && !loading && (
               <div style={fStyles.emptyBox}>
-                <p style={{ color: '#9CA3AF', margin: 0 }}>📋 Todavía no hay exámenes. Creá el primero.</p>
+                <p style={{ color: '#9CA3AF', margin: 0 }}>
+                  {examListFilter === 'borrador' ? '📋 No hay borradores en proceso.' : examListFilter === 'listo' ? '✅ No hay exámenes listos todavía.' : '📋 Todavía no hay exámenes. Creá el primero.'}
+                </p>
               </div>
             )}
-            {editableExams.length > 0 && (
+            {displayedExams.length > 0 && (
               <table style={fStyles.table}>
                 <thead>
                   <tr>
@@ -700,21 +709,30 @@ async function renameTopic(topicId) {
                   </tr>
                 </thead>
                 <tbody>
-                  {editableExams.map(exam => (
+                  {displayedExams.map(exam => (
                     <tr key={exam.id} style={fStyles.tr}>
                       <td style={fStyles.td}>{exam.title}</td>
                       <td style={fStyles.td}><span style={statusStyle(exam)}>{labelStatus(exam)}</span></td>
                       <td style={{ ...fStyles.td, color: '#6B7280' }}>{exam.durationMinutes || '-'} min</td>
                       <td style={fStyles.td}>
-                        <button
-                          onClick={() => { setSelectedId(exam.id); setPageMode(exam.status === 'PUBLICADO' ? 'running' : 'detail'); window.history.pushState({}, '', '/profesor') }}
-                          style={fStyles.editBtn}
-                        >
-                          {exam.status === 'PUBLICADO' ? 'Monitorear' : '✎ Editar'}
-                        </button>
+                        {examListFilter === 'listo' ? (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode('running'); window.history.pushState({}, '', '/profesor') }}
+                            style={{ ...fStyles.editBtn, color: '#087A55', fontWeight: 800 }}
+                          >
+                            ▶ Iniciar ahora
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode(exam.status === 'PUBLICADO' ? 'running' : 'detail'); window.history.pushState({}, '', '/profesor') }}
+                            style={fStyles.editBtn}
+                          >
+                            {exam.status === 'PUBLICADO' ? 'Monitorear' : '✎ Editar'}
+                          </button>
+                        )}
                       </td>
                       <td style={fStyles.td}>
-                        {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
+                        {exam.status === 'BORRADOR' && (
                           <button onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })} style={fStyles.deleteBtn}>🗑</button>
                         )}
                       </td>
@@ -903,7 +921,7 @@ async function renameTopic(topicId) {
     )
   }
 
-  // ── LANDING PAGE (4 cards) ─────────────────────────────────────────────
+  // ── LANDING PAGE ─────────────────────────────────────────────────────────
   if (pageMode === 'landing') {
     const enCurso = exams.filter(e => derivedStatus(e) === 'EN_CURSO')
     const programados = exams.filter(e => derivedStatus(e) === 'PROGRAMADO')
@@ -912,21 +930,14 @@ async function renameTopic(topicId) {
     const porDevolver = exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished)
     const devueltos = exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
 
-    const cards = [
-      {
-        title: 'Crear / Editar exámenes',
-        subtitle: 'Gestioná el contenido de tus parciales',
-        stats: [{ n: borradores.length, label: 'borradores' }, { n: exams.length, label: 'exámenes totales' }],
-        action: goToExamList,
-        color: '#1956D8',
-      },
+    const otherCards = [
       {
         title: 'Exámenes activos',
         subtitle: 'Monitoreá los exámenes en curso o programados',
-        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }, { n: sinProgramar.length, label: 'sin programar' }],
-        action: () => { const first = [...enCurso, ...sinProgramar, ...programados][0]; if (first) openExamDetail(first.id) },
+        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }],
+        action: () => { const first = [...enCurso, ...programados][0]; if (first) openExamDetail(first.id) },
         color: '#087A55',
-        disabled: enCurso.length + programados.length + sinProgramar.length === 0,
+        disabled: enCurso.length + programados.length === 0,
       },
       {
         title: 'Revisión pendiente',
@@ -940,7 +951,7 @@ async function renameTopic(topicId) {
         title: 'Historial',
         subtitle: 'Exámenes cerrados ya devueltos',
         stats: [{ n: devueltos.length, label: 'devueltos' }],
-        action: goToExamList,
+        action: () => { setExamListFilter(null); goToExamList() },
         color: '#4A5565',
       },
     ]
@@ -948,28 +959,93 @@ async function renameTopic(topicId) {
     return (
       <div style={styles.page}>
         {figmaHeader()}
-        <main style={fStyles.landingCards}>
-          {message && <div style={{ ...styles.message, gridColumn: '1/-1', marginBottom: 0 }}>{message}</div>}
-          {cards.map((card, i) => (
-            <div
-              key={i}
-              onClick={!card.disabled ? card.action : undefined}
-              style={{ ...fStyles.navCard, opacity: card.disabled ? 0.5 : 1, cursor: card.disabled ? 'not-allowed' : 'pointer', borderTop: `4px solid ${card.color}` }}
+        <main style={{ display: 'flex', flexDirection: 'column', padding: '20px 28px', gap: 20, height: 'calc(100vh - 72px)', boxSizing: 'border-box' }}>
+          {message && <div style={{ ...styles.message, margin: 0 }}>{message}</div>}
+
+          {/* Crear Nuevo Examen */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }}
+              style={fStyles.createExamBannerBtn}
             >
-              <h3 style={{ ...fStyles.navCardTitle, color: card.color }}>{card.title}</h3>
-              <p style={fStyles.navCardSub}>{card.subtitle}</p>
+              ＋&nbsp;&nbsp;Crear Nuevo Examen
+            </button>
+          </div>
+
+          {/* Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, flex: 1 }}>
+
+            {/* Borradores (blue) — sub-cards */}
+            <div style={{ ...fStyles.navCard, borderTop: '4px solid #1956D8', cursor: 'default', gap: 14 }}>
+              <h3 style={{ ...fStyles.navCardTitle, color: '#1956D8', textAlign: 'center' }}>Borradores</h3>
+              <p style={{ ...fStyles.navCardSub, textAlign: 'center' }}>Exámenes en preparación</p>
               <div style={fStyles.navCardDivider} />
-              <div style={fStyles.navCardStats}>
-                {card.stats.map((s, j) => (
-                  <div key={j} style={fStyles.navStat}>
-                    <span style={{ fontSize: 48, fontWeight: 800, color: card.color, lineHeight: 1 }}>{s.n}</span>
-                    <span style={{ fontSize: 15, color: '#6B7280' }}>{s.label}</span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                <button
+                  onClick={() => { setExamListFilter('borrador'); goToExamList() }}
+                  onMouseEnter={() => setHoveredSubCard('en-proceso')}
+                  onMouseLeave={() => setHoveredSubCard(null)}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, padding: '16px 8px', background: '#F0F5FF', border: '1px solid #D6E4FF', borderRadius: 10,
+                    cursor: 'pointer', transition: 'transform .2s ease, box-shadow .2s ease',
+                    transform: hoveredSubCard === 'en-proceso' ? 'translateY(-4px)' : 'none',
+                    boxShadow: hoveredSubCard === 'en-proceso' ? '0 8px 20px rgba(25,86,216,0.2)' : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 40, fontWeight: 800, color: '#1956D8', lineHeight: 1 }}>{borradores.length}</span>
+                  <span style={{ fontSize: 13, color: '#536B76', fontWeight: 700 }}>En proceso</span>
+                </button>
+                <button
+                  onClick={() => { setExamListFilter('listo'); goToExamList() }}
+                  onMouseEnter={() => setHoveredSubCard('listos')}
+                  onMouseLeave={() => setHoveredSubCard(null)}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, padding: '16px 8px', background: '#E8F5F0', border: '1px solid #A7D9C8', borderRadius: 10,
+                    cursor: 'pointer', transition: 'transform .2s ease, box-shadow .2s ease',
+                    transform: hoveredSubCard === 'listos' ? 'translateY(-4px)' : 'none',
+                    boxShadow: hoveredSubCard === 'listos' ? '0 8px 20px rgba(8,122,85,0.2)' : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 40, fontWeight: 800, color: '#087A55', lineHeight: 1 }}>{sinProgramar.length}</span>
+                  <span style={{ fontSize: 13, color: '#536B76', fontWeight: 700 }}>Listos</span>
+                </button>
               </div>
-              <div style={fStyles.navCardArrow}>→</div>
             </div>
-          ))}
+
+            {/* Exámenes activos, Revisión pendiente, Historial */}
+            {otherCards.map((card, i) => (
+              <div
+                key={i}
+                onClick={!card.disabled ? card.action : undefined}
+                onMouseEnter={() => !card.disabled && setHoveredCard(i)}
+                onMouseLeave={() => setHoveredCard(null)}
+                style={{
+                  ...fStyles.navCard,
+                  opacity: card.disabled ? 0.5 : 1,
+                  cursor: card.disabled ? 'not-allowed' : 'pointer',
+                  borderTop: `4px solid ${card.color}`,
+                  transform: hoveredCard === i && !card.disabled ? 'translateY(-6px)' : 'none',
+                  boxShadow: hoveredCard === i && !card.disabled ? '0 16px 40px rgba(9,34,42,0.15)' : '0 2px 10px rgba(0,0,0,0.07)',
+                  transition: 'transform .2s ease, box-shadow .2s ease',
+                }}
+              >
+                <h3 style={{ ...fStyles.navCardTitle, color: card.color, textAlign: 'center' }}>{card.title}</h3>
+                <p style={{ ...fStyles.navCardSub, textAlign: 'center' }}>{card.subtitle}</p>
+                <div style={fStyles.navCardDivider} />
+                <div style={{ ...fStyles.navCardStats, justifyContent: 'center' }}>
+                  {card.stats.map((s, j) => (
+                    <div key={j} style={fStyles.navStat}>
+                      <span style={{ fontSize: 48, fontWeight: 800, color: card.color, lineHeight: 1 }}>{s.n}</span>
+                      <span style={{ fontSize: 15, color: '#6B7280' }}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={fStyles.navCardArrow}>→</div>
+              </div>
+            ))}
+          </div>
         </main>
       </div>
     )
@@ -1009,7 +1085,7 @@ async function renameTopic(topicId) {
                 <div style={styles.headerActions}>
                   <span style={statusStyle(selectedExam)}>{labelStatus(selectedExam)}</span>
                   {canEdit && (
-                    <button onClick={handlePublishClick} style={styles.primaryBtn}>Publicar</button>
+                    <button onClick={handlePublishClick} style={styles.primaryBtn}>Finalizar</button>
                   )}
                   {selectedExam.status === 'PUBLICADO' && (
                     <button onClick={handleCloseClick} style={styles.closeBtn}>Cerrar examen</button>
@@ -1623,13 +1699,13 @@ async function renameTopic(topicId) {
               </>
             ) : modal.type === 'confirmPublish' ? (
               <>
-                <h3 style={styles.modalTitle}>Publicar examen</h3>
+                <h3 style={styles.modalTitle}>Finalizar examen</h3>
                 <p style={styles.modalText}>
-                  Al publicar, el examen estará disponible para los alumnos y <strong>no podrás volver a borrador</strong>.
+                  Al finalizar, el examen pasará a "Listos" y los alumnos podrán iniciarlo. <strong>No podrás volver a borrador.</strong>
                 </p>
                 <div style={styles.modalActions}>
                   <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
-                  <button onClick={() => { setModal(null); publishExam() }} style={styles.primaryBtn}>Publicar</button>
+                  <button onClick={() => { setModal(null); publishExam() }} style={styles.primaryBtn}>Finalizar</button>
                 </div>
               </>
             ) : modal.type === 'confirmClose' ? (
@@ -1694,13 +1770,14 @@ async function renameTopic(topicId) {
 
 const fStyles = {
   landingCards: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: '1fr', gap: 24, padding: '28px 32px', boxSizing: 'border-box', height: 'calc(100vh - 72px)' },
-  navCard: { background: '#fff', borderRadius: 16, padding: '48px 40px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 20, transition: 'box-shadow .15s' },
-  navCardTitle: { fontSize: 28, fontWeight: 800, margin: 0, lineHeight: 1.2 },
-  navCardSub: { fontSize: 16, color: '#6B7280', margin: 0, lineHeight: 1.5 },
-  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '8px 0' },
-  navCardStats: { display: 'flex', gap: 36, flexWrap: 'wrap' },
+  navCard: { background: '#fff', borderRadius: 14, padding: '36px 28px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 14 },
+  navCardTitle: { fontSize: 24, fontWeight: 800, margin: 0, lineHeight: 1.2 },
+  navCardSub: { fontSize: 14, color: '#6B7280', margin: 0, lineHeight: 1.5 },
+  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '4px 0' },
+  navCardStats: { display: 'flex', gap: 32, flexWrap: 'wrap' },
   navStat: { display: 'flex', flexDirection: 'column', gap: 6 },
-  navCardArrow: { fontSize: 28, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
+  navCardArrow: { fontSize: 24, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
+  createExamBannerBtn: { padding: '14px 52px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 12, fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.01em', boxShadow: '0 4px 16px rgba(9,34,42,0.2)', transition: 'transform .15s ease, box-shadow .15s ease' },
   backLink: { background: 'none', border: 'none', color: '#6B7280', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: 6 },
   pageHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   pageTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
