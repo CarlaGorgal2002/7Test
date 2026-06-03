@@ -1,6 +1,10 @@
 package com.seventest.application.service;
 
+import com.seventest.domain.exception.ExamNotFoundException;
+import com.seventest.domain.exception.ExamSubmissionNotFoundException;
+import com.seventest.domain.exception.UserNotFoundException;
 import com.seventest.domain.model.Exam;
+import com.seventest.domain.model.ExamAnswer;
 import com.seventest.domain.model.ExamQuestion;
 import com.seventest.domain.model.ExamStatus;
 import com.seventest.domain.model.ExamSubmission;
@@ -13,218 +17,966 @@ import com.seventest.domain.port.in.ExamSubmissionUseCase;
 import com.seventest.domain.port.out.ExamRepository;
 import com.seventest.domain.port.out.ExamSubmissionRepository;
 import com.seventest.domain.port.out.UserRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class ExamSubmissionServiceTest {
 
-    @Mock ExamSubmissionRepository submissionRepository;
-    @Mock ExamRepository examRepository;
-    @Mock UserRepository userRepository;
+    @Mock
+    private ExamSubmissionRepository submissionRepository;
 
-    @InjectMocks ExamSubmissionService submissionService;
+    @Mock
+    private ExamRepository examRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private ExamSubmissionService examSubmissionService;
+
+    private User createSampleStudent(UUID id, String email) {
+        return User.builder()
+                .id(id)
+                .fullName("Student Joe")
+                .email(email)
+                .role(Role.ALUMNO)
+                .status(UserStatus.ACTIVO)
+                .build();
+    }
+
+    private User createSampleTeacher(UUID id, String email) {
+        return User.builder()
+                .id(id)
+                .fullName("Teacher Jane")
+                .email(email)
+                .role(Role.PROFESOR)
+                .status(UserStatus.ACTIVO)
+                .build();
+    }
+
+    private Exam createSampleExam(UUID id, UUID teacherId, ExamStatus status, List<ExamTopic> topics) {
+        return Exam.builder()
+                .id(id)
+                .title("Parcial 1")
+                .teacherId(teacherId)
+                .status(status)
+                .topics(topics)
+                .build();
+    }
+
+    private ExamTopic createSampleTopic(UUID id, String name, List<ExamQuestion> questions) {
+        return ExamTopic.builder()
+                .id(id)
+                .name(name)
+                .questions(questions)
+                .build();
+    }
+
+    private ExamSubmission createSampleSubmission(UUID id, UUID examId, UUID studentId, SubmissionStatus status, UUID topicId, List<ExamAnswer> answers) {
+        return ExamSubmission.builder()
+                .id(id)
+                .examId(examId)
+                .examTitle("Parcial 1")
+                .studentId(studentId)
+                .status(status)
+                .topicId(topicId)
+                .answers(answers)
+                .build();
+    }
+
+    // ========================================== START ==========================================
 
     @Test
-    void iniciarExamenPublicado_conTemaValido_creaEntregaEnProgreso() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        UUID topicId = exam.getTopics().getFirst().getId();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
-        when(submissionRepository.findByStudentIdAndExamId(student.getId(), exam.getId())).thenReturn(Optional.empty());
-        when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void start_notStudent_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
 
-        ExamSubmission result = submissionService.start(student.getEmail(), exam.getId(), topicId);
-
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.EN_PROGRESO);
-        assertThat(result.getStudentId()).isEqualTo(student.getId());
-        assertThat(result.getTopicId()).isEqualTo(topicId);
-        assertThat(result.getAnswers()).hasSize(1);
-        assertThat(result.getAnswers().getFirst().getAnswerText()).isEmpty();
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("teacher@test.com", UUID.randomUUID(), UUID.randomUUID())
+        );
+        Assertions.assertEquals("Solo un alumno puede rendir examenes", exception.getMessage());
     }
 
     @Test
-    void iniciarExamen_sinTopicId_rechaza() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+    void start_examNotFound_throwsExamNotFoundException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("seleccionar un tema");
+        // Act & Assert
+        Assertions.assertThrows(
+                ExamNotFoundException.class,
+                () -> examSubmissionService.start("student@test.com", examId, UUID.randomUUID())
+        );
     }
 
     @Test
-    void iniciarExamen_conTopicIdInexistente_rechaza() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        UUID topicIdFalso = UUID.randomUUID();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+    void start_examNotPublished_throwsIllegalArgumentException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.BORRADOR, new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
 
-        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), topicIdFalso))
-                .isInstanceOf(IllegalArgumentException.class);
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("student@test.com", examId, UUID.randomUUID())
+        );
+        Assertions.assertEquals("El examen no esta publicado", exception.getMessage());
     }
 
     @Test
-    void iniciarExamen_programadoAFuturo_rechazaAntesDeLaFecha() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam().toBuilder()
+    void start_availableFromIsInFuture_throwsIllegalArgumentException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamTopic topic = createSampleTopic(topicId, "Topic 1", new ArrayList<>());
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic)).toBuilder()
                 .availableFrom(Instant.now().plusSeconds(3600))
                 .build();
-        UUID topicId = exam.getTopics().getFirst().getId();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
 
-        assertThatThrownBy(() -> submissionService.start(student.getEmail(), exam.getId(), topicId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("todavia no esta disponible");
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("student@test.com", examId, topicId)
+        );
+        Assertions.assertEquals("El examen todavia no esta disponible", exception.getMessage());
     }
 
     @Test
-    void iniciarExamen_conEntregaExistente_devuelveEntregaSinCambiarTema() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        UUID topicId = exam.getTopics().getFirst().getId();
-        ExamSubmission existing = submission(student, exam, SubmissionStatus.EN_PROGRESO, "respuesta parcial");
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
-        when(submissionRepository.findByStudentIdAndExamId(student.getId(), exam.getId())).thenReturn(Optional.of(existing));
+    void start_topicIdIsNull_throwsIllegalArgumentException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
 
-        ExamSubmission result = submissionService.start(student.getEmail(), exam.getId(), topicId);
-
-        assertThat(result.getId()).isEqualTo(existing.getId());
-        assertThat(result.getTopicId()).isEqualTo(existing.getTopicId());
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("student@test.com", examId, null)
+        );
+        Assertions.assertEquals("Debes seleccionar un tema para comenzar", exception.getMessage());
     }
 
     @Test
-    void guardarRespuestas_deEntregaEnProgreso_actualizaTexto() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        ExamSubmission submission = submission(student, exam, SubmissionStatus.EN_PROGRESO, "");
-        UUID questionId = exam.getTopics().getFirst().getQuestions().getFirst().getId();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(submissionRepository.findById(submission.getId())).thenReturn(Optional.of(submission));
-        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
-        when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void start_topicNotAssignedToExam_throwsIllegalArgumentException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
 
-        ExamSubmission result = submissionService.saveAnswers(student.getEmail(), submission.getId(),
-                List.of(new ExamSubmissionUseCase.AnswerUpdate(questionId, "Mi respuesta")));
-
-        assertThat(result.getAnswers().getFirst().getAnswerText()).isEqualTo("Mi respuesta");
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("student@test.com", examId, topicId)
+        );
+        Assertions.assertEquals("El tema asignado ya no existe", exception.getMessage());
     }
 
     @Test
-    void guardarRespuestas_deEntregaFinalizada_rechazaCambio() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        ExamSubmission submission = submission(student, exam, SubmissionStatus.ENTREGADO, "final");
-        UUID questionId = exam.getTopics().getFirst().getQuestions().getFirst().getId();
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(submissionRepository.findById(submission.getId())).thenReturn(Optional.of(submission));
+    void start_submissionAlreadyExists_returnsExistingSubmission() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamTopic topic = createSampleTopic(topicId, "Topic 1", new ArrayList<>());
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+        ExamSubmission existingSubmission = createSampleSubmission(UUID.randomUUID(), examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, new ArrayList<>());
 
-        assertThatThrownBy(() -> submissionService.saveAnswers(student.getEmail(), submission.getId(),
-                List.of(new ExamSubmissionUseCase.AnswerUpdate(questionId, "Cambio"))))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("finalizada");
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByStudentIdAndExamId(studentId, examId)).thenReturn(Optional.of(existingSubmission));
+
+        // Act
+        ExamSubmission result = examSubmissionService.start("student@test.com", examId, topicId);
+
+        // Assert
+        Assertions.assertSame(existingSubmission, result);
+        Mockito.verify(submissionRepository, Mockito.never()).save(Mockito.any(ExamSubmission.class));
     }
 
     @Test
-    void entregarExamen_cambiaEstadoAEntregado() {
-        User student = user(Role.ALUMNO);
-        Exam exam = publishedExam();
-        ExamSubmission submission = submission(student, exam, SubmissionStatus.EN_PROGRESO, "respuesta");
-        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-        when(submissionRepository.findById(submission.getId())).thenReturn(Optional.of(submission));
-        when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void start_submissionDoesNotExist_createsAndSavesNewSubmission() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID questionId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(questionId).displayOrder(1).points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic 1", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
 
-        ExamSubmission result = submissionService.submit(student.getEmail(), submission.getId());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByStudentIdAndExamId(studentId, examId)).thenReturn(Optional.empty());
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.ENTREGADO);
-        assertThat(result.getSubmittedAt()).isNotNull();
+        // Act
+        ExamSubmission result = examSubmissionService.start("student@test.com", examId, topicId);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(examId, result.getExamId());
+        Assertions.assertEquals(studentId, result.getStudentId());
+        Assertions.assertEquals(SubmissionStatus.EN_PROGRESO, result.getStatus());
+        Assertions.assertEquals(topicId, result.getTopicId());
+        Assertions.assertEquals(1, result.getAnswers().size());
+        Assertions.assertEquals(questionId, result.getAnswers().get(0).getQuestionId());
+        Mockito.verify(submissionRepository, Mockito.times(1)).save(Mockito.any(ExamSubmission.class));
     }
 
-    private User user(Role role) {
-        return User.builder()
-                .id(UUID.randomUUID())
-                .fullName(role == Role.ALUMNO ? "Alumno Test" : "Profesor Test")
-                .email(role.name().toLowerCase() + "@test.com")
-                .role(role)
-                .status(UserStatus.ACTIVO)
-                .passwordHash("hash")
-                .failedLoginAttempts(0)
-                .lockedUntil(null)
-                .build();
+    // ========================================== SAVE ANSWERS ==========================================
+
+    @Test
+    void saveAnswers_notStudent_throwsIllegalArgumentException() {
+        // Arrange
+        User teacher = createSampleTeacher(UUID.randomUUID(), "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.saveAnswers("teacher@test.com", UUID.randomUUID(), null)
+        );
     }
 
-    private Exam publishedExam() {
-        ExamQuestion question = ExamQuestion.builder()
-                .id(UUID.randomUUID())
-                .prompt("Definir caja negra")
-                .modelAnswer("Tecnica funcional")
-                .points(BigDecimal.TEN)
-                .displayOrder(1)
-                .build();
-        ExamTopic topic = ExamTopic.builder()
-                .id(UUID.randomUUID())
-                .name("Tema A")
-                .colorHex("#1956D8")
-                .questions(List.of(question))
-                .build();
-        Instant now = Instant.now();
-        return Exam.builder()
-                .id(UUID.randomUUID())
-                .title("Parcial")
-                .description("")
-                .courseName("Testing de Aplicaciones")
-                .teacherId(UUID.randomUUID())
-                .teacherName("Profesor")
-                .status(ExamStatus.PUBLICADO)
-                .durationMinutes(120)
-                .topics(List.of(topic))
-                .createdAt(now)
-                .updatedAt(now)
-                .publishedAt(now)
-                .build();
+    @Test
+    void saveAnswers_submissionNotFound_throwsExamSubmissionNotFoundException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        User student = createSampleStudent(UUID.randomUUID(), "student@test.com");
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(
+                ExamSubmissionNotFoundException.class,
+                () -> examSubmissionService.saveAnswers("student@test.com", submissionId, null)
+        );
     }
 
-    private ExamSubmission submission(User student, Exam exam, SubmissionStatus status, String answerText) {
-        ExamQuestion question = exam.getTopics().getFirst().getQuestions().getFirst();
-        Instant now = Instant.now();
-        return ExamSubmission.builder()
-                .id(UUID.randomUUID())
-                .examId(exam.getId())
-                .examTitle(exam.getTitle())
-                .topicId(exam.getTopics().getFirst().getId())
-                .topicName(exam.getTopics().getFirst().getName())
-                .studentId(student.getId())
-                .studentName(student.getFullName())
-                .status(status)
-                .answers(List.of(com.seventest.domain.model.ExamAnswer.builder()
-                        .id(UUID.randomUUID())
-                        .questionId(question.getId())
-                        .answerText(answerText)
-                        .updatedAt(now)
-                        .build()))
-                .startedAt(now)
-                .updatedAt(now)
-                .submittedAt(status == SubmissionStatus.ENTREGADO ? now : null)
+    @Test
+    void saveAnswers_belongsToOtherStudent_throwsIllegalArgumentException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        User student = createSampleStudent(UUID.randomUUID(), "student@test.com");
+        ExamSubmission submission = createSampleSubmission(submissionId, UUID.randomUUID(), UUID.randomUUID(), SubmissionStatus.EN_PROGRESO, UUID.randomUUID(), new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.saveAnswers("student@test.com", submissionId, null)
+        );
+    }
+
+    @Test
+    void saveAnswers_statusNotEnProgreso_throwsIllegalArgumentException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamSubmission submission = createSampleSubmission(submissionId, UUID.randomUUID(), studentId, SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.saveAnswers("student@test.com", submissionId, null)
+        );
+    }
+
+    @Test
+    void saveAnswers_validInput_updatesAnswersTextAndSaves() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Old text").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.AnswerUpdate> updates = List.of(
+                new ExamSubmissionUseCase.AnswerUpdate(qId1, "   New Text   ")
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.saveAnswers("student@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("New Text", result.getAnswers().get(0).getAnswerText());
+        Mockito.verify(submissionRepository, Mockito.times(1)).save(Mockito.any(ExamSubmission.class));
+    }
+
+    @Test
+    void saveAnswers_withNullUpdates_savesWithNoChanges() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Old text").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        ExamSubmission result = examSubmissionService.saveAnswers("student@test.com", submissionId, null);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("Old text", result.getAnswers().get(0).getAnswerText());
+    }
+
+    @Test
+    void saveAnswers_questionDoesNotBelongToTopic_throwsIllegalArgumentException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+        UUID invalidQId = UUID.randomUUID();
+
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Old text").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        List<ExamSubmissionUseCase.AnswerUpdate> updates = List.of(
+                new ExamSubmissionUseCase.AnswerUpdate(invalidQId, "Text")
+        );
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.saveAnswers("student@test.com", submissionId, updates)
+        );
+    }
+
+    // ========================================== SUBMIT ==========================================
+
+    @Test
+    void submit_statusIsEnProgreso_submitsSuccessfully() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamSubmission submission = createSampleSubmission(submissionId, UUID.randomUUID(), studentId, SubmissionStatus.EN_PROGRESO, UUID.randomUUID(), new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        ExamSubmission result = examSubmissionService.submit("student@test.com", submissionId);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(SubmissionStatus.ENTREGADO, result.getStatus());
+        Assertions.assertNotNull(result.getSubmittedAt());
+        Mockito.verify(submissionRepository, Mockito.times(1)).save(Mockito.any(ExamSubmission.class));
+    }
+
+    @Test
+    void submit_statusIsAlreadyEntregado_returnsDirectlyWithoutSaving() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamSubmission submission = createSampleSubmission(submissionId, UUID.randomUUID(), studentId, SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+
+        // Act
+        ExamSubmission result = examSubmissionService.submit("student@test.com", submissionId);
+
+        // Assert
+        Assertions.assertSame(submission, result);
+        Mockito.verify(submissionRepository, Mockito.never()).save(Mockito.any(ExamSubmission.class));
+    }
+
+    // ========================================== LIST FOR STUDENT ==========================================
+
+    @Test
+    void listForStudent_validRequest_returnsStudentSubmissions() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        List<ExamSubmission> expectedList = List.of(createSampleSubmission(UUID.randomUUID(), UUID.randomUUID(), studentId, SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>()));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findByStudentId(studentId)).thenReturn(expectedList);
+
+        // Act
+        List<ExamSubmission> result = examSubmissionService.listForStudent("student@test.com");
+
+        // Assert
+        Assertions.assertEquals(expectedList, result);
+    }
+
+    // ========================================== FIND FOR TEACHER ==========================================
+
+    @Test
+    void findForTeacher_notTeacher_throwsIllegalArgumentException() {
+        // Arrange
+        User student = createSampleStudent(UUID.randomUUID(), "student@test.com");
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.findForTeacher("student@test.com", UUID.randomUUID())
+        );
+    }
+
+    @Test
+    void findForTeacher_validTeacherAndExamOwner_returnsSubmission() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, new ArrayList<>());
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act
+        ExamSubmission result = examSubmissionService.findForTeacher("teacher@test.com", submissionId);
+
+        // Assert
+        Assertions.assertSame(submission, result);
+    }
+
+    @Test
+    void findForTeacher_notExamOwner_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID otherTeacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, otherTeacherId, ExamStatus.PUBLICADO, new ArrayList<>());
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.findForTeacher("teacher@test.com", submissionId)
+        );
+    }
+
+    // ========================================== GRADE ==========================================
+
+    @Test
+    void grade_validTeacherAndInput_updatesScoresAndSaves() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Answer").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId1, new BigDecimal("4.0"), "   Good job   ")
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, new BigDecimal("4.0").compareTo(result.getAnswers().get(0).getScore()));
+        Assertions.assertEquals("Good job", result.getAnswers().get(0).getComment());
+    }
+
+    @Test
+    void grade_withNullUpdates_savesWithNoChanges() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Answer").score(new BigDecimal("3.0")).build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, null);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, new BigDecimal("3.0").compareTo(result.getAnswers().get(0).getScore()));
+    }
+
+    @Test
+    void grade_withNullScoreAndNullComment_updatesCommentToNull() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Answer").score(new BigDecimal("3.0")).comment("old comment").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId1, null, null)
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertNull(result.getAnswers().get(0).getScore());
+        Assertions.assertNull(result.getAnswers().get(0).getComment());
+    }
+
+    @Test
+    void grade_negativeScore_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Answer").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId1, new BigDecimal("-1.0"), "Comment")
+        );
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.grade("teacher@test.com", submissionId, updates)
+        );
+        Assertions.assertEquals("El puntaje no puede ser negativo", exception.getMessage());
+    }
+
+    @Test
+    void grade_scoreExceedsMaxPoints_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(qId1).answerText("Answer").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId1, new BigDecimal("5.1"), "Comment")
+        );
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.grade("teacher@test.com", submissionId, updates)
+        );
+        Assertions.assertEquals("El puntaje no puede superar el valor máximo de la pregunta", exception.getMessage());
+    }
+
+    // ========================================== LIST FOR TEACHER EXAM ==========================================
+
+    @Test
+    void listForTeacherExam_validRequest_returnsSubmissions() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, new ArrayList<>());
+        List<ExamSubmission> expectedSubmissions = List.of(createSampleSubmission(UUID.randomUUID(), examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>()));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(expectedSubmissions);
+
+        // Act
+        List<ExamSubmission> result = examSubmissionService.listForTeacherExam("teacher@test.com", examId);
+
+        // Assert
+        Assertions.assertEquals(expectedSubmissions, result);
+    }
+
+    @Test
+    void start_studentNotFound_throwsUserNotFoundException() {
+        // Arrange
+        Mockito.when(userRepository.findByEmail("nonexistent@test.com")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(
+                UserNotFoundException.class,
+                () -> examSubmissionService.start("nonexistent@test.com", UUID.randomUUID(), UUID.randomUUID())
+        );
+    }
+
+    @Test
+    void grade_withDuplicateGradeUpdates_usesLastUpdate() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId).prompt("Q").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+        ExamAnswer answer = ExamAnswer.builder().questionId(qId).build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId, new BigDecimal("4.0"), "First"),
+                new ExamSubmissionUseCase.GradeUpdate(qId, new BigDecimal("5.0"), "Last")
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, new BigDecimal("5.0").compareTo(result.getAnswers().get(0).getScore()));
+        Assertions.assertEquals("Last", result.getAnswers().get(0).getComment());
+    }
+
+    @Test
+    void saveAnswers_withDuplicateAnswerUpdates_usesLastUpdate() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId).prompt("Q").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+        ExamAnswer answer = ExamAnswer.builder().questionId(qId).answerText("").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.AnswerUpdate> updates = List.of(
+                new ExamSubmissionUseCase.AnswerUpdate(qId, "First answer"),
+                new ExamSubmissionUseCase.AnswerUpdate(qId, "Last answer")
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.saveAnswers("student@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("Last answer", result.getAnswers().get(0).getAnswerText());
+    }
+
+    @Test
+    void saveAnswers_withNullAnswerText_savesAsEmptyString() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamQuestion question = ExamQuestion.builder().id(qId).prompt("Q").points(BigDecimal.TEN).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic));
+        ExamAnswer answer = ExamAnswer.builder().questionId(qId).answerText("Old").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, studentId, SubmissionStatus.EN_PROGRESO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.AnswerUpdate> updates = List.of(
+                new ExamSubmissionUseCase.AnswerUpdate(qId, null)
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.saveAnswers("student@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("", result.getAnswers().get(0).getAnswerText());
+    }
+
+    @Test
+    void start_availableFromIsInPast_succeeds() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamTopic topic = createSampleTopic(topicId, "Topic 1", new ArrayList<>());
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic)).toBuilder()
+                .availableFrom(Instant.now().minusSeconds(3600))
                 .build();
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByStudentIdAndExamId(studentId, examId)).thenReturn(Optional.empty());
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        ExamSubmission result = examSubmissionService.start("student@test.com", examId, topicId);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(examId, result.getExamId());
+    }
+
+    @Test
+    void findForTeacher_submissionNotFound_throwsExamSubmissionNotFoundException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(UUID.randomUUID(), "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(
+                ExamSubmissionNotFoundException.class,
+                () -> examSubmissionService.findForTeacher("teacher@test.com", submissionId)
+        );
+    }
+
+    @Test
+    void grade_submissionNotFound_throwsExamSubmissionNotFoundException() {
+        // Arrange
+        UUID submissionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(UUID.randomUUID(), "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(
+                ExamSubmissionNotFoundException.class,
+                () -> examSubmissionService.grade("teacher@test.com", submissionId, new ArrayList<>())
+        );
+    }
+
+    @Test
+    void listForTeacherExam_notExamOwner_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID otherTeacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, otherTeacherId, ExamStatus.PUBLICADO, new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.listForTeacherExam("teacher@test.com", examId)
+        );
+        Assertions.assertEquals("El examen pertenece a otro profesor", exception.getMessage());
+    }
+
+    @Test
+    void grade_questionIdNotInMaxPoints_succeedsWithoutMaxPointsCheck() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID unknownQuestionId = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamTopic topic = createSampleTopic(topicId, "Topic", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer answer = ExamAnswer.builder().id(UUID.randomUUID()).questionId(unknownQuestionId).answerText("Answer").build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(answer));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(unknownQuestionId, new BigDecimal("8.5"), "Good")
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, new BigDecimal("8.5").compareTo(result.getAnswers().get(0).getScore()));
+        Assertions.assertEquals("Good", result.getAnswers().get(0).getComment());
+    }
+
+    @Test
+    void grade_notExamOwner_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID otherTeacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, otherTeacherId, ExamStatus.PUBLICADO, new ArrayList<>());
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, UUID.randomUUID(), new ArrayList<>());
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.grade("teacher@test.com", submissionId, new ArrayList<>())
+        );
+        Assertions.assertEquals("El examen pertenece a otro profesor", exception.getMessage());
     }
 }

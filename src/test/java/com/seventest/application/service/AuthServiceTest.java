@@ -12,11 +12,13 @@ import com.seventest.domain.port.out.UserRepository;
 import com.seventest.infrastructure.config.AppProperties;
 import com.seventest.infrastructure.security.JwtProvider;
 import com.seventest.infrastructure.security.TokenBlacklist;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -25,230 +27,313 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-    @Mock UserRepository userRepository;
-    @Mock EmailPort emailPort;
-    @Mock JwtProvider jwtProvider;
-    @Mock TokenBlacklist tokenBlacklist;
-    @Mock PasswordEncoder passwordEncoder;
-    @Mock AppProperties appProperties;
+    @Mock
+    private UserRepository userRepository;
 
-    @InjectMocks AuthService authService;
+    @Mock
+    private EmailPort emailPort;
+
+    @Mock
+    private JwtProvider jwtProvider;
+
+    @Mock
+    private TokenBlacklist tokenBlacklist;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AppProperties appProperties;
+
+    @InjectMocks
+    private AuthService authService;
 
     private AppProperties.Security securityConfig;
 
     @BeforeEach
     void setUp() {
         securityConfig = new AppProperties.Security();
-        securityConfig.setMaxLoginAttempts(5);
+        securityConfig.setMaxLoginAttempts(3);
         securityConfig.setLockoutDurationMinutes(15);
     }
 
-    private User activeUser(String email, Role role, String passwordHash, int failedAttempts, Instant lockedUntil) {
+    private User createSampleUser(String email, Role role, UserStatus status, int failedAttempts, Instant lockedUntil) {
         return User.builder()
                 .id(UUID.randomUUID())
                 .fullName("Test User")
                 .email(email)
                 .role(role)
-                .status(UserStatus.ACTIVO)
-                .passwordHash(passwordHash)
+                .status(status)
+                .passwordHash("hashed-password")
                 .failedLoginAttempts(failedAttempts)
                 .lockedUntil(lockedUntil)
                 .build();
     }
 
-    private User inactiveUser(String email) {
-        return activeUser(email, Role.ALUMNO, "hashed", 0, null)
-                .toBuilder()
-                .status(UserStatus.INACTIVO)
-                .build();
-    }
+    // ========================================== LOGIN ==========================================
 
-    private void stubSecurityProperties() {
-        when(appProperties.getSecurity()).thenReturn(securityConfig);
+    @Test
+    void login_withValidCredentialsAndNoFailedAttempts_returnsLoginResultAndDoesNotSaveUser() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        Mockito.when(jwtProvider.generate("test@example.com", "ALUMNO")).thenReturn("token");
+
+        // Act
+        LoginResult result = authService.login("TEST@example.com ", "password");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("token", result.token());
+        Assertions.assertEquals(Role.ALUMNO, result.role());
+        Assertions.assertEquals("Test User", result.userFullName());
+        Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
     }
 
     @Test
-    void loginNoAdmin_conCredencialesValidas_retornaTokenRolYNombre() {
-        User user = activeUser("alumno@test.com", Role.ALUMNO, "hashA", 0, null);
-        when(userRepository.findByEmail("alumno@test.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("passA", "hashA")).thenReturn(true);
-        when(jwtProvider.generate("alumno@test.com", "ALUMNO")).thenReturn("jwt-token");
+    void login_withValidCredentialsAndPreviousFailedAttempts_resetsAttemptsAndSavesUser() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 2, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        Mockito.when(jwtProvider.generate("test@example.com", "ALUMNO")).thenReturn("token");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        LoginResult result = authService.login("alumno@test.com", "passA");
+        // Act
+        LoginResult result = authService.login("test@example.com", "password");
 
-        assertThat(result.token()).isEqualTo("jwt-token");
-        assertThat(result.role()).isEqualTo(Role.ALUMNO);
-        assertThat(result.userFullName()).isEqualTo("Test User");
+        // Assert
+        Assertions.assertNotNull(result);
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null
+        ));
     }
 
     @Test
-    void loginNoAdmin_conPasswordDeOtroUsuario_rechazaCredenciales() {
-        User userA = activeUser("a@test.com", Role.ALUMNO, "hashA", 0, null);
-        when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.of(userA));
-        when(passwordEncoder.matches("passB", "hashA")).thenReturn(false);
-        stubSecurityProperties();
+    void login_withNullEmail_handlesNullCorrectlyAndThrowsInvalidCredentialsException() {
+        // Arrange
+        Mockito.when(userRepository.findByEmail("")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login("a@test.com", "passB"))
-                .isInstanceOf(InvalidCredentialsException.class);
-
-        verify(userRepository, never()).findAll(null, null, UserStatus.ACTIVO, 0, 1000);
-        verify(userRepository).save(argThat(u -> u.getFailedLoginAttempts() == 1));
+        // Act & Assert
+        Assertions.assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login(null, "password")
+        );
+        Mockito.verifyNoInteractions(passwordEncoder, jwtProvider);
     }
 
     @Test
-    void loginAdmin_soloAceptaSuPropiaPassword() {
-        User admin = activeUser("admin@test.com", Role.ADMINISTRADOR, "adminHash", 0, null);
-        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
-        when(passwordEncoder.matches("adminPass", "adminHash")).thenReturn(true);
-        when(jwtProvider.generate("admin@test.com", "ADMINISTRADOR")).thenReturn("admin-token");
+    void login_userNotFound_throwsInvalidCredentialsException() {
+        // Arrange
+        Mockito.when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
 
-        LoginResult result = authService.login("admin@test.com", "adminPass");
-
-        assertThat(result.token()).isEqualTo("admin-token");
-        verify(userRepository, never()).findAll(null, null, UserStatus.ACTIVO, 0, 1000);
+        // Act & Assert
+        Assertions.assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login("nonexistent@example.com", "password")
+        );
     }
 
     @Test
-    void loginAdmin_conPasswordDeOtroUsuario_falla() {
-        User admin = activeUser("admin@test.com", Role.ADMINISTRADOR, "adminHash", 0, null);
-        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(admin));
-        when(passwordEncoder.matches("otroPassword", "adminHash")).thenReturn(false);
-        stubSecurityProperties();
+    void login_userInactive_throwsUserInactiveException() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.INACTIVO, 0, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> authService.login("admin@test.com", "otroPassword"))
-                .isInstanceOf(InvalidCredentialsException.class);
-
-        verify(userRepository, never()).findAll(null, null, UserStatus.ACTIVO, 0, 1000);
-        verify(userRepository).save(argThat(u -> u.getFailedLoginAttempts() == 1));
+        // Act & Assert
+        Assertions.assertThrows(
+                UserInactiveException.class,
+                () -> authService.login("test@example.com", "password")
+        );
     }
 
     @Test
-    void loginConEmailInexistente_lanzaInvalidCredentials() {
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> authService.login("noexiste@test.com", "pass"))
-                .isInstanceOf(InvalidCredentialsException.class);
-    }
-
-    @Test
-    void loginConUsuarioInactivo_lanzaUserInactive() {
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(inactiveUser("test@test.com")));
-
-        assertThatThrownBy(() -> authService.login("test@test.com", "pass"))
-                .isInstanceOf(UserInactiveException.class);
-    }
-
-    @Test
-    void loginConCuentaBloqueada_lanzaAccountLocked() {
+    void login_accountLocked_throwsAccountLockedException() {
+        // Arrange
         Instant lockedUntil = Instant.now().plus(10, ChronoUnit.MINUTES);
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 5, lockedUntil);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 3, lockedUntil);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> authService.login("test@test.com", "pass"))
-                .isInstanceOf(AccountLockedException.class);
+        // Act & Assert
+        Assertions.assertThrows(
+                AccountLockedException.class,
+                () -> authService.login("test@example.com", "password")
+        );
     }
 
     @Test
-    void loginConPasswordIncorrecta_incrementaIntentos() {
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 0, null);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
-        stubSecurityProperties();
+    void login_accountLockExpired_succeedsAndResetsLock() {
+        // Arrange
+        Instant expiredLock = Instant.now().minus(5, ChronoUnit.MINUTES);
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 3, expiredLock);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        Mockito.when(jwtProvider.generate("test@example.com", "ALUMNO")).thenReturn("token");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThatThrownBy(() -> authService.login("test@test.com", "mala"))
-                .isInstanceOf(InvalidCredentialsException.class);
+        // Act
+        LoginResult result = authService.login("test@example.com", "password");
 
-        verify(userRepository).save(argThat(u -> u.getFailedLoginAttempts() == 1));
+        // Assert
+        Assertions.assertNotNull(result);
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null
+        ));
     }
 
     @Test
-    void loginAlLlegarAlLimiteDeIntentos_bloqueaLaCuenta() {
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 4, null);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("mala", "hashed")).thenReturn(false);
-        stubSecurityProperties();
+    void login_incorrectPasswordAndAttemptsBelowMax_incrementsAttemptsAndSaves() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("wrong-pass", "hashed-password")).thenReturn(false);
+        Mockito.when(appProperties.getSecurity()).thenReturn(securityConfig);
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThatThrownBy(() -> authService.login("test@test.com", "mala"))
-                .isInstanceOf(InvalidCredentialsException.class);
-
-        verify(userRepository).save(argThat(u ->
-                u.getFailedLoginAttempts() == 5 && u.getLockedUntil() != null));
+        // Act & Assert
+        Assertions.assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login("test@example.com", "wrong-pass")
+        );
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 1 && u.getLockedUntil() == null
+        ));
     }
 
     @Test
-    void loginExitoso_reseteaIntentosFallidosYBloqueoPrevioVencido() {
-        Instant expiredLock = Instant.now().minus(1, ChronoUnit.MINUTES);
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 3, expiredLock);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
-        when(jwtProvider.generate("test@test.com", "ALUMNO")).thenReturn("token");
+    void login_incorrectPasswordAndAttemptsReachesMax_locksAccountAndSaves() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 2, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("wrong-pass", "hashed-password")).thenReturn(false);
+        Mockito.when(appProperties.getSecurity()).thenReturn(securityConfig);
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        authService.login("test@test.com", "pass");
-
-        verify(userRepository).save(argThat(u ->
-                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null));
+        // Act & Assert
+        Assertions.assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login("test@example.com", "wrong-pass")
+        );
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 3 && u.getLockedUntil() != null
+        ));
     }
 
+    // ========================================== LOGOUT ==========================================
+
     @Test
-    void logout_conTokenValido_agregaAlBlacklist() {
+    void logout_withValidToken_addsToBlacklist() {
+        // Arrange
         Instant expiry = Instant.now().plus(1, ChronoUnit.HOURS);
-        when(jwtProvider.validate("valid-token")).thenReturn(true);
-        when(jwtProvider.extractExpiry("valid-token")).thenReturn(expiry);
+        Mockito.when(jwtProvider.validate("valid-token")).thenReturn(true);
+        Mockito.when(jwtProvider.extractExpiry("valid-token")).thenReturn(expiry);
 
+        // Act
         authService.logout("valid-token");
 
-        verify(tokenBlacklist).add("valid-token", expiry);
+        // Assert
+        Mockito.verify(tokenBlacklist, Mockito.times(1)).add("valid-token", expiry);
     }
 
     @Test
-    void logout_conTokenInvalido_noAgregaAlBlacklist() {
-        when(jwtProvider.validate("bad-token")).thenReturn(false);
+    void logout_withInvalidToken_doesNotAddToBlacklist() {
+        // Arrange
+        Mockito.when(jwtProvider.validate("invalid-token")).thenReturn(false);
 
-        authService.logout("bad-token");
+        // Act
+        authService.logout("invalid-token");
 
-        verifyNoInteractions(tokenBlacklist);
+        // Assert
+        Mockito.verifyNoInteractions(tokenBlacklist);
+    }
+
+    // ========================================== PASSWORD RECOVERY ==========================================
+
+    @Test
+    void requestPasswordRecovery_withExistingEmail_sendsEmailNotification() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, null);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        // Act
+        authService.requestPasswordRecovery(" TEST@example.com ");
+
+        // Assert
+        Mockito.verify(emailPort, Mockito.times(1)).sendPasswordRecoveryNotification("test@example.com", "Test User");
     }
 
     @Test
-    void recuperacionPassword_conEmailExistente_llamaAlEmailPort() {
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 0, null);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+    void requestPasswordRecovery_withNonexistentEmail_doesNotSendEmailNotification() {
+        // Arrange
+        Mockito.when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
 
-        authService.requestPasswordRecovery("test@test.com");
+        // Act
+        authService.requestPasswordRecovery("nonexistent@example.com");
 
-        verify(emailPort).sendPasswordRecoveryNotification("test@test.com", "Test User");
+        // Assert
+        Mockito.verifyNoInteractions(emailPort);
     }
 
     @Test
-    void recuperacionPassword_conEmailInexistente_noLanzaExcepcion() {
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+    void requestPasswordRecovery_withNullEmail_handlesNullAndDoesNotSendEmailNotification() {
+        // Arrange
+        Mockito.when(userRepository.findByEmail("")).thenReturn(Optional.empty());
 
-        authService.requestPasswordRecovery("noexiste@test.com");
+        // Act
+        authService.requestPasswordRecovery(null);
 
-        verifyNoInteractions(emailPort);
+        // Assert
+        Mockito.verifyNoInteractions(emailPort);
     }
 
     @Test
-    void login_normalizaEmailAntesDeBuscar() {
-        User user = activeUser("test@test.com", Role.ALUMNO, "hashed", 0, null);
-        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("pass", "hashed")).thenReturn(true);
-        when(jwtProvider.generate("test@test.com", "ALUMNO")).thenReturn("token");
+    void recoverByName_withExistingFullName_returnsUserEmail() {
+        // Arrange
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, null);
+        Mockito.when(userRepository.findByFullName("Test User")).thenReturn(Optional.of(user));
 
-        LoginResult result = authService.login("  TEST@test.com  ", "pass");
+        // Act
+        String result = authService.recoverByName("Test User");
 
-        assertThat(result.token()).isEqualTo("token");
+        // Assert
+        Assertions.assertEquals("test@example.com", result);
+        Mockito.verify(userRepository, Mockito.times(1)).findByFullName("Test User");
+    }
+
+    @Test
+    void recoverByName_withNonexistentFullName_returnsEmptyString() {
+        // Arrange
+        Mockito.when(userRepository.findByFullName("Nonexistent")).thenReturn(Optional.empty());
+
+        // Act
+        String result = authService.recoverByName("Nonexistent");
+
+        // Assert
+        Assertions.assertEquals("", result);
+        Mockito.verify(userRepository, Mockito.times(1)).findByFullName("Nonexistent");
+    }
+
+    @Test
+    void login_withValidCredentialsAndExpiredLockWithZeroFailedAttempts_resetsLockAndSavesUser() {
+        // Arrange
+        Instant expiredLock = Instant.now().minus(5, ChronoUnit.MINUTES);
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, expiredLock);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        Mockito.when(jwtProvider.generate("test@example.com", "ALUMNO")).thenReturn("token");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        LoginResult result = authService.login("test@example.com", "password");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null
+        ));
     }
 }

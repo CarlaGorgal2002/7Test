@@ -2,84 +2,111 @@ package com.seventest.application.service;
 
 import com.seventest.domain.model.PasswordPolicy;
 import com.seventest.domain.port.out.PasswordPolicyRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class PasswordPolicyServiceTest {
 
-    @Mock PasswordPolicyRepository passwordPolicyRepository;
+    @Mock
+    private PasswordPolicyRepository passwordPolicyRepository;
 
-    @InjectMocks PasswordPolicyService passwordPolicyService;
+    @InjectMocks
+    private PasswordPolicyService passwordPolicyService;
 
-    private PasswordPolicy validPolicy(int min, int max) {
-        return PasswordPolicy.builder()
-                .minLength(min).maxLength(max)
-                .requireUppercase(false).requireLowercase(false)
-                .requireNumbers(false).requireSpecialChars(false)
+    @Test
+    void get_whenPolicyExists_returnsStoredPolicy() {
+        // Arrange
+        PasswordPolicy storedPolicy = PasswordPolicy.builder()
+                .minLength(8)
+                .maxLength(30)
                 .build();
-    }
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(storedPolicy));
 
-    // ----------------------------------------------------------------- get
-    @Test
-    void get_cuandoExistePolitica_laRetorna() {
-        PasswordPolicy stored = validPolicy(8, 50);
-        when(passwordPolicyRepository.find()).thenReturn(Optional.of(stored));
-
+        // Act
         PasswordPolicy result = passwordPolicyService.get();
 
-        assertThat(result.getMinLength()).isEqualTo(8);
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(8, result.getMinLength());
+        Assertions.assertEquals(30, result.getMaxLength());
+        Mockito.verify(passwordPolicyRepository, Mockito.times(1)).find();
     }
 
     @Test
-    void get_cuandoNohayPolitica_retornaDefault() {
-        when(passwordPolicyRepository.find()).thenReturn(Optional.empty());
+    void get_whenPolicyDoesNotExist_returnsDefaultPolicy() {
+        // Arrange
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.empty());
 
+        // Act
         PasswordPolicy result = passwordPolicyService.get();
 
-        assertThat(result.getMinLength()).isEqualTo(PasswordPolicyService.DEFAULT.getMinLength());
-        assertThat(result.getMaxLength()).isEqualTo(PasswordPolicyService.DEFAULT.getMaxLength());
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(PasswordPolicyService.DEFAULT.getMinLength(), result.getMinLength());
+        Assertions.assertEquals(PasswordPolicyService.DEFAULT.getMaxLength(), result.getMaxLength());
+        Mockito.verify(passwordPolicyRepository, Mockito.times(1)).find();
     }
 
-    // --------------------------------------------------------------- update
     @Test
-    void update_conPoliticaValida_guardaYRetorna() {
-        PasswordPolicy policy = validPolicy(8, 64);
-        when(passwordPolicyRepository.save(policy)).thenReturn(policy);
+    void update_withValidPolicy_savesAndReturnsPolicy() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder()
+                .minLength(6)
+                .maxLength(20)
+                .build();
+        Mockito.when(passwordPolicyRepository.save(policy)).thenReturn(policy);
 
+        // Act
         PasswordPolicy result = passwordPolicyService.update(policy);
 
-        assertThat(result.getMinLength()).isEqualTo(8);
-        verify(passwordPolicyRepository).save(policy);
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(6, result.getMinLength());
+        Assertions.assertEquals(20, result.getMaxLength());
+        Mockito.verify(passwordPolicyRepository, Mockito.times(1)).save(policy);
     }
 
     @Test
-    void update_conMinMayorQueMax_lanzaIllegalArgument() {
-        PasswordPolicy invalid = validPolicy(20, 10);
+    void update_withMinLengthGreaterThanMaxLength_throwsIllegalArgumentException() {
+        // Arrange
+        PasswordPolicy invalidPolicy = PasswordPolicy.builder()
+                .minLength(20)
+                .maxLength(10)
+                .build();
 
-        assertThatThrownBy(() -> passwordPolicyService.update(invalid))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("mínima");
-
-        verifyNoInteractions(passwordPolicyRepository);
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> passwordPolicyService.update(invalidPolicy)
+        );
+        Assertions.assertEquals("La longitud mínima no puede ser mayor que la máxima", exception.getMessage());
+        Mockito.verifyNoInteractions(passwordPolicyRepository);
     }
 
     @Test
-    void update_conMinIgualAMax_esValido() {
-        PasswordPolicy policy = validPolicy(8, 8);
-        when(passwordPolicyRepository.save(policy)).thenReturn(policy);
+    void update_withMinLengthEqualMaxLength_savesAndReturnsPolicy() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder()
+                .minLength(10)
+                .maxLength(10)
+                .build();
+        Mockito.when(passwordPolicyRepository.save(policy)).thenReturn(policy);
 
+        // Act
         PasswordPolicy result = passwordPolicyService.update(policy);
 
-        assertThat(result.getMinLength()).isEqualTo(result.getMaxLength());
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(10, result.getMinLength());
+        Assertions.assertEquals(10, result.getMaxLength());
+        Mockito.verify(passwordPolicyRepository, Mockito.times(1)).save(policy);
     }
 }

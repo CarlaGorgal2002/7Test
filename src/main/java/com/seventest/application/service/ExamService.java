@@ -383,13 +383,6 @@ public class ExamService implements ExamManagementUseCase {
         }
     }
 
-    private void ensureNoTopicExceedsTotal(List<ExamTopic> topics) {
-        for (ExamTopic topic : topics) {
-            if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) > 0) {
-                throw new IllegalArgumentException("El total del tema no puede superar 10 puntos");
-            }
-        }
-    }
 
     private BigDecimal validPoints(BigDecimal points) {
         if (points == null || points.compareTo(BigDecimal.ZERO) < 0) {

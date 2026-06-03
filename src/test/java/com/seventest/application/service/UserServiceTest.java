@@ -10,35 +10,33 @@ import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
 import com.seventest.domain.port.out.PasswordPolicyRepository;
 import com.seventest.domain.port.out.UserRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock UserRepository userRepository;
-    @Mock PasswordPolicyRepository passwordPolicyRepository;
-    @Mock PasswordEncoder passwordEncoder;
+    @Mock
+    private UserRepository userRepository;
 
-    @InjectMocks UserService userService;
+    @Mock
+    private PasswordPolicyRepository passwordPolicyRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @InjectMocks
+    private UserService userService;
 
     private static final PasswordPolicy PERMISSIVE_POLICY = PasswordPolicy.builder()
             .minLength(4)
@@ -49,108 +47,356 @@ class UserServiceTest {
             .requireSpecialChars(false)
             .build();
 
-    private User existingUser(UUID id, String email, UserStatus status) {
+    private User createSampleUser(UUID id, String email, UserStatus status) {
         return User.builder()
                 .id(id)
-                .fullName("Nombre")
+                .fullName("John Doe")
                 .email(email)
                 .role(Role.ALUMNO)
                 .status(status)
-                .passwordHash("old-hash")
+                .passwordHash("hashed-password")
                 .failedLoginAttempts(0)
                 .lockedUntil(null)
                 .build();
     }
 
-    private void stubPolicy(PasswordPolicy policy) {
-        when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
-    }
+    // ========================================== CREATE ==========================================
 
-    private void stubEncoder(String encodedValue) {
-        when(passwordEncoder.encode(anyString())).thenReturn(encodedValue);
+    @Test
+    void create_withValidDataAndDefaultPolicy_savesAndReturnsUser() {
+        // Arrange
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.empty());
+        Mockito.when(passwordEncoder.encode("Password123!")).thenReturn("encoded-pass");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        User result = userService.create("John Doe", "TEST@example.com ", Role.ALUMNO, "Password123!");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("test@example.com", result.getEmail());
+        Assertions.assertEquals("John Doe", result.getFullName());
+        Assertions.assertEquals(UserStatus.ACTIVO, result.getStatus());
+        Assertions.assertEquals("encoded-pass", result.getPasswordHash());
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.any(User.class));
     }
 
     @Test
-    void crearUsuario_conDatosValidos_guardaUsuarioActivoConPasswordHasheada() {
-        when(userRepository.existsByEmail("nuevo@test.com")).thenReturn(false);
-        stubPolicy(PERMISSIVE_POLICY);
-        stubEncoder("hashed-pass");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void create_withNullFullNameAndNullEmail_handlesNullParametersCorrectly() {
+        // Arrange
+        Mockito.when(userRepository.existsByEmail("")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(PERMISSIVE_POLICY));
+        Mockito.when(passwordEncoder.encode("pass")).thenReturn("encoded-pass");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        User result = userService.create("Nombre", "nuevo@test.com", Role.ALUMNO, "pass");
+        // Act
+        User result = userService.create(null, null, Role.ALUMNO, "pass");
 
-        assertThat(result.getId()).isNotNull();
-        assertThat(result.getEmail()).isEqualTo("nuevo@test.com");
-        assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVO);
-        assertThat(result.getPasswordHash()).isEqualTo("hashed-pass");
-        verify(userRepository).save(argThat(u ->
-                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null));
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("", result.getEmail());
+        Assertions.assertEquals("", result.getFullName());
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.any(User.class));
     }
 
     @Test
-    void crearUsuario_conEmailDuplicado_lanzaEmailAlreadyExists() {
-        when(userRepository.existsByEmail("duplicado@test.com")).thenReturn(true);
+    void create_withAlreadyExistingEmail_throwsEmailAlreadyExistsException() {
+        // Arrange
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.create("Nombre", "duplicado@test.com", Role.ALUMNO, "pass"))
-                .isInstanceOf(EmailAlreadyExistsException.class);
-
-        verify(userRepository, never()).save(any());
-        verifyNoInteractions(passwordPolicyRepository, passwordEncoder);
+        // Act & Assert
+        EmailAlreadyExistsException exception = Assertions.assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "pass")
+        );
+        Assertions.assertEquals("El email ya está registrado en la plataforma: test@example.com", exception.getMessage());
+        Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
     }
 
     @Test
-    void crearUsuario_sinPoliticaPersistida_usaPoliticaDefault() {
-        when(userRepository.existsByEmail("nuevo@test.com")).thenReturn(false);
-        when(passwordPolicyRepository.find()).thenReturn(Optional.empty());
-        stubEncoder("hashed-pass");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void create_withPasswordTooShort_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(8).maxLength(20).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
 
-        User result = userService.create("Nombre", "nuevo@test.com", Role.ALUMNO, "1234");
-
-        assertThat(result.getPasswordHash()).isEqualTo("hashed-pass");
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "short")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("debe tener al menos 8 caracteres"));
     }
 
     @Test
-    void crearUsuario_conPasswordDemasiadoCorta_lanzaPasswordPolicyViolation() {
-        PasswordPolicy strictPolicy = PasswordPolicy.builder()
-                .minLength(8)
-                .maxLength(100)
-                .requireUppercase(false)
-                .requireLowercase(false)
-                .requireNumbers(false)
-                .requireSpecialChars(false)
-                .build();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        stubPolicy(strictPolicy);
+    void create_withPasswordTooLong_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(4).maxLength(6).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
 
-        assertThatThrownBy(() -> userService.create("Nombre", "x@test.com", Role.ALUMNO, "corta"))
-                .isInstanceOf(PasswordPolicyViolationException.class)
-                .hasMessageContaining("8");
-
-        verify(userRepository, never()).save(any());
-        verifyNoInteractions(passwordEncoder);
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "toolong")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("no puede superar 6 caracteres"));
     }
 
     @Test
-    void crearUsuario_conPasswordDemasiadoLarga_lanzaPasswordPolicyViolation() {
-        PasswordPolicy strictPolicy = PasswordPolicy.builder()
-                .minLength(4)
-                .maxLength(6)
-                .requireUppercase(false)
-                .requireLowercase(false)
-                .requireNumbers(false)
-                .requireSpecialChars(false)
-                .build();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        stubPolicy(strictPolicy);
+    void create_missingUppercaseWhenRequired_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(4).maxLength(20).requireUppercase(true).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
 
-        assertThatThrownBy(() -> userService.create("Nombre", "x@test.com", Role.ALUMNO, "1234567"))
-                .isInstanceOf(PasswordPolicyViolationException.class)
-                .hasMessageContaining("6");
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "no-upper")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("debe contener al menos una mayúscula"));
     }
 
     @Test
-    void crearUsuario_conPoliticaCompleta_validaMayusculaMinusculaNumeroYEspecial() {
+    void create_missingLowercaseWhenRequired_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(4).maxLength(20).requireLowercase(true).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
+
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "NO-LOWER")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("debe contener al menos una minúscula"));
+    }
+
+    @Test
+    void create_missingNumbersWhenRequired_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(4).maxLength(20).requireNumbers(true).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
+
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "noNumbers")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("debe contener al menos un número"));
+    }
+
+    @Test
+    void create_missingSpecialCharsWhenRequired_throwsPasswordPolicyViolationException() {
+        // Arrange
+        PasswordPolicy policy = PasswordPolicy.builder().minLength(4).maxLength(20).requireSpecialChars(true).build();
+        Mockito.when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(policy));
+
+        // Act & Assert
+        PasswordPolicyViolationException exception = Assertions.assertThrows(
+                PasswordPolicyViolationException.class,
+                () -> userService.create("John", "test@example.com", Role.ALUMNO, "alphanumeric123")
+        );
+        Assertions.assertTrue(exception.getMessage().contains("debe contener al menos un carácter especial"));
+    }
+
+    // ========================================== UPDATE ==========================================
+
+    @Test
+    void update_userDoesNotExist_throwsUserNotFoundException() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        UserNotFoundException exception = Assertions.assertThrows(
+                UserNotFoundException.class,
+                () -> userService.update(id, "John", "test@test.com", Role.ALUMNO, null)
+        );
+        Assertions.assertEquals("Usuario no encontrado: " + id, exception.getMessage());
+    }
+
+    @Test
+    void update_withNewValidEmail_updatesCorrectly() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "old@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(userRepository.existsByEmailAndIdNot("new@example.com", id)).thenReturn(false);
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        User result = userService.update(id, "John New", "new@example.com", Role.PROFESOR, null);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("new@example.com", result.getEmail());
+        Assertions.assertEquals("John New", result.getFullName());
+        Assertions.assertEquals(Role.PROFESOR, result.getRole());
+        Assertions.assertEquals("hashed-password", result.getPasswordHash()); // unchanged
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.any(User.class));
+    }
+
+    @Test
+    void update_withDuplicateEmail_throwsEmailAlreadyExistsException() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "old@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(userRepository.existsByEmailAndIdNot("duplicate@example.com", id)).thenReturn(true);
+
+        // Act & Assert
+        EmailAlreadyExistsException exception = Assertions.assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> userService.update(id, "John", "duplicate@example.com", Role.ALUMNO, null)
+        );
+        Assertions.assertEquals("El email ya está registrado en la plataforma: duplicate@example.com", exception.getMessage());
+        Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
+    }
+
+    @Test
+    void update_withNewPassword_hashesAndUpdatesPassword() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "test@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(PERMISSIVE_POLICY));
+        Mockito.when(passwordEncoder.encode("newPassword123")).thenReturn("new-hashed-password");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        User result = userService.update(id, "John", "test@example.com", Role.ALUMNO, "newPassword123");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("new-hashed-password", result.getPasswordHash());
+        Mockito.verify(passwordEncoder, Mockito.times(1)).encode("newPassword123");
+    }
+
+    @Test
+    void update_withEmptyPassword_keepsOldPassword() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "test@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        User result = userService.update(id, "John", "test@example.com", Role.ALUMNO, "   ");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("hashed-password", result.getPasswordHash());
+        Mockito.verifyNoInteractions(passwordEncoder, passwordPolicyRepository);
+    }
+
+    // ========================================== DEACTIVATE ==========================================
+
+    @Test
+    void deactivate_userExists_savesUserAsInactive() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "test@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        userService.deactivate(id);
+
+        // Assert
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> u.getStatus() == UserStatus.INACTIVO));
+    }
+
+    @Test
+    void deactivate_userDoesNotExist_throwsUserNotFoundException() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(UserNotFoundException.class, () -> userService.deactivate(id));
+        Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
+    }
+
+    // ========================================== REACTIVATE ==========================================
+
+    @Test
+    void reactivate_userExists_savesUserAsActive() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "test@example.com", UserStatus.INACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        userService.reactivate(id);
+
+        // Assert
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> u.getStatus() == UserStatus.ACTIVO));
+    }
+
+    @Test
+    void reactivate_userDoesNotExist_throwsUserNotFoundException() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(UserNotFoundException.class, () -> userService.reactivate(id));
+        Mockito.verify(userRepository, Mockito.never()).save(Mockito.any(User.class));
+    }
+
+    // ========================================== FIND BY ID ==========================================
+
+    @Test
+    void findById_userExists_returnsUser() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        User existingUser = createSampleUser(id, "test@example.com", UserStatus.ACTIVO);
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+
+        // Act
+        User result = userService.findById(id);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(id, result.getId());
+    }
+
+    @Test
+    void findById_userDoesNotExist_throwsUserNotFoundException() {
+        // Arrange
+        UUID id = UUID.randomUUID();
+        Mockito.when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(UserNotFoundException.class, () -> userService.findById(id));
+    }
+
+    // ========================================== LIST ==========================================
+
+    @Test
+    void list_delegatesToUserRepository() {
+        // Arrange
+        PageResult<User> expectedPage = new PageResult<>(Collections.emptyList(), 0, 0, 1);
+        Mockito.when(userRepository.findAll("search", Role.ALUMNO, UserStatus.ACTIVO, 1, 10))
+                .thenReturn(expectedPage);
+
+        // Act
+        PageResult<User> result = userService.list("search", Role.ALUMNO, UserStatus.ACTIVO, 1, 10);
+
+        // Assert
+        Assertions.assertSame(expectedPage, result);
+        Mockito.verify(userRepository, Mockito.times(1)).findAll("search", Role.ALUMNO, UserStatus.ACTIVO, 1, 10);
+    }
+
+    @Test
+    void create_withStrictPolicyAndValidPassword_savesUser() {
+        // Arrange
         PasswordPolicy strictPolicy = PasswordPolicy.builder()
                 .minLength(8)
                 .maxLength(20)
@@ -159,161 +405,17 @@ class UserServiceTest {
                 .requireNumbers(true)
                 .requireSpecialChars(true)
                 .build();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        stubPolicy(strictPolicy);
-        stubEncoder("hashed-pass");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        Mockito.when(userRepository.existsByEmail("strict@test.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(strictPolicy));
+        Mockito.when(passwordEncoder.encode("Pass123!")).thenReturn("hashed-pass");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        User result = userService.create("Nombre", "x@test.com", Role.ALUMNO, "Pass123!");
+        // Act
+        User result = userService.create("Strict User", "strict@test.com", Role.ALUMNO, "Pass123!");
 
-        assertThat(result.getPasswordHash()).isEqualTo("hashed-pass");
-    }
-
-    @Test
-    void crearUsuario_sinMayusculaCuandoEsRequerida_lanzaPasswordPolicyViolation() {
-        PasswordPolicy strictPolicy = PasswordPolicy.builder()
-                .minLength(4)
-                .maxLength(20)
-                .requireUppercase(true)
-                .requireLowercase(false)
-                .requireNumbers(false)
-                .requireSpecialChars(false)
-                .build();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        stubPolicy(strictPolicy);
-
-        assertThatThrownBy(() -> userService.create("Nombre", "x@test.com", Role.ALUMNO, "pass"))
-                .isInstanceOf(PasswordPolicyViolationException.class)
-                .hasMessageContaining("may");
-    }
-
-    @Test
-    void crearUsuario_sinNumeroCuandoEsRequerido_lanzaPasswordPolicyViolation() {
-        PasswordPolicy strictPolicy = PasswordPolicy.builder()
-                .minLength(4)
-                .maxLength(20)
-                .requireUppercase(false)
-                .requireLowercase(false)
-                .requireNumbers(true)
-                .requireSpecialChars(false)
-                .build();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        stubPolicy(strictPolicy);
-
-        assertThatThrownBy(() -> userService.create("Nombre", "x@test.com", Role.ALUMNO, "pass"))
-                .isInstanceOf(PasswordPolicyViolationException.class)
-                .hasMessageContaining("n");
-    }
-
-    @Test
-    void editarUsuario_actualizaDatosSinCambiarPasswordSiNewPasswordEsNull() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "viejo@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmailAndIdNot("nuevo@test.com", id)).thenReturn(false);
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        User result = userService.update(id, "Nombre Nuevo", "nuevo@test.com", Role.PROFESOR, null);
-
-        assertThat(result.getFullName()).isEqualTo("Nombre Nuevo");
-        assertThat(result.getEmail()).isEqualTo("nuevo@test.com");
-        assertThat(result.getRole()).isEqualTo(Role.PROFESOR);
-        assertThat(result.getPasswordHash()).isEqualTo("old-hash");
-        verifyNoInteractions(passwordPolicyRepository, passwordEncoder);
-    }
-
-    @Test
-    void editarUsuario_conEmailDuplicado_lanzaEmailAlreadyExists() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "viejo@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmailAndIdNot("duplicado@test.com", id)).thenReturn(true);
-
-        assertThatThrownBy(() -> userService.update(id, "Nombre", "duplicado@test.com", Role.ALUMNO, null))
-                .isInstanceOf(EmailAlreadyExistsException.class);
-
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void editarUsuario_conNuevaPassword_laHashea() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "test@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-        stubPolicy(PERMISSIVE_POLICY);
-        stubEncoder("new-hash");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        User result = userService.update(id, "Nombre", "test@test.com", Role.ALUMNO, "nuevaPass");
-
-        assertThat(result.getPasswordHash()).isEqualTo("new-hash");
-        verify(passwordEncoder).encode("nuevaPass");
-    }
-
-    @Test
-    void editarUsuario_conNewPasswordEnBlanco_mantieneHashAnterior() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "test@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        User result = userService.update(id, "Nombre", "test@test.com", Role.ALUMNO, "   ");
-
-        assertThat(result.getPasswordHash()).isEqualTo("old-hash");
-        verifyNoInteractions(passwordPolicyRepository, passwordEncoder);
-    }
-
-    @Test
-    void editarUsuario_conIdInexistente_lanzaUserNotFound() {
-        UUID id = UUID.randomUUID();
-        when(userRepository.findById(id)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.update(id, "N", "e@e.com", Role.ALUMNO, null))
-                .isInstanceOf(UserNotFoundException.class);
-
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void desactivarUsuario_cambiaEstadoAInactivo() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "test@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-
-        userService.deactivate(id);
-
-        verify(userRepository).save(argThat(u -> u.getStatus() == UserStatus.INACTIVO));
-    }
-
-    @Test
-    void reactivarUsuario_cambiaEstadoAActivo() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "test@test.com", UserStatus.INACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-
-        userService.reactivate(id);
-
-        verify(userRepository).save(argThat(u -> u.getStatus() == UserStatus.ACTIVO));
-    }
-
-    @Test
-    void findById_conUsuarioExistente_loRetorna() {
-        UUID id = UUID.randomUUID();
-        User user = existingUser(id, "test@test.com", UserStatus.ACTIVO);
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
-
-        User result = userService.findById(id);
-
-        assertThat(result).isSameAs(user);
-    }
-
-    @Test
-    void list_delegaFiltrosYPaginadoAlRepositorio() {
-        PageResult<User> page = new PageResult<>(List.of(), 0, 0, 1);
-        when(userRepository.findAll("ana", Role.ALUMNO, UserStatus.ACTIVO, 1, 20)).thenReturn(page);
-
-        PageResult<User> result = userService.list("ana", Role.ALUMNO, UserStatus.ACTIVO, 1, 20);
-
-        assertThat(result).isSameAs(page);
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("hashed-pass", result.getPasswordHash());
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.any(User.class));
     }
 }
