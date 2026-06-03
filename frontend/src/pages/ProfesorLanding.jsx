@@ -669,7 +669,7 @@ async function renameTopic(topicId) {
       <div style={styles.page}>
         {figmaHeader()}
         <main style={{ ...lStyles.detailMain, maxWidth: 1000 }}>
-          <button onClick={() => window.history.back()} style={fStyles.backLink}>← Volver</button>
+          <button onClick={() => setPageMode('landing')} style={fStyles.backLink}>← Volver</button>
           <div style={fStyles.pageHeaderRow}>
             <div>
               <h2 style={fStyles.pageTitle}>Creación y edición de exámenes</h2>
@@ -784,7 +784,7 @@ async function renameTopic(topicId) {
         {figmaHeader()}
         <main style={fStyles.runningMain}>
           <div style={fStyles.runningLeft}>
-            <button onClick={() => window.history.back()} style={fStyles.backLink}>← Volver</button>
+            <button onClick={() => setPageMode('landing')} style={fStyles.backLink}>← Volver</button>
             <h2 style={fStyles.pageTitle}>{isBeforeStart ? 'Examen programado' : 'Examen en curso'}</h2>
             <p style={fStyles.pageSubtitle}>{selectedExam.courseName} · {selectedExam.title}</p>
             {message && <div style={styles.message}>{message}</div>}
@@ -961,7 +961,7 @@ async function renameTopic(topicId) {
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.brand}>
-          <button onClick={() => window.history.back()} style={lStyles.backBtn}>← Volver</button>
+          <button onClick={() => setPageMode('landing')} style={lStyles.backBtn}>← Volver</button>
           <Logo dark size={32} />
           <div>
             <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
