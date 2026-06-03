@@ -147,6 +147,15 @@
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 				<version>0.8.12</version>
+				<configuration>
+					<excludes>
+						<exclude>com/seventest/Application.class</exclude>
+						<exclude>com/seventest/domain/model/**</exclude>
+						<exclude>com/seventest/domain/exception/**</exclude>
+						<exclude>com/seventest/domain/port/**</exclude>
+						<exclude>com/seventest/infrastructure/**</exclude>
+					</excludes>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>
@@ -174,7 +183,12 @@
 										<limit>
 											<counter>INSTRUCTION</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.80</minimum>
+											<minimum>1.00</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>1.00</minimum>
 										</limit>
 									</limits>
 								</rule>
