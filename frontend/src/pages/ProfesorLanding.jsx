@@ -618,11 +618,11 @@ async function renameTopic(topicId) {
       <div style={styles.brand}>
         <Logo dark size={36} />
         <div>
-          <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
+          <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
           <h1 style={{ ...styles.headerTitle, fontSize: 22, margin: 0 }}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
         </div>
       </div>
-      <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
+      <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
     </header>
   )
 
@@ -921,11 +921,11 @@ async function renameTopic(topicId) {
           <button onClick={() => window.history.back()} style={lStyles.backBtn}>← Volver</button>
           <Logo dark size={32} />
           <div>
-            <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
+            <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
             <h1 style={{ ...styles.headerTitle, fontSize: 18, margin: 0, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedExam?.title || 'Detalle de examen'}</h1>
           </div>
         </div>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
+        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
       </header>
 
       <main style={lStyles.detailMain}>
