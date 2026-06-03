@@ -316,4 +316,24 @@ class AuthServiceTest {
         Assertions.assertEquals("", result);
         Mockito.verify(userRepository, Mockito.times(1)).findByFullName("Nonexistent");
     }
+
+    @Test
+    void login_withValidCredentialsAndExpiredLockWithZeroFailedAttempts_resetsLockAndSavesUser() {
+        // Arrange
+        Instant expiredLock = Instant.now().minus(5, ChronoUnit.MINUTES);
+        User user = createSampleUser("test@example.com", Role.ALUMNO, UserStatus.ACTIVO, 0, expiredLock);
+        Mockito.when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        Mockito.when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        Mockito.when(jwtProvider.generate("test@example.com", "ALUMNO")).thenReturn("token");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        LoginResult result = authService.login("test@example.com", "password");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.argThat(u -> 
+                u.getFailedLoginAttempts() == 0 && u.getLockedUntil() == null
+        ));
+    }
 }

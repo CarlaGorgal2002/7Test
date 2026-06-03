@@ -393,4 +393,29 @@ class UserServiceTest {
         Assertions.assertSame(expectedPage, result);
         Mockito.verify(userRepository, Mockito.times(1)).findAll("search", Role.ALUMNO, UserStatus.ACTIVO, 1, 10);
     }
+
+    @Test
+    void create_withStrictPolicyAndValidPassword_savesUser() {
+        // Arrange
+        PasswordPolicy strictPolicy = PasswordPolicy.builder()
+                .minLength(8)
+                .maxLength(20)
+                .requireUppercase(true)
+                .requireLowercase(true)
+                .requireNumbers(true)
+                .requireSpecialChars(true)
+                .build();
+        Mockito.when(userRepository.existsByEmail("strict@test.com")).thenReturn(false);
+        Mockito.when(passwordPolicyRepository.find()).thenReturn(Optional.of(strictPolicy));
+        Mockito.when(passwordEncoder.encode("Pass123!")).thenReturn("hashed-pass");
+        Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        User result = userService.create("Strict User", "strict@test.com", Role.ALUMNO, "Pass123!");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("hashed-pass", result.getPasswordHash());
+        Mockito.verify(userRepository, Mockito.times(1)).save(Mockito.any(User.class));
+    }
 }

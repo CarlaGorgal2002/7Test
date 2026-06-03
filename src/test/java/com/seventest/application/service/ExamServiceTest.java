@@ -1139,4 +1139,271 @@ class ExamServiceTest {
         // Assert
         Mockito.verify(examRepository, Mockito.times(1)).deleteById(examId);
     }
+
+    @Test
+    void addExtraTime_durationMinutesIsNull_usesZeroAsBase() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, new ArrayList<>()).toBuilder()
+                .durationMinutes(null)
+                .build();
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.addExtraTime("teacher@test.com", examId, 30);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(30, result.getDurationMinutes());
+    }
+
+    @Test
+    void publish_withLongPrompt_trimsHintToSixtyCharacters() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        String longPrompt = "A".repeat(70);
+        // This will trigger the missing model answer validation to print the hint
+        ExamQuestion question = createSampleQuestion(UUID.randomUUID(), longPrompt, "", new BigDecimal("10.0"), 1);
+        ExamTopic topic = createSampleTopic(UUID.randomUUID(), "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topic));
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.publish("teacher@test.com", examId)
+        );
+        String expectedHint = "A".repeat(60);
+        Assertions.assertTrue(exception.getMessage().contains("Falta respuesta modelo en Topic · Pregunta 1: " + expectedHint));
+    }
+
+    @Test
+    void publish_withNullPrompt_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = createSampleQuestion(UUID.randomUUID(), null, "Answer", new BigDecimal("10.0"), 1);
+        ExamTopic topic = createSampleTopic(UUID.randomUUID(), "Topic", List.of(question));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topic));
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.publish("teacher@test.com", examId)
+        );
+    }
+
+    @Test
+    void create_withNullTitle_throwsIllegalArgumentException() {
+        // Arrange
+        User teacher = createSampleTeacher(UUID.randomUUID(), "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.create("teacher@test.com", null, "D", "C", null, 60)
+        );
+    }
+
+    @Test
+    void publish_withNullTopicsList_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, null);
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.publish("teacher@test.com", examId)
+        );
+    }
+
+    @Test
+    void publish_withNullQuestionsList_throwsIllegalArgumentException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamTopic topic = createSampleTopic(UUID.randomUUID(), "Topic", null);
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topic));
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.publish("teacher@test.com", examId)
+        );
+    }
+
+    @Test
+    void updateQuestion_withMultipleQuestions_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID questionIdToUpdate = UUID.randomUUID();
+        UUID questionIdToKeep = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion qToUpdate = createSampleQuestion(questionIdToUpdate, "Q1", "A1", new BigDecimal("5"), 1);
+        ExamQuestion qToKeep = createSampleQuestion(questionIdToKeep, "Q2", "A2", new BigDecimal("5"), 2);
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(qToUpdate, qToKeep));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topic));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.updateQuestion("teacher@test.com", examId, topicId, questionIdToUpdate, "New Q1", "New A1", new BigDecimal("4"));
+
+        // Assert
+        Assertions.assertNotNull(result);
+        List<ExamQuestion> questions = result.getTopics().get(0).getQuestions();
+        Assertions.assertEquals(2, questions.size());
+        ExamQuestion updated = questions.stream().filter(q -> q.getId().equals(questionIdToUpdate)).findFirst().get();
+        ExamQuestion kept = questions.stream().filter(q -> q.getId().equals(questionIdToKeep)).findFirst().get();
+        Assertions.assertEquals("New Q1", updated.getPrompt());
+        Assertions.assertEquals("Q2", kept.getPrompt());
+    }
+
+    @Test
+    void updateQuestion_withMultipleTopics_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicIdToUpdate = UUID.randomUUID();
+        UUID topicIdToKeep = UUID.randomUUID();
+        UUID questionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = createSampleQuestion(questionId, "Q1", "A1", new BigDecimal("5"), 1);
+        ExamTopic topicToUpdate = createSampleTopic(topicIdToUpdate, "Topic 1", List.of(question));
+        ExamTopic topicToKeep = createSampleTopic(topicIdToKeep, "Topic 2", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topicToUpdate, topicToKeep));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.updateQuestion("teacher@test.com", examId, topicIdToUpdate, questionId, "New Q", "New A", new BigDecimal("5"));
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(2, result.getTopics().size());
+    }
+
+    @Test
+    void removeQuestion_withMultipleTopics_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicIdToRemove = UUID.randomUUID();
+        UUID topicIdToKeep = UUID.randomUUID();
+        UUID questionId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion question = createSampleQuestion(questionId, "Q1", "A1", new BigDecimal("5"), 1);
+        ExamTopic topicToRemove = createSampleTopic(topicIdToRemove, "Topic 1", List.of(question));
+        ExamTopic topicToKeep = createSampleTopic(topicIdToKeep, "Topic 2", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topicToRemove, topicToKeep));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.removeQuestion("teacher@test.com", examId, topicIdToRemove, questionId);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(2, result.getTopics().size());
+    }
+
+    @Test
+    void addQuestion_withMultipleTopics_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicIdToAdd = UUID.randomUUID();
+        UUID topicIdToKeep = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamTopic topicToAdd = createSampleTopic(topicIdToAdd, "Topic 1", new ArrayList<>());
+        ExamTopic topicToKeep = createSampleTopic(topicIdToKeep, "Topic 2", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topicToAdd, topicToKeep));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.addQuestion("teacher@test.com", examId, topicIdToAdd, "Q", "A", new BigDecimal("5"));
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(2, result.getTopics().size());
+    }
+
+    @Test
+    void removeTopic_withMultipleTopics_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicIdToRemove = UUID.randomUUID();
+        UUID topicIdToKeep = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamTopic topicToRemove = createSampleTopic(topicIdToRemove, "Topic 1", new ArrayList<>());
+        ExamTopic topicToKeep = createSampleTopic(topicIdToKeep, "Topic 2", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topicToRemove, topicToKeep));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.removeTopic("teacher@test.com", examId, topicIdToRemove);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1, result.getTopics().size());
+        Assertions.assertEquals(topicIdToKeep, result.getTopics().get(0).getId());
+    }
+
+    @Test
+    void updateTopic_withMultipleTopics_coversTernaryFalseBranch() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicIdToUpdate = UUID.randomUUID();
+        UUID topicIdToKeep = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamTopic topicToUpdate = createSampleTopic(topicIdToUpdate, "Old Name", new ArrayList<>());
+        ExamTopic topicToKeep = createSampleTopic(topicIdToKeep, "Topic 2", new ArrayList<>());
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.BORRADOR, List.of(topicToUpdate, topicToKeep));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Exam result = examService.updateTopic("teacher@test.com", examId, topicIdToUpdate, "New Name");
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(2, result.getTopics().size());
+    }
 }
