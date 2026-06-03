@@ -109,6 +109,7 @@ export default function AlumnoLanding() {
   }
 
   function renderHeader(rightContent = null) {
+    const isActiveExam = view.type === 'exam' && current?.status === 'EN_PROGRESO' && !timedOut
     return (
       <header style={styles.header}>
         <div style={styles.brand}>
@@ -120,7 +121,7 @@ export default function AlumnoLanding() {
         </div>
         <div style={styles.headerRight}>
           {rightContent}
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+          {!isActiveExam && <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>}
         </div>
       </header>
     )
@@ -279,6 +280,20 @@ export default function AlumnoLanding() {
     const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
   }, [timedOut, current?.id, fetchData])
+
+  useEffect(() => {
+    if (view.type !== 'dashboard') {
+      window.history.pushState({ alumnoView: view.type }, '', '/alumno')
+    }
+  }, [view.type])
+
+  useEffect(() => {
+    function onPopState() {
+      setView({ type: 'dashboard' })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   if (view.type === 'dashboard') {
     return (
@@ -494,7 +509,7 @@ export default function AlumnoLanding() {
                   {current.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
                 </span>
                 {saving && <span style={styles.saving}>{saving}</span>}
-                {canAnswer && <button onClick={() => setView({ type: 'dashboard' })} style={styles.secondaryBtn}>Volver al inicio</button>}
+                <button onClick={() => setView({ type: 'dashboard' })} style={styles.secondaryBtn}>Volver al inicio</button>
               </div>
             </div>
 

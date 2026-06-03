@@ -78,6 +78,7 @@ export default function ProfesorLanding() {
   const [timeoutPopup, setTimeoutPopup] = useState(null)
   const [popupExtraMinutes, setPopupExtraMinutes] = useState(15)
   const [popupCountdown, setPopupCountdown] = useState(600)
+  const [finalizeConfirm, setFinalizeConfirm] = useState(false)
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || null,
@@ -833,7 +834,7 @@ async function renameTopic(topicId) {
                 Programado
               </div>
             ) : (
-              <button onClick={handleCloseClick} style={fStyles.finalizeBtn}>
+              <button onClick={() => setFinalizeConfirm(true)} style={fStyles.finalizeBtn}>
                 ⏸ Finalizar examen
               </button>
             )}
@@ -881,6 +882,22 @@ async function renameTopic(topicId) {
             </div>
           </div>
         )}
+        {finalizeConfirm && (
+          <div style={styles.modalOverlay}>
+            <div style={{ ...styles.modalBox, maxWidth: 440 }}>
+              <h3 style={styles.modalTitle}>¿Finalizar examen?</h3>
+              <p style={styles.modalText}>
+                {secondsLeft !== null && secondsLeft > 0
+                  ? `Todavía quedan ${formatProfTime(secondsLeft)} del examen. ¿Está seguro que desea finalizar ahora?`
+                  : '¿Está seguro que desea finalizar el examen?'}
+              </p>
+              <div style={styles.modalActions}>
+                <button onClick={() => setFinalizeConfirm(false)} style={styles.secondaryBtn}>Cancelar</button>
+                <button onClick={async () => { setFinalizeConfirm(false); await closeExam() }} style={{ ...styles.primaryBtn, background: '#DC2626', border: 'none' }}>Sí, finalizar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -890,6 +907,7 @@ async function renameTopic(topicId) {
     const enCurso = exams.filter(e => derivedStatus(e) === 'EN_CURSO')
     const programados = exams.filter(e => derivedStatus(e) === 'PROGRAMADO')
     const borradores = exams.filter(e => derivedStatus(e) === 'BORRADOR')
+    const sinProgramar = exams.filter(e => derivedStatus(e) === 'SIN_PROGRAMAR')
     const porDevolver = exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished)
     const devueltos = exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
 
@@ -904,10 +922,10 @@ async function renameTopic(topicId) {
       {
         title: 'Exámenes activos',
         subtitle: 'Monitoreá los exámenes en curso o programados',
-        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }],
-        action: () => { const first = [...enCurso, ...programados][0]; if (first) openExamDetail(first.id) },
+        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }, { n: sinProgramar.length, label: 'sin programar' }],
+        action: () => { const first = [...enCurso, ...sinProgramar, ...programados][0]; if (first) openExamDetail(first.id) },
         color: '#087A55',
-        disabled: enCurso.length + programados.length === 0,
+        disabled: enCurso.length + programados.length + sinProgramar.length === 0,
       },
       {
         title: 'Revisión pendiente',
@@ -1818,7 +1836,8 @@ function derivedStatus(exam) {
   if (exam.status === 'BORRADOR') return 'BORRADOR'
   if (exam.status === 'CERRADO') return 'CERRADO'
   if (exam.status === 'PUBLICADO') {
-    if (exam.availableFrom && new Date(exam.availableFrom).getTime() > Date.now()) return 'PROGRAMADO'
+    if (!exam.availableFrom) return 'SIN_PROGRAMAR'
+    if (new Date(exam.availableFrom).getTime() > Date.now()) return 'PROGRAMADO'
     return 'EN_CURSO'
   }
   return exam.status
@@ -1826,7 +1845,7 @@ function derivedStatus(exam) {
 
 function labelStatus(examOrStatus) {
   const s = typeof examOrStatus === 'string' ? examOrStatus : derivedStatus(examOrStatus)
-  return { BORRADOR: 'Borrador', PUBLICADO: 'Publicado', EN_CURSO: 'En curso', PROGRAMADO: 'Programado', CERRADO: 'Cerrado' }[s] || s
+  return { BORRADOR: 'Borrador', PUBLICADO: 'Publicado', EN_CURSO: 'En curso', PROGRAMADO: 'Programado', CERRADO: 'Cerrado', SIN_PROGRAMAR: 'Sin programar' }[s] || s
 }
 
 function statusStyle(examOrStatus) {
@@ -1836,6 +1855,7 @@ function statusStyle(examOrStatus) {
   if (s === 'PUBLICADO')  return { ...base, background: '#DDF6EC', color: '#087A55' }
   if (s === 'PROGRAMADO') return { ...base, background: '#FEF3C7', color: '#92400E' }
   if (s === 'CERRADO')    return { ...base, background: '#ECEFF3', color: '#4A5565' }
+  if (s === 'SIN_PROGRAMAR') return { ...base, background: '#EDE9FE', color: '#5B21B6' }
   return { ...base, background: '#E6EEFF', color: '#1956D8' }
 }
 
