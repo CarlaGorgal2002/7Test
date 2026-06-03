@@ -756,6 +756,20 @@ async function renameTopic(topicId) {
             )}
           </div>
         </main>
+        {modal?.type === 'confirmDelete' && (
+          <div style={styles.modalOverlay} onClick={() => setModal(null)}>
+            <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+              <h3 style={styles.modalTitle}>Eliminar examen</h3>
+              <p style={styles.modalText}>
+                ¿Confirmás que querés eliminar <strong>{modal.examTitle}</strong>? Esta acción no se puede deshacer.
+              </p>
+              <div style={styles.modalActions}>
+                <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
+                <button onClick={() => deleteExam(modal.examId)} style={styles.closeBtn}>Eliminar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
