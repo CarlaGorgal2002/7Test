@@ -636,11 +636,11 @@ async function renameTopic(topicId) {
           <div style={styles.brand}>
             <Logo dark size={36} />
             <div>
-              <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
+              <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
               <h1 style={{ ...styles.headerTitle, fontSize: 22, margin: 0 }}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
             </div>
           </div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
         </header>
 
         <main style={lStyles.landingMain}>
@@ -715,11 +715,11 @@ async function renameTopic(topicId) {
           <button onClick={() => window.history.back()} style={lStyles.backBtn}>← Volver</button>
           <Logo dark size={32} />
           <div>
-            <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
+            <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher dashboard</span>
             <h1 style={{ ...styles.headerTitle, fontSize: 18, margin: 0, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedExam?.title || 'Detalle de examen'}</h1>
           </div>
         </div>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+        <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión →</button>
       </header>
 
       <main style={lStyles.detailMain}>
@@ -1007,8 +1007,6 @@ async function renameTopic(topicId) {
                                       max="10"
                                       value={editForm.points}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'points', e.target.value)}
-                                      onInput={clearNumberInputValidity}
-                                      onInvalid={setNumberInputValidity}
                                       style={styles.smallInput}
                                       required
                                     />
@@ -1154,8 +1152,6 @@ async function renameTopic(topicId) {
                                 max="10"
                                 value={form.points}
                                 onChange={(e) => updateQuestionForm(topic.id, 'points', e.target.value)}
-                                onInput={clearNumberInputValidity}
-                                onInvalid={setNumberInputValidity}
                                 style={styles.smallInput}
                                 required
                               />
@@ -1476,25 +1472,6 @@ function formatProfTime(seconds) {
   const pad = (n) => String(n).padStart(2, '0')
   if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`
   return `${pad(m)}:${pad(sec)}`
-}
-
-function clearNumberInputValidity(event) {
-  event.currentTarget.setCustomValidity('')
-}
-
-function setNumberInputValidity(event) {
-  const input = event.currentTarget
-  if (input.validity.rangeOverflow) {
-    input.setCustomValidity(`El valor debe ser menor o igual a ${input.max}.`)
-  } else if (input.validity.rangeUnderflow) {
-    input.setCustomValidity(`El valor debe ser mayor o igual a ${input.min}.`)
-  } else if (input.validity.stepMismatch) {
-    input.setCustomValidity(`Usá incrementos de ${input.step}.`)
-  } else if (input.validity.valueMissing) {
-    input.setCustomValidity('Completá este campo.')
-  } else {
-    input.setCustomValidity('')
-  }
 }
 
 function derivedStatus(exam) {
