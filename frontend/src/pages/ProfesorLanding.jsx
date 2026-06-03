@@ -959,21 +959,27 @@ async function renameTopic(topicId) {
     return (
       <div style={styles.page}>
         {figmaHeader()}
-        <main style={{ display: 'flex', flexDirection: 'column', padding: '20px 28px', gap: 20, height: 'calc(100vh - 72px)', boxSizing: 'border-box' }}>
+        <main style={{ display: 'flex', flexDirection: 'column', padding: '24px 28px', gap: 20 }}>
           {message && <div style={{ ...styles.message, margin: 0 }}>{message}</div>}
 
           {/* Crear Nuevo Examen */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }}
-              style={fStyles.createExamBannerBtn}
+              onMouseEnter={() => setHoveredCard('crear')}
+              onMouseLeave={() => setHoveredCard(null)}
+              style={{
+                ...fStyles.createExamBannerBtn,
+                transform: hoveredCard === 'crear' ? 'translateY(-4px)' : 'none',
+                boxShadow: hoveredCard === 'crear' ? '0 12px 32px rgba(9,34,42,0.35)' : '0 6px 20px rgba(9,34,42,0.25)',
+              }}
             >
               ＋&nbsp;&nbsp;Crear Nuevo Examen
             </button>
           </div>
 
           {/* Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, height: 360 }}>
 
             {/* Borradores (blue) — sub-cards */}
             <div style={{ ...fStyles.navCard, borderTop: '4px solid #1956D8', cursor: 'default', gap: 14 }}>
@@ -1777,7 +1783,7 @@ const fStyles = {
   navCardStats: { display: 'flex', gap: 32, flexWrap: 'wrap' },
   navStat: { display: 'flex', flexDirection: 'column', gap: 6 },
   navCardArrow: { fontSize: 24, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
-  createExamBannerBtn: { padding: '14px 52px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 12, fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.01em', boxShadow: '0 4px 16px rgba(9,34,42,0.2)', transition: 'transform .15s ease, box-shadow .15s ease' },
+  createExamBannerBtn: { padding: '20px 80px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 14, fontSize: 22, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.02em', boxShadow: '0 6px 20px rgba(9,34,42,0.25)', transition: 'transform .15s ease, box-shadow .15s ease' },
   backLink: { background: 'none', border: 'none', color: '#6B7280', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: 6 },
   pageHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   pageTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
