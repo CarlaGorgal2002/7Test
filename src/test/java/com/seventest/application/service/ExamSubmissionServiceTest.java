@@ -150,6 +150,29 @@ class ExamSubmissionServiceTest {
     }
 
     @Test
+    void start_availableFromIsInFuture_throwsIllegalArgumentException() {
+        // Arrange
+        UUID studentId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        User student = createSampleStudent(studentId, "student@test.com");
+        ExamTopic topic = createSampleTopic(topicId, "Topic 1", new ArrayList<>());
+        Exam exam = createSampleExam(examId, UUID.randomUUID(), ExamStatus.PUBLICADO, List.of(topic)).toBuilder()
+                .availableFrom(Instant.now().plusSeconds(3600))
+                .build();
+
+        Mockito.when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(student));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examSubmissionService.start("student@test.com", examId, topicId)
+        );
+        Assertions.assertEquals("El examen todavia no esta disponible", exception.getMessage());
+    }
+
+    @Test
     void start_topicIdIsNull_throwsIllegalArgumentException() {
         // Arrange
         UUID studentId = UUID.randomUUID();

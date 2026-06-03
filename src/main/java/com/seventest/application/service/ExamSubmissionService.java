@@ -42,6 +42,9 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
         if (exam.getStatus() != ExamStatus.PUBLICADO) {
             throw new IllegalArgumentException("El examen no esta publicado");
         }
+        if (exam.getAvailableFrom() != null && Instant.now().isBefore(exam.getAvailableFrom())) {
+            throw new IllegalArgumentException("El examen todavia no esta disponible");
+        }
         if (topicId == null) {
             throw new IllegalArgumentException("Debes seleccionar un tema para comenzar");
         }

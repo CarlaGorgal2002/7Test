@@ -86,9 +86,11 @@ export default function AlumnoLanding() {
     clearInterval(timerRef.current)
     if (!current || current.status !== 'EN_PROGRESO') { setTimeLeft(null); return }
     const exam = exams.find((e) => e.id === current.examId)
-    if (!exam?.publishedAt || !exam?.durationMinutes) { setTimeLeft(null); return }
+    if (!exam?.durationMinutes) { setTimeLeft(null); return }
+    const startRef = exam.availableFrom || exam.publishedAt
+    if (!startRef) { setTimeLeft(null); return }
 
-    const endMs = new Date(exam.publishedAt).getTime() + exam.durationMinutes * 60_000
+    const endMs = new Date(startRef).getTime() + exam.durationMinutes * 60_000
 
     function tick() {
       const remaining = Math.floor((endMs - Date.now()) / 1000)
@@ -106,7 +108,30 @@ export default function AlumnoLanding() {
     }
   }
 
+  function renderHeader(rightContent = null) {
+    const isActiveExam = view.type === 'exam' && current?.status === 'EN_PROGRESO' && !timedOut
+    return (
+      <header style={styles.header}>
+        <div style={styles.brand}>
+          <Logo dark size={36} />
+          <div>
+            <span style={styles.headerEyebrow}>Panel de alumno</span>
+            <h1 style={styles.headerTitle}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
+          </div>
+        </div>
+        <div style={styles.headerRight}>
+          {rightContent}
+          {!isActiveExam && <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>}
+        </div>
+      </header>
+    )
+  }
+
   function openTopicSelection(exam) {
+    if (isExamScheduled(exam)) {
+      setMessage(`Este examen estará disponible el ${formatDateTime(exam.availableFrom)}.`)
+      return
+    }
     const existing = submissionsByExam[exam.id]
     if (existing) {
       setView({ type: 'exam', submission: existing })
@@ -195,6 +220,58 @@ export default function AlumnoLanding() {
     })
   }, [exams, submissionsByExam])
 
+  const examGroups = useMemo(() => {
+    const groups = {
+      pendientes: [],
+      enCurso: [],
+      programados: [],
+      historial: [],
+    }
+
+    sortedExams.forEach((exam) => {
+      const submission = submissionsByExam[exam.id]
+      if (submission?.status === 'EN_PROGRESO') {
+        groups.enCurso.push(exam)
+      } else if (submission?.status === 'ENTREGADO' || exam.status === 'CERRADO') {
+        groups.historial.push(exam)
+      } else if (isExamScheduled(exam)) {
+        groups.programados.push(exam)
+      } else {
+        groups.pendientes.push(exam)
+      }
+    })
+
+    return groups
+  }, [sortedExams, submissionsByExam])
+
+  const examListMeta = {
+    pendientes: {
+      title: 'Exámenes pendientes',
+      subtitle: 'Disponibles para comenzar',
+      empty: 'No hay exámenes pendientes.',
+    },
+    enCurso: {
+      title: 'Exámenes en curso',
+      subtitle: 'Entregas iniciadas',
+      empty: 'No hay exámenes en curso.',
+    },
+    programados: {
+      title: 'Exámenes programados',
+      subtitle: 'Publicados para una fecha futura',
+      empty: 'No hay exámenes programados.',
+    },
+    historial: {
+      title: 'Historial',
+      subtitle: 'Entregados o cerrados',
+      empty: 'Todavía no hay historial.',
+    },
+  }
+
+  const currentListKey = view.type === 'examList' ? view.filter : 'pendientes'
+  const currentListMeta = examListMeta[currentListKey] || examListMeta.pendientes
+  const currentListExams = examGroups[currentListKey] || []
+
+  const timedOut = timeLeft !== null && timeLeft <= 0
   const canAnswer = current?.status === 'EN_PROGRESO' && !timedOut
 
   // Polling cada 15s cuando el timer vence — detecta tiempo extra o cierre del examen
@@ -203,23 +280,152 @@ export default function AlumnoLanding() {
     const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
   }, [timedOut, current?.id, fetchData])
-  const timedOut = timeLeft !== null && timeLeft <= 0
+
+  useEffect(() => {
+    if (view.type !== 'dashboard') {
+      window.history.pushState({ alumnoView: view.type }, '', '/alumno')
+    }
+  }, [view.type])
+
+  useEffect(() => {
+    function onPopState() {
+      setView({ type: 'dashboard' })
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  if (view.type === 'dashboard') {
+    return (
+      <div style={styles.page}>
+        {renderHeader()}
+
+        <main style={styles.homeMain}>
+          {message && <div style={styles.message}>{message}</div>}
+          <section style={styles.homeGrid}>
+            {[
+              {
+                key: 'pendientes',
+                title: 'Exámenes pendientes',
+                subtitle: 'Disponibles para comenzar',
+                color: '#1956D8',
+                stats: [{ n: examGroups.pendientes.length, label: 'por iniciar' }],
+              },
+              {
+                key: 'enCurso',
+                title: 'En curso',
+                subtitle: 'Entregas iniciadas',
+                color: '#79B8A8',
+                stats: [{ n: examGroups.enCurso.length, label: 'en progreso' }],
+              },
+              {
+                key: 'programados',
+                title: 'Programados',
+                subtitle: 'Exámenes publicados para más adelante',
+                color: '#C5868B',
+                stats: [{ n: examGroups.programados.length, label: 'programados' }],
+              },
+              {
+                key: 'historial',
+                title: 'Historial',
+                subtitle: 'Exámenes entregados o cerrados',
+                color: '#304653',
+                stats: [{ n: examGroups.historial.length, label: 'cerrados o entregados' }],
+              },
+            ].map((card) => (
+              <button key={card.key} onClick={() => setView({ type: 'examList', filter: card.key })} style={{ ...styles.homeCard, borderTopColor: card.color }}>
+                <div>
+                  <h2 style={{ ...styles.homeCardTitle, color: card.color }}>{card.title}</h2>
+                  <p style={styles.homeCardSubtitle}>{card.subtitle}</p>
+                </div>
+                <div style={styles.homeCardDivider} />
+                <div style={styles.homeStats}>
+                  {card.stats.map((stat) => (
+                    <div key={stat.label}>
+                      <strong style={{ ...styles.homeStatNumber, color: card.color }}>{stat.n}</strong>
+                      <span style={styles.homeStatLabel}>{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <span style={styles.homeCardArrow}>→</span>
+              </button>
+            ))}
+          </section>
+        </main>
+      </div>
+    )
+  }
+
+  if (view.type === 'examList') {
+    return (
+      <div style={styles.page}>
+        {renderHeader()}
+
+        <main style={styles.listMain}>
+          <section style={styles.listHeader}>
+            <button onClick={() => setView({ type: 'dashboard' })} style={styles.backBtn}>Volver al inicio</button>
+            <div>
+              <h2 style={styles.listTitle}>{currentListMeta.title}</h2>
+              <p style={styles.listSubtitle}>{currentListMeta.subtitle}</p>
+            </div>
+          </section>
+
+          {message && <div style={styles.message}>{message}</div>}
+
+          <section style={styles.examListPanel}>
+            {currentListExams.length === 0 ? (
+              <p style={styles.muted}>{currentListMeta.empty}</p>
+            ) : currentListExams.map((exam) => {
+              const submission = submissionsByExam[exam.id]
+              const isClosed = exam.status === 'CERRADO'
+              const isDelivered = submission?.status === 'ENTREGADO'
+              const isInProgress = submission?.status === 'EN_PROGRESO'
+              const isScheduled = !submission && isExamScheduled(exam)
+              return (
+                <article key={exam.id} style={styles.examCard}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={styles.examTitle}>{exam.title}</h3>
+                    <p style={styles.muted}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min</p>
+                    <span style={examStatusBadgeStyle(submission, exam)}>
+                      {examStatusLabel(submission, exam)}
+                    </span>
+                  </div>
+                  <div style={{ flexShrink: 0 }}>
+                    {isDelivered || isClosed ? (
+                      submission ? (
+                        <button onClick={() => setView({ type: 'exam', submission })} style={styles.secondaryBtn}>
+                          Ver entrega
+                        </button>
+                      ) : (
+                        <span style={styles.closedLabel}>Cerrado</span>
+                      )
+                    ) : isInProgress ? (
+                      <button onClick={() => setView({ type: 'exam', submission })} style={styles.primaryBtn}>
+                        Continuar
+                      </button>
+                    ) : isScheduled ? (
+                      <span style={styles.scheduledLabel}>{formatDateTime(exam.availableFrom)}</span>
+                    ) : (
+                      <button onClick={() => openTopicSelection(exam)} style={styles.primaryBtn}>
+                        Seleccionar tema
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </section>
+        </main>
+      </div>
+    )
+  }
 
   // ── VISTA: SELECCIÓN DE TEMA ──────────────────────────────────────────────
   if (view.type === 'topicSelect') {
     const exam = view.exam
     return (
       <div style={styles.page}>
-        <header style={styles.header}>
-          <div style={styles.brand}>
-            <Logo dark size={36} />
-            <div>
-              <h1 style={styles.headerTitle}>Panel de Alumno</h1>
-              <span style={styles.headerUser}>{user.fullName || user.email}</span>
-            </div>
-          </div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
-        </header>
+        {renderHeader()}
 
         <main style={styles.topicSelectMain}>
           <div style={styles.topicSelectCard}>
@@ -262,10 +468,7 @@ export default function AlumnoLanding() {
     const sub = view.submission
     return (
       <div style={styles.page}>
-        <header style={styles.header}>
-          <div style={styles.brand}><Logo dark size={36} /><h1 style={styles.headerTitle}>Panel de Alumno</h1></div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
-        </header>
+        {renderHeader()}
         <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 68px)', padding: 24 }}>
           <div style={{ background: '#fff', border: '1px solid #D8E8EC', borderRadius: 12, padding: '40px 48px', maxWidth: 480, textAlign: 'center' }}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
@@ -287,23 +490,11 @@ export default function AlumnoLanding() {
     const topicColor = exams.find(e => e.id === current.examId)?.topics?.find(t => t.id === current.topicId)?.colorHex || '#1956D8'
     return (
       <div style={{ ...styles.page, background: bgColor }}>
-        <header style={styles.header}>
-          <div style={styles.brand}>
-            <Logo dark size={36} />
-            <div>
-              <h1 style={styles.headerTitle}>Panel de Alumno</h1>
-              <span style={styles.headerUser}>{user.fullName || user.email}</span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {timeLeft !== null && (
-              <span style={timedOut ? styles.timerExpired : styles.timer}>
-                {timedOut ? '⏰ Tiempo vencido' : `⏱ ${formatTime(timeLeft)}`}
-              </span>
-            )}
-            <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
-          </div>
-        </header>
+        {renderHeader(timeLeft !== null && (
+          <span style={timedOut ? styles.timerExpired : styles.timer}>
+            {timedOut ? 'Tiempo vencido' : formatTime(timeLeft)}
+          </span>
+        ))}
 
         <main style={{ ...styles.shell, gridTemplateColumns: '1fr' }}>
           <section style={styles.workspace}>
@@ -318,7 +509,7 @@ export default function AlumnoLanding() {
                   {current.status === 'ENTREGADO' ? 'Entregado' : 'En progreso'}
                 </span>
                 {saving && <span style={styles.saving}>{saving}</span>}
-                {canAnswer && <button onClick={() => setView({ type: 'dashboard' })} style={styles.secondaryBtn}>← Dashboard</button>}
+                <button onClick={() => setView({ type: 'dashboard' })} style={styles.secondaryBtn}>Volver al inicio</button>
               </div>
             </div>
 
@@ -415,7 +606,7 @@ export default function AlumnoLanding() {
         <div style={styles.brand}>
           <Logo dark size={36} />
           <div>
-            <h1 style={styles.headerTitle}>Panel de Alumno</h1>
+            <h1 style={styles.headerTitle}>Panel de alumno</h1>
             <span style={styles.headerUser}>{user.fullName || user.email}</span>
           </div>
         </div>
@@ -494,14 +685,27 @@ function questionFallbackTitle(question) {
 function examStatusLabel(submission, exam) {
   if (submission?.status === 'ENTREGADO') return 'Entregado'
   if (submission?.status === 'EN_PROGRESO') return 'En progreso'
+  if (isExamScheduled(exam)) return 'Programado'
   if (exam.status === 'CERRADO') return 'Cerrado'
   return 'Disponible'
+}
+
+function isExamScheduled(exam) {
+  return exam?.status === 'PUBLICADO'
+    && exam.availableFrom
+    && new Date(exam.availableFrom).getTime() > Date.now()
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return 'Fecha a definir'
+  return new Date(isoString).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function examStatusBadgeStyle(submission, exam) {
   const base = { display: 'inline-block', marginTop: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800 }
   if (submission?.status === 'ENTREGADO') return { ...base, background: '#DDF6EC', color: '#087A55' }
   if (submission?.status === 'EN_PROGRESO') return { ...base, background: '#E6EEFF', color: '#1956D8' }
+  if (isExamScheduled(exam)) return { ...base, background: '#FEF3C7', color: '#92400E' }
   if (exam.status === 'CERRADO') return { ...base, background: '#ECEFF3', color: '#4A5565' }
   return { ...base, background: '#FFF3CC', color: '#7A5C00' }
 }
@@ -517,11 +721,28 @@ function formatTime(seconds) {
 
 const styles = {
   page: { minHeight: '100vh', background: '#F4F8FA', color: '#09222A' },
-  header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { background: 'linear-gradient(120deg, #09222A 0%, #1956D8 100%)', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { display: 'flex', alignItems: 'center', gap: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 700, margin: 0 },
+  headerEyebrow: { fontSize: 11, color: 'rgba(203,238,243,0.72)', fontWeight: 600, letterSpacing: '0.05em' },
+  headerTitle: { fontSize: 22, fontWeight: 700, margin: 0 },
   headerUser: { fontSize: 13, opacity: 0.72 },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 16 },
   logoutBtn: { padding: '8px 18px', background: 'rgba(203,238,243,0.1)', border: '1px solid rgba(203,238,243,0.4)', color: '#CBEEF3', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' },
+  homeMain: { padding: '40px 24px', maxWidth: 1120, margin: '0 auto' },
+  homeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 },
+  homeCard: { minHeight: 286, background: '#fff', border: '1px solid #E0E8EC', borderTop: '4px solid #1956D8', borderRadius: 8, padding: 24, textAlign: 'left', cursor: 'pointer', boxShadow: '0 8px 18px rgba(9,34,42,0.08)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#09222A' },
+  homeCardTitle: { fontSize: 22, fontWeight: 800, margin: '8px 0 8px', lineHeight: 1.25 },
+  homeCardSubtitle: { color: '#8A98A3', fontSize: 14, lineHeight: 1.45, margin: 0, minHeight: 42 },
+  homeCardDivider: { height: 1, background: '#E4EBEF', margin: '14px 0' },
+  homeStats: { display: 'flex', gap: 28, flexWrap: 'wrap' },
+  homeStatNumber: { display: 'block', fontSize: 28, fontWeight: 800, lineHeight: 1 },
+  homeStatLabel: { display: 'block', color: '#8A98A3', fontSize: 13, marginTop: 8 },
+  homeCardArrow: { alignSelf: 'flex-end', color: '#A7B2BA', fontSize: 18 },
+  listMain: { padding: '32px 24px', maxWidth: 960, margin: '0 auto' },
+  listHeader: { display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 },
+  listTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
+  listSubtitle: { color: '#536B76', fontSize: 14, margin: 0 },
+  examListPanel: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16 },
   shell: { display: 'grid', gridTemplateColumns: '340px 1fr', gap: 24, padding: 24, maxWidth: 1360, margin: '0 auto' },
   sidebar: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, alignSelf: 'start' },
   panelTitle: { fontSize: 16, fontWeight: 800, color: '#1956D8', margin: '0 0 12px' },
@@ -529,6 +750,7 @@ const styles = {
   examTitle: { fontSize: 15, margin: '0 0 3px', fontWeight: 700 },
   muted: { color: '#536B76', fontSize: 13, margin: 0 },
   closedLabel: { color: '#4A5565', fontSize: 13, fontWeight: 600 },
+  scheduledLabel: { color: '#92400E', background: '#FEF3C7', padding: '6px 10px', borderRadius: 6, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' },
   primaryBtn: { minHeight: 38, padding: '8px 16px', background: '#1956D8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'default' },
@@ -561,7 +783,7 @@ const styles = {
   answerBox: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #C9DDE3', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#09222A', resize: 'vertical' },
   answerBoxDisabled: { width: '100%', minHeight: 300, boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 6, padding: 12, fontSize: 15, lineHeight: 1.5, fontFamily: 'inherit', color: '#536B76', background: '#F4F8FA', resize: 'vertical' },
   footerActions: { marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 },
-  practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 420, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
+  practicalAnswerContainer: { width: '100%', maxWidth: '100%', height: 460, overflow: 'auto', boxSizing: 'border-box', border: '1px solid #D8E8EC', borderRadius: 8, background: '#EEF5F7' },
   waitingBanner: { background: '#FFF3CC', border: '1px solid #F9A825', borderRadius: 8, padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 600, color: '#7A5C00', textAlign: 'center' },
   feedbackBox: { background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', marginBottom: 10 },
   feedbackScore: { fontWeight: 800, color: '#087A55', fontSize: 14 },

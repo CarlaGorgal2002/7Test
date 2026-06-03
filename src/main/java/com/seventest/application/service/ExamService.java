@@ -36,7 +36,7 @@ public class ExamService implements ExamManagementUseCase {
     private static final String EMPTY_DECISION_TABLE = "7TEST_DECISION_TABLE:{\"rows\":2,\"cols\":2,\"cells\":[[\"\",\"\"],[\"\",\"\"]]}";
     private static final ObjectMapper EDITOR_JSON = new ObjectMapper();
     private static final List<String> TOPIC_COLORS = List.of(
-            "#2563EB", "#16A34A", "#D97706", "#DC2626", "#7C3AED",
+            "#1956D8", "#16A34A", "#D97706", "#DC2626", "#7C3AED",
             "#EA580C", "#0891B2", "#65A30D", "#DB2777", "#0D9488"
     );
 
@@ -370,8 +370,8 @@ public class ExamService implements ExamManagementUseCase {
         try {
             List<JsonNode> rows = new ArrayList<>();
             EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path("cells").forEach(rows::add);
-            for (int i = 1; i < rows.size(); i++) {
-                for (JsonNode cell : rows.get(i)) {
+            for (JsonNode row : rows) {
+                for (JsonNode cell : row) {
                     if (!cell.asText("").isBlank()) {
                         return true;
                     }

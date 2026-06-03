@@ -19,7 +19,7 @@ import Logo from '../components/Logo.jsx'
 
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
-const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableFrom: '' }
+const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableDate: '', availableTime: '' }
 const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
 
 const theoryTemplate = {
@@ -70,6 +70,7 @@ export default function ProfesorLanding() {
   const [submissions, setSubmissions] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pageMode, setPageMode] = useState('landing') // 'landing' | 'detail'
   const [profNow, setProfNow] = useState(Date.now())
   const [gradingSubmission, setGradingSubmission] = useState(null)
   const [gradeData, setGradeData] = useState({})
@@ -77,9 +78,13 @@ export default function ProfesorLanding() {
   const [timeoutPopup, setTimeoutPopup] = useState(null)
   const [popupExtraMinutes, setPopupExtraMinutes] = useState(15)
   const [popupCountdown, setPopupCountdown] = useState(600)
+  const [finalizeConfirm, setFinalizeConfirm] = useState(false)
+  const [hoveredCard, setHoveredCard] = useState(null)
+  const [hoveredSubCard, setHoveredSubCard] = useState(null)
+  const [examListFilter, setExamListFilter] = useState(null) // 'borrador' | 'listo' | null
 
   const selectedExam = useMemo(
-    () => exams.find((exam) => exam.id === selectedId) || exams[0] || null,
+    () => exams.find((exam) => exam.id === selectedId) || null,
     [exams, selectedId]
   )
 
@@ -128,7 +133,8 @@ export default function ProfesorLanding() {
       description: selectedExam.description || '',
       courseName: selectedExam.courseName || 'Testing de Aplicaciones',
       durationMinutes: selectedExam.durationMinutes || 120,
-      availableFrom: selectedExam.availableFrom ? toDatetimeLocal(selectedExam.availableFrom) : '',
+      availableDate: selectedExam.availableFrom ? isoToDate(selectedExam.availableFrom) : '',
+      availableTime: selectedExam.availableFrom ? isoToTime(selectedExam.availableFrom) : '',
     })
     setSelectedTopicId(selectedExam.topics?.[0]?.id ?? null)
   }, [selectedExam?.id])
@@ -145,35 +151,42 @@ export default function ProfesorLanding() {
   async function createExam(e) {
     e.preventDefault()
     setMessage('')
+    let availableFrom
+    try {
+      availableFrom = scheduleIsoFromForm(examForm)
+    } catch (err) {
+      setMessage(err.message)
+      return
+    }
+    if (availableFrom && new Date(availableFrom) < new Date()) {
+      setMessage('La fecha y hora de inicio no puede ser anterior al momento actual.')
+      return
+    }
     try {
       const res = await api.post('/exams', {
         title: examForm.title,
         description: examForm.description,
         courseName: examForm.courseName,
         durationMinutes: Number(examForm.durationMinutes) || null,
-        availableFrom: examForm.availableFrom ? new Date(examForm.availableFrom).toISOString() : null,
+        availableFrom,
       })
       setExamForm(emptyExam)
       let newExam = res.data
 
-      // Crear Tema A automáticamente con la plantilla base
+      // Crear Tema A automáticamente
       try {
         const topicRes = await api.post(`/exams/${newExam.id}/topics`, { name: 'Tema A' })
         newExam = topicRes.data
         const createdTopic = newExam.topics?.[0]
-        if (createdTopic) {
-          setTemplateLoading(createdTopic.id)
-          newExam = await appendDefaultTemplate(newExam, createdTopic.id)
-          setSelectedTopicId(createdTopic.id)
-        }
+        if (createdTopic) setSelectedTopicId(createdTopic.id)
       } catch {
-        // si falla la plantilla el examen igual queda creado
-      } finally {
-        setTemplateLoading('')
+        // si falla la creación del tema el examen igual queda creado
       }
 
       setExams((current) => [newExam, ...current])
       setSelectedId(newExam.id)
+      setPageMode('detail')
+      window.history.pushState({ profe: 'detail' }, '', '/profesor')
       setMessage('Examen creado en borrador con Tema A.')
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo crear el examen.')
@@ -189,20 +202,14 @@ export default function ProfesorLanding() {
     try {
       const previousTopicIds = new Set((selectedExam.topics || []).map((t) => t.id))
       const res = await api.post(`/exams/${selectedExam.id}/topics`, { name })
-      let updated = res.data
+      const updated = res.data
       const createdTopic = updated.topics?.find((t) => !previousTopicIds.has(t.id))
       replaceExam(updated)
-      if (createdTopic) {
-        setTemplateLoading(createdTopic.id)
-        updated = await appendDefaultTemplate(updated, createdTopic.id)
-        replaceExam(updated)
-        setSelectedTopicId(createdTopic.id)
-      }
+      if (createdTopic) setSelectedTopicId(createdTopic.id)
       setMessage(`Tema ${nextLetter} agregado.`)
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
     } finally {
-      setTemplateLoading('')
       setTopicAdding(false)
     }
   }
@@ -250,13 +257,24 @@ async function renameTopic(topicId) {
     e.preventDefault()
     if (!selectedExam || selectedExam.status !== 'BORRADOR') return
     setMessage('')
+    let af
+    try {
+      af = scheduleIsoFromForm(editExamForm)
+    } catch (err) {
+      setMessage(err.message)
+      return
+    }
+    if (af && new Date(af) < new Date()) {
+      setMessage('La fecha y hora de inicio no puede ser anterior al momento actual.')
+      return
+    }
     try {
       const res = await api.put(`/exams/${selectedExam.id}`, {
         title: editExamForm.title,
         description: editExamForm.description,
         courseName: editExamForm.courseName || selectedExam.courseName || 'Testing de Aplicaciones',
         durationMinutes: Number(editExamForm.durationMinutes || selectedExam.durationMinutes) || null,
-        availableFrom: editExamForm.availableFrom ? new Date(editExamForm.availableFrom).toISOString() : null,
+        availableFrom: af,
       })
       replaceExam(res.data)
       setMessage('Datos del borrador actualizados.')
@@ -358,16 +376,47 @@ async function renameTopic(topicId) {
     if (!selectedExam) return
     setMessage('')
     try {
-      const res = await api.patch(`/exams/${selectedExam.id}/publish`)
+      const examToPublish = await saveDraftBeforePublish(selectedExam)
+      const res = await api.patch(`/exams/${examToPublish.id}/publish`)
       replaceExam(res.data)
-      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
+      setMessage(publishSuccessMessage(res.data))
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+      setMessage(err.response?.data?.message || err.message || 'No se pudo publicar el examen.')
     }
+  }
+
+  async function saveDraftBeforePublish(exam) {
+    if (!exam || exam.status !== 'BORRADOR') return exam
+    const availableFrom = scheduleIsoFromForm(editExamForm)
+    if (availableFrom && new Date(availableFrom) < new Date()) {
+      throw new Error('La fecha y hora de inicio ya paso. Corregila en "Datos del borrador" antes de publicar.')
+    }
+    const res = await api.put(`/exams/${exam.id}`, {
+      title: editExamForm.title,
+      description: editExamForm.description,
+      courseName: editExamForm.courseName || exam.courseName || 'Testing de Aplicaciones',
+      durationMinutes: Number(editExamForm.durationMinutes || exam.durationMinutes) || null,
+      availableFrom,
+    })
+    replaceExam(res.data)
+    return res.data
   }
 
   function handlePublishClick() {
     if (!selectedExam) return
+
+    let unsaved
+    try {
+      unsaved = scheduleIsoFromForm(editExamForm)
+    } catch (err) {
+      setMessage(err.message)
+      return
+    }
+    if (unsaved && new Date(unsaved) < new Date()) {
+      setMessage('La fecha y hora de inicio ya pasó. Corregila en "Datos del borrador" antes de publicar.')
+      return
+    }
+
     const missingAnswers = findMissingAnswers(selectedExam)
     if (missingAnswers.length > 0) {
       setModal({ type: 'missingAnswers', items: missingAnswers })
@@ -392,15 +441,16 @@ async function renameTopic(topicId) {
     setMessage('')
     try {
       let exam = selectedExam
+      exam = await saveDraftBeforePublish(exam)
       for (const topic of exam.topics.filter((t) => topicsToFix.some((bt) => bt.id === t.id))) {
         exam = await redistributeTopicPoints(exam, topic)
         replaceExam(exam)
       }
       const res = await api.patch(`/exams/${exam.id}/publish`)
       replaceExam(res.data)
-      setMessage('Examen publicado. Los alumnos ya pueden iniciarlo.')
+      setMessage(publishSuccessMessage(res.data))
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo publicar el examen.')
+      setMessage(err.response?.data?.message || err.message || 'No se pudo publicar el examen.')
     }
   }
 
@@ -537,8 +587,10 @@ async function renameTopic(topicId) {
   const _isLocked = (status) => status !== _d([66,79,82,82,65,68,79,82])
   const canEdit = selectedExam != null && !_isLocked(selectedExam.status)
 
-  const profExamEndMs = selectedExam?.publishedAt && selectedExam?.durationMinutes
-    ? new Date(selectedExam.publishedAt).getTime() + selectedExam.durationMinutes * 60_000
+  const profIsScheduled = selectedExam ? derivedStatus(selectedExam) === 'PROGRAMADO' : false
+  const profStartRef = profIsScheduled ? null : (selectedExam?.availableFrom || selectedExam?.publishedAt)
+  const profExamEndMs = profStartRef && selectedExam?.durationMinutes
+    ? new Date(profStartRef).getTime() + selectedExam.durationMinutes * 60_000
     : null
 
   // Dispara el popup cuando el timer del examen PUBLICADO llega a 0 (solo una vez)
@@ -566,94 +618,492 @@ async function renameTopic(topicId) {
     return () => clearTimeout(t)
   }, [timeoutPopup, popupCountdown])
 
+  function openExamDetail(examId) {
+    setSelectedId(examId)
+    const exam = exams.find(e => e.id === examId)
+    const mode = exam?.status === 'PUBLICADO' ? 'running' : 'detail'
+    setPageMode(mode)
+    setMessage('')
+    window.history.pushState({ profe: mode }, '', '/profesor')
+  }
+
+  function goToExamList() {
+    setPageMode('examList')
+    setMessage('')
+    window.history.pushState({ profe: 'examList' }, '', '/profesor')
+  }
+
+  useEffect(() => {
+    function onPopState() {
+      setPageMode('landing')
+      setMessage('')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const figmaHeader = (onBack = null) => (
+    <header style={styles.header}>
+      <div style={styles.brand}>
+        {onBack && <button onClick={onBack} style={lStyles.backBtn}>← Volver</button>}
+        <Logo dark size={36} />
+        <div>
+          <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
+          <h1 style={{ ...styles.headerTitle, fontSize: 22, margin: 0 }}>Hola, {user.fullName?.split(' ')[0] || user.email}</h1>
+        </div>
+      </div>
+      <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
+    </header>
+  )
+
+  // ── EXAM LIST (Crear / Editar) ────────────────────────────────────────────
+  if (pageMode === 'examList') {
+    const editableExams = exams.filter(e => e.status !== 'CERRADO')
+    const displayedExams = examListFilter === 'borrador'
+      ? editableExams.filter(e => derivedStatus(e) === 'BORRADOR')
+      : examListFilter === 'listo'
+      ? editableExams.filter(e => derivedStatus(e) === 'SIN_PROGRAMAR')
+      : examListFilter === 'historial'
+      ? exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
+      : editableExams
+    const listTitle = examListFilter === 'borrador'
+      ? 'Borradores en proceso'
+      : examListFilter === 'listo'
+      ? 'Exámenes listos'
+      : examListFilter === 'historial'
+      ? 'Historial'
+      : 'Todos los exámenes'
+    const listSubtitle = examListFilter === 'borrador'
+      ? 'Borradores que todavía están siendo editados'
+      : examListFilter === 'listo'
+      ? 'Finalizados y listos para iniciar cuando quieras'
+      : examListFilter === 'historial'
+      ? 'Exámenes cerrados ya devueltos a los alumnos'
+      : 'Exámenes activos y en borrador'
+
+    return (
+      <div style={styles.page}>
+        {figmaHeader(() => setPageMode('landing'))}
+        <main style={{ ...lStyles.detailMain, maxWidth: 1000 }}>
+          <div style={fStyles.pageHeaderRow}>
+            <div>
+              <h2 style={fStyles.pageTitle}>{listTitle}</h2>
+              <p style={fStyles.pageSubtitle}>{listSubtitle}</p>
+            </div>
+            <button onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }} style={fStyles.createBtn}>
+              &#x2795; Crear examen
+            </button>
+          </div>
+          {message && <div style={styles.message}>{message}</div>}
+          <div style={fStyles.tableCard}>
+            {displayedExams.length === 0 && !loading && (
+              <div style={fStyles.emptyBox}>
+                <p style={{ color: '#9CA3AF', margin: 0 }}>
+                  {examListFilter === 'borrador' ? '📋 No hay borradores en proceso.' : examListFilter === 'listo' ? '✅ No hay exámenes listos todavía.' : examListFilter === 'historial' ? '📚 Todavía no hay exámenes devueltos.' : '📋 Todavía no hay exámenes. Creá el primero.'}
+                </p>
+              </div>
+            )}
+            {displayedExams.length > 0 && (
+              <table style={fStyles.table}>
+                <thead>
+                  <tr>
+                    <th style={fStyles.th}>Nombre de examen</th>
+                    <th style={fStyles.th}>Estado</th>
+                    <th style={fStyles.th}>Duración</th>
+                    <th style={fStyles.th}></th>
+                    <th style={fStyles.th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedExams.map(exam => (
+                    <tr key={exam.id} style={fStyles.tr}>
+                      <td style={fStyles.td}>{exam.title}</td>
+                      <td style={fStyles.td}><span style={statusStyle(exam)}>{labelStatus(exam)}</span></td>
+                      <td style={{ ...fStyles.td, color: '#6B7280' }}>{exam.durationMinutes || '-'} min</td>
+                      <td style={fStyles.td}>
+                        {examListFilter === 'listo' ? (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode('running'); window.history.pushState({}, '', '/profesor') }}
+                            style={{ ...fStyles.editBtn, color: '#087A55', fontWeight: 800 }}
+                          >
+                            ▶ Iniciar ahora
+                          </button>
+                        ) : examListFilter === 'historial' ? (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') }}
+                            style={fStyles.editBtn}
+                          >
+                            Ver
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setSelectedId(exam.id); setPageMode(exam.status === 'PUBLICADO' ? 'running' : 'detail'); window.history.pushState({}, '', '/profesor') }}
+                            style={fStyles.editBtn}
+                          >
+                            {exam.status === 'PUBLICADO' ? 'Monitorear' : '✎ Editar'}
+                          </button>
+                        )}
+                      </td>
+                      <td style={fStyles.td}>
+                        {exam.status === 'BORRADOR' && (
+                          <button onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })} style={fStyles.deleteBtnVisible}>Eliminar</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </main>
+        {modal?.type === 'confirmDelete' && (
+          <div style={styles.modalOverlay} onClick={() => setModal(null)}>
+            <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+              <h3 style={styles.modalTitle}>Eliminar examen</h3>
+              <p style={styles.modalText}>
+                ¿Confirmás que querés eliminar <strong>{modal.examTitle}</strong>? Esta acción no se puede deshacer.
+              </p>
+              <div style={styles.modalActions}>
+                <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
+                <button onClick={() => deleteExam(modal.examId)} style={styles.closeBtn}>Eliminar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── NEW EXAM FORM ─────────────────────────────────────────────────────────
+  if (pageMode === 'newExam') {
+    return (
+      <div style={styles.page}>
+        {figmaHeader(() => { setPageMode('landing'); setMessage('') })}
+        <main style={{ ...lStyles.detailMain, maxWidth: 600 }}>
+          <h2 style={fStyles.pageTitle}>Nuevo examen</h2>
+          {message && <div style={styles.message}>{message}</div>}
+          <div style={fStyles.formCard}>
+            <form onSubmit={createExam} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={styles.label}>Título</label>
+              <input value={examForm.title} onChange={e => setExamForm({ ...examForm, title: e.target.value })} style={styles.input} placeholder="Primer parcial" required />
+              <label style={styles.label}>Descripción</label>
+              <textarea value={examForm.description} onChange={e => setExamForm({ ...examForm, description: e.target.value })} style={styles.textarea} rows={2} placeholder="Evaluación de Testing de Aplicaciones" />
+              <label style={styles.label}>Materia</label>
+              <input value={examForm.courseName} onChange={e => setExamForm({ ...examForm, courseName: e.target.value })} style={styles.input} placeholder="Testing de Aplicaciones" />
+              <label style={styles.label}>Duración estimada (min)</label>
+              <input type="number" min="1" value={examForm.durationMinutes} onChange={e => setExamForm({ ...examForm, durationMinutes: e.target.value })} style={styles.input} />
+              <label style={styles.label}>Fecha de inicio (opcional)</label>
+              <input type="date" min={todayStr()} value={examForm.availableDate} onChange={e => setExamForm({ ...examForm, availableDate: e.target.value })} style={styles.input} />
+              {examForm.availableDate && (
+                <>
+                  <label style={styles.label}>Hora — 24h (HH:MM)</label>
+                  <input type="text" value={examForm.availableTime} onChange={e => setExamForm({ ...examForm, availableTime: e.target.value })} style={styles.input} placeholder="14:00" maxLength={5} />
+                  {examForm.availableTime && !isValidTime(examForm.availableTime) && <span style={styles.fieldError}>Hora inválida</span>}
+                </>
+              )}
+              <button type="submit" style={{ ...styles.primaryBtn, marginTop: 8 }}>Crear borrador</button>
+            </form>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ── RUNNING EXAM (vista estilo Figma) ────────────────────────────────────
+  if (pageMode === 'running' && selectedExam) {
+    const topicColorMap = {}
+    selectedExam.topics?.forEach(t => { topicColorMap[t.id] = t.colorHex || '#333' })
+    const isBeforeStart = derivedStatus(selectedExam) === 'PROGRAMADO'
+    const startRef = selectedExam.availableFrom || selectedExam.publishedAt
+    const examEndMs = !isBeforeStart && startRef && selectedExam.durationMinutes
+      ? new Date(startRef).getTime() + selectedExam.durationMinutes * 60_000 : null
+    const secondsLeft = examEndMs ? Math.max(0, Math.floor((examEndMs - profNow) / 1000)) : null
+    const isExpired = secondsLeft !== null && secondsLeft === 0
+
+    const statusLabelRunning = (s) => {
+      if (s.status === 'ENTREGADO') return { label: 'Entregado', bg: '#D1FAE5', color: '#065F46' }
+      return { label: 'En proceso', bg: '#FEF3C7', color: '#92400E' }
+    }
+
+    return (
+      <div style={styles.page}>
+        {figmaHeader(() => setPageMode('landing'))}
+        <main style={fStyles.runningMain}>
+          <div style={fStyles.runningLeft}>
+            <h2 style={fStyles.pageTitle}>{isBeforeStart ? 'Examen programado' : 'Examen en curso'}</h2>
+            <p style={fStyles.pageSubtitle}>{selectedExam.courseName} · {selectedExam.title}</p>
+            {message && <div style={styles.message}>{message}</div>}
+            <div style={fStyles.tableCard}>
+              {submissions.length === 0 ? (
+                <p style={{ color: '#6B7280', padding: '24px 0', textAlign: 'center', margin: 0 }}>Todavía no hay alumnos que hayan iniciado este examen.</p>
+              ) : (
+                <table style={fStyles.table}>
+                  <thead>
+                    <tr>
+                      <th style={fStyles.th}>Alumnos</th>
+                      <th style={{ ...fStyles.th, textAlign: 'center' }}>Tema</th>
+                      <th style={{ ...fStyles.th, textAlign: 'center' }}>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map(s => {
+                      const badge = statusLabelRunning(s)
+                      const color = topicColorMap[s.topicId] || '#1956D8'
+                      const letter = s.topicName?.replace('Tema ', '') || '?'
+                      const excedido = examEndMs && s.status !== 'ENTREGADO' && profNow > examEndMs
+                      return (
+                        <tr key={s.id} style={fStyles.tr}>
+                          <td style={fStyles.td}>{s.studentName}</td>
+                          <td style={{ ...fStyles.td, textAlign: 'center' }}>
+                            <span style={{ background: color, color: '#fff', padding: '4px 18px', borderRadius: 6, fontWeight: 800, fontSize: 15, display: 'inline-block' }}>{letter}</span>
+                          </td>
+                          <td style={{ ...fStyles.td, textAlign: 'center' }}>
+                            <span style={{ background: badge.bg, color: badge.color, padding: '4px 12px', borderRadius: 999, fontSize: 13, fontWeight: 700 }}>{badge.label}</span>
+                            {excedido && <div style={{ fontSize: 11, color: '#9B2C2C', marginTop: 4 }}>Excedido de tiempo</div>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          <div style={fStyles.runningRight}>
+            {isExpired ? (
+              <div style={fStyles.examFinishedBtn}>Examen finalizado</div>
+            ) : isBeforeStart ? (
+              <div style={fStyles.examScheduledBtn}>
+                Programado
+              </div>
+            ) : (
+              <button onClick={() => setFinalizeConfirm(true)} style={fStyles.finalizeBtn}>
+                ⏸ Finalizar examen
+              </button>
+            )}
+            {isBeforeStart && (
+              <div style={fStyles.timerWidget}>
+                <p style={fStyles.timerLabel}>INICIO PROGRAMADO:</p>
+                <p style={fStyles.timerValue}>{formatScheduleDateTime(selectedExam.availableFrom)}</p>
+              </div>
+            )}
+            {secondsLeft !== null && (
+              <div style={fStyles.timerWidget}>
+                <p style={fStyles.timerLabel}>TIEMPO DE EXAMEN RESTANTE:</p>
+                <p style={{ ...fStyles.timerValue, color: isExpired ? '#9CA3AF' : secondsLeft < 600 ? '#DC2626' : '#1956D8' }}>
+                  ⏰ {formatProfTime(secondsLeft)}
+                </p>
+              </div>
+            )}
+            {/* Contadores */}
+            {submissions.length > 0 && (
+              <div style={fStyles.countersWidget}>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#1956D8' }}>{submissions.filter(s => s.status !== 'ENTREGADO').length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>En proceso</span></div>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#065F46' }}>{submissions.filter(s => s.status === 'ENTREGADO').length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>Entregados</span></div>
+                <div style={fStyles.counterItem}><span style={{ fontSize: 28, fontWeight: 800, color: '#374151' }}>{submissions.length}</span><span style={{ fontSize: 13, color: '#6B7280' }}>Total</span></div>
+              </div>
+            )}
+          </div>
+        </main>
+        {/* Timeout popup */}
+        {timeoutPopup && (
+          <div style={styles.modalOverlay}>
+            <div style={{ ...styles.modalBox, maxWidth: 480 }}>
+              <h3 style={styles.modalTitle}>⏰ Terminó el tiempo</h3>
+              <p style={styles.modalText}>El tiempo del examen <strong>{timeoutPopup.examTitle}</strong> llegó a su fin. ¿Deseás agregar tiempo extra?</p>
+              <p style={{ color: '#DC2626', fontWeight: 700, fontSize: 14 }}>El examen se cerrará automáticamente en {formatProfTime(popupCountdown)}</p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                <button onClick={async () => { const mins = Math.min(60, Math.max(1, Number(popupExtraMinutes) || 15)); try { const res = await api.patch(`/exams/${timeoutPopup.examId}/add-extra-time`, { extraMinutes: mins }); replaceExam(res.data) } catch (err) { setMessage(err.response?.data?.message || 'No se pudo agregar tiempo.') } setTimeoutPopup(null) }} style={styles.primaryBtn}>
+                  Sí, agregar
+                </button>
+                <input type="number" min="1" max="60" value={popupExtraMinutes} onChange={e => setPopupExtraMinutes(e.target.value)} style={{ width: 70, ...styles.input }} />
+                <span style={{ fontSize: 13, color: '#6B7280' }}>min (máx. 60)</span>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <button onClick={async () => { try { const res = await api.patch(`/exams/${timeoutPopup.examId}/close`); replaceExam(res.data) } catch {} setTimeoutPopup(null) }} style={styles.closeBtn}>No, cerrar examen</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {finalizeConfirm && (
+          <div style={styles.modalOverlay}>
+            <div style={{ ...styles.modalBox, maxWidth: 440 }}>
+              <h3 style={styles.modalTitle}>¿Finalizar examen?</h3>
+              <p style={styles.modalText}>
+                {secondsLeft !== null && secondsLeft > 0
+                  ? `Todavía quedan ${formatProfTime(secondsLeft)} del examen. ¿Está seguro que desea finalizar ahora?`
+                  : '¿Está seguro que desea finalizar el examen?'}
+              </p>
+              <div style={styles.modalActions}>
+                <button onClick={() => setFinalizeConfirm(false)} style={styles.secondaryBtn}>Cancelar</button>
+                <button onClick={async () => { setFinalizeConfirm(false); await closeExam() }} style={{ ...styles.primaryBtn, background: '#DC2626', border: 'none' }}>Sí, finalizar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── LANDING PAGE ─────────────────────────────────────────────────────────
+  if (pageMode === 'landing') {
+    const enCurso = exams.filter(e => derivedStatus(e) === 'EN_CURSO')
+    const programados = exams.filter(e => derivedStatus(e) === 'PROGRAMADO')
+    const borradores = exams.filter(e => derivedStatus(e) === 'BORRADOR')
+    const sinProgramar = exams.filter(e => derivedStatus(e) === 'SIN_PROGRAMAR')
+    const porDevolver = exams.filter(e => e.status === 'CERRADO' && !e.feedbackPublished)
+    const devueltos = exams.filter(e => e.status === 'CERRADO' && e.feedbackPublished)
+
+    const otherCards = [
+      {
+        title: 'Exámenes activos',
+        subtitle: 'Monitoreá los exámenes en curso o programados',
+        stats: [{ n: enCurso.length, label: 'en curso' }, { n: programados.length, label: 'programados' }],
+        action: () => { const first = [...enCurso, ...programados][0]; if (first) openExamDetail(first.id) },
+        color: '#087A55',
+        disabled: enCurso.length + programados.length === 0,
+      },
+      {
+        title: 'Revisión pendiente',
+        subtitle: 'Calificá las entregas de los exámenes cerrados',
+        stats: [{ n: porDevolver.length, label: 'por calificar' }],
+        action: () => { const first = porDevolver[0]; if (first) { setSelectedId(first.id); setPageMode('detail'); window.history.pushState({}, '', '/profesor') } },
+        color: '#9B2C2C',
+        disabled: porDevolver.length === 0,
+      },
+      {
+        title: 'Historial',
+        subtitle: 'Exámenes cerrados ya devueltos',
+        stats: [{ n: devueltos.length, label: 'devueltos' }],
+        action: () => { setExamListFilter('historial'); goToExamList() },
+        color: '#4A5565',
+      },
+    ]
+
+    return (
+      <div style={styles.page}>
+        {figmaHeader()}
+        <main style={{ display: 'flex', flexDirection: 'column', padding: '24px 28px', gap: 20 }}>
+          {message && <div style={{ ...styles.message, margin: 0 }}>{message}</div>}
+
+          {/* Crear Nuevo Examen */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => { setPageMode('newExam'); window.history.pushState({}, '', '/profesor') }}
+              onMouseEnter={() => setHoveredCard('crear')}
+              onMouseLeave={() => setHoveredCard(null)}
+              style={{
+                ...fStyles.createExamBannerBtn,
+                transform: hoveredCard === 'crear' ? 'translateY(-4px)' : 'none',
+                boxShadow: hoveredCard === 'crear' ? '0 12px 32px rgba(9,34,42,0.35)' : '0 6px 20px rgba(9,34,42,0.25)',
+              }}
+            >
+              ＋&nbsp;&nbsp;Crear Nuevo Examen
+            </button>
+          </div>
+
+          {/* Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, height: 360 }}>
+
+            {/* Borradores (blue) — sub-cards */}
+            <div style={{ ...fStyles.navCard, borderTop: '4px solid #1956D8', cursor: 'default', gap: 14 }}>
+              <h3 style={{ ...fStyles.navCardTitle, color: '#1956D8', textAlign: 'center' }}>Borradores</h3>
+              <p style={{ ...fStyles.navCardSub, textAlign: 'center' }}>Exámenes en preparación</p>
+              <div style={fStyles.navCardDivider} />
+              <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                <button
+                  onClick={() => { setExamListFilter('borrador'); goToExamList() }}
+                  onMouseEnter={() => setHoveredSubCard('en-proceso')}
+                  onMouseLeave={() => setHoveredSubCard(null)}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, padding: '16px 8px', background: '#F0F5FF', border: '1px solid #D6E4FF', borderRadius: 10,
+                    cursor: 'pointer', transition: 'transform .2s ease, box-shadow .2s ease',
+                    transform: hoveredSubCard === 'en-proceso' ? 'translateY(-4px)' : 'none',
+                    boxShadow: hoveredSubCard === 'en-proceso' ? '0 8px 20px rgba(25,86,216,0.2)' : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 40, fontWeight: 800, color: '#1956D8', lineHeight: 1 }}>{borradores.length}</span>
+                  <span style={{ fontSize: 13, color: '#536B76', fontWeight: 700 }}>En proceso</span>
+                </button>
+                <button
+                  onClick={() => { setExamListFilter('listo'); goToExamList() }}
+                  onMouseEnter={() => setHoveredSubCard('listos')}
+                  onMouseLeave={() => setHoveredSubCard(null)}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, padding: '16px 8px', background: '#E8F5F0', border: '1px solid #A7D9C8', borderRadius: 10,
+                    cursor: 'pointer', transition: 'transform .2s ease, box-shadow .2s ease',
+                    transform: hoveredSubCard === 'listos' ? 'translateY(-4px)' : 'none',
+                    boxShadow: hoveredSubCard === 'listos' ? '0 8px 20px rgba(8,122,85,0.2)' : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 40, fontWeight: 800, color: '#087A55', lineHeight: 1 }}>{sinProgramar.length}</span>
+                  <span style={{ fontSize: 13, color: '#536B76', fontWeight: 700 }}>Listos</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Exámenes activos, Revisión pendiente, Historial */}
+            {otherCards.map((card, i) => (
+              <div
+                key={i}
+                onClick={!card.disabled ? card.action : undefined}
+                onMouseEnter={() => !card.disabled && setHoveredCard(i)}
+                onMouseLeave={() => setHoveredCard(null)}
+                style={{
+                  ...fStyles.navCard,
+                  opacity: card.disabled ? 0.5 : 1,
+                  cursor: card.disabled ? 'not-allowed' : 'pointer',
+                  borderTop: `4px solid ${card.color}`,
+                  transform: hoveredCard === i && !card.disabled ? 'translateY(-6px)' : 'none',
+                  boxShadow: hoveredCard === i && !card.disabled ? '0 16px 40px rgba(9,34,42,0.15)' : '0 2px 10px rgba(0,0,0,0.07)',
+                  transition: 'transform .2s ease, box-shadow .2s ease',
+                }}
+              >
+                <h3 style={{ ...fStyles.navCardTitle, color: card.color, textAlign: 'center' }}>{card.title}</h3>
+                <p style={{ ...fStyles.navCardSub, textAlign: 'center' }}>{card.subtitle}</p>
+                <div style={fStyles.navCardDivider} />
+                <div style={{ ...fStyles.navCardStats, justifyContent: 'center' }}>
+                  {card.stats.map((s, j) => (
+                    <div key={j} style={fStyles.navStat}>
+                      <span style={{ fontSize: 48, fontWeight: 800, color: card.color, lineHeight: 1 }}>{s.n}</span>
+                      <span style={{ fontSize: 15, color: '#6B7280' }}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={fStyles.navCardArrow}>→</div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ── DETAIL PAGE ───────────────────────────────────────────────────────────
   return (
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.brand}>
-          <Logo dark size={36} />
+          <button onClick={() => setPageMode('landing')} style={lStyles.backBtn}>← Volver</button>
+          <Logo dark size={32} />
           <div>
-            <h1 style={styles.headerTitle}>Panel de Profesor</h1>
-            <span style={styles.headerUser}>{user.fullName || user.email}</span>
+            <span style={{ fontSize: 11, color: 'rgba(203,238,243,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>Panel docente</span>
+            <h1 style={{ ...styles.headerTitle, fontSize: 18, margin: 0, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedExam?.title || 'Detalle de examen'}</h1>
           </div>
         </div>
         <button onClick={handleLogout} style={styles.logoutBtn}>Cerrar sesión</button>
       </header>
 
-      <main style={styles.shell}>
-        <aside style={styles.sidebar}>
-          <form onSubmit={createExam} style={styles.createBox}>
-            <h2 style={styles.panelTitle}>Nuevo examen</h2>
-            <label style={styles.label}>Titulo</label>
-            <input
-              value={examForm.title}
-              onChange={(e) => setExamForm({ ...examForm, title: e.target.value })}
-              style={styles.input}
-              placeholder="Primer parcial"
-              required
-            />
-            <label style={styles.label}>Descripcion</label>
-            <textarea
-              value={examForm.description}
-              onChange={(e) => setExamForm({ ...examForm, description: e.target.value })}
-              style={styles.textarea}
-              rows={3}
-              placeholder="Evaluacion de Testing de Aplicaciones"
-            />
-            <label style={styles.label}>Materia</label>
-            <input
-              value={examForm.courseName}
-              onChange={(e) => setExamForm({ ...examForm, courseName: e.target.value })}
-              style={styles.input}
-              placeholder="Testing de Aplicaciones"
-            />
-            <label style={styles.label}>Duracion estimada (min)</label>
-            <input
-              type="number"
-              min="1"
-              value={examForm.durationMinutes}
-              onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })}
-              style={styles.input}
-            />
-            <label style={styles.label}>Fecha y hora (opcional)</label>
-            <input
-              type="datetime-local"
-              value={examForm.availableFrom}
-              onChange={(e) => setExamForm({ ...examForm, availableFrom: e.target.value })}
-              style={styles.input}
-            />
-            <button type="submit" style={styles.primaryBtn}>Crear borrador</button>
-          </form>
+      <main style={lStyles.detailMain}>
 
-          <div style={styles.listBox}>
-            <h2 style={styles.panelTitle}>Mis examenes</h2>
-            {loading && <p style={styles.muted}>Cargando...</p>}
-            {exams.length === 0 && !loading && <p style={styles.muted}>Todavia no hay examenes.</p>}
-            {exams.map((exam) => (
-              <div key={exam.id} style={exam.id === selectedExam?.id ? styles.examItemActive : styles.examItem}>
-                <button
-                  onClick={() => setSelectedId(exam.id)}
-                  style={styles.examItemSelect}
-                >
-                  <span style={styles.examItemTitle}>{exam.title}</span>
-                  <span style={statusStyle(exam.status)}>{labelStatus(exam.status)}</span>
-                </button>
-                {(exam.status === 'BORRADOR' || exam.status === 'CERRADO') && (
-                  <button
-                    onClick={() => setModal({ type: 'confirmDelete', examId: exam.id, examTitle: exam.title })}
-                    style={styles.deleteExamBtn}
-                    title="Eliminar examen"
-                  >✕</button>
-                )}
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        <section style={styles.workspace}>
+        <section style={{ ...styles.workspace, maxWidth: 960, margin: '0 auto', width: '100%' }}>
           {message && <div style={styles.message}>{message}</div>}
 
           {!selectedExam ? (
-            <div style={styles.emptyState}>Crea un examen para empezar a cargar temas y preguntas.</div>
+            <div style={styles.emptyState}>Seleccioná un examen desde "Mis exámenes" para editarlo.</div>
           ) : (
             <>
               <div style={styles.examHeader}>
@@ -664,9 +1114,9 @@ async function renameTopic(topicId) {
                   </p>
                 </div>
                 <div style={styles.headerActions}>
-                  <span style={statusStyle(selectedExam.status)}>{labelStatus(selectedExam.status)}</span>
+                  <span style={statusStyle(selectedExam)}>{labelStatus(selectedExam)}</span>
                   {canEdit && (
-                    <button onClick={handlePublishClick} style={styles.primaryBtn}>Publicar</button>
+                    <button onClick={handlePublishClick} style={styles.primaryBtn}>Finalizar</button>
                   )}
                   {selectedExam.status === 'PUBLICADO' && (
                     <button onClick={handleCloseClick} style={styles.closeBtn}>Cerrar examen</button>
@@ -699,13 +1149,30 @@ async function renameTopic(topicId) {
                         />
                       </div>
                       <div style={styles.fieldBlock}>
-                        <label style={styles.label}>Fecha y hora (opcional)</label>
+                        <label style={styles.label}>Fecha de inicio (opcional)</label>
                         <input
-                          type="datetime-local"
-                          value={editExamForm.availableFrom || ''}
-                          onChange={(e) => setEditExamForm({ ...editExamForm, availableFrom: e.target.value })}
+                          type="date"
+                          min={todayStr()}
+                          value={editExamForm.availableDate || ''}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, availableDate: e.target.value })}
                           style={styles.input}
                         />
+                        {editExamForm.availableDate && (
+                          <>
+                            <label style={{ ...styles.label, marginTop: 6 }}>Hora — formato 24h (HH:MM)</label>
+                            <input
+                              type="text"
+                              value={editExamForm.availableTime || ''}
+                              onChange={(e) => setEditExamForm({ ...editExamForm, availableTime: e.target.value })}
+                              style={styles.input}
+                              placeholder="14:00"
+                              maxLength={5}
+                            />
+                            {editExamForm.availableTime && !isValidTime(editExamForm.availableTime) && (
+                              <span style={styles.fieldError}>Hora inválida. Usá formato HH:MM (ej: 14:00)</span>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div style={styles.editActions}>
@@ -723,8 +1190,9 @@ async function renameTopic(topicId) {
               )}
 
               {!canEdit && (() => {
+                const isScheduled = derivedStatus(selectedExam) === 'PROGRAMADO'
                 const examEndMs = profExamEndMs
-                const secondsLeft = examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
+                const secondsLeft = !isScheduled && examEndMs ? Math.floor((examEndMs - profNow) / 1000) : null
                 const enProgreso = submissions.filter(s => s.status !== 'ENTREGADO').length
                 const entregados = submissions.filter(s => s.status === 'ENTREGADO').length
                 return (
@@ -732,14 +1200,14 @@ async function renameTopic(topicId) {
                     <div style={styles.submissionHeader}>
                       <h3 style={styles.submissionTitle}>Entregas de alumnos</h3>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {isScheduled && (
+                          <span style={styles.timerProf}>Programado para {formatScheduleDateTime(selectedExam.availableFrom)}</span>
+                        )}
                         {secondsLeft !== null && (
                           <span style={secondsLeft <= 0 ? styles.timerExpiredProf : styles.timerProf}>
                             {secondsLeft <= 0 ? '⏰ Tiempo vencido' : `⏱ ${formatProfTime(secondsLeft)} restantes`}
                           </span>
                         )}
-                        <button onClick={() => {
-                          api.get(`/submissions/exams/${selectedExam.id}`).then((res) => setSubmissions(res.data)).catch(() => setSubmissions([]))
-                        }} style={styles.secondaryBtn}>Actualizar</button>
                       </div>
                     </div>
                     {submissions.length > 0 && (
@@ -780,6 +1248,11 @@ async function renameTopic(topicId) {
                       <div style={styles.submissionList}>
                         {submissions.map((submission) => {
                           const excedido = examEndMs && submission.status !== 'ENTREGADO' && profNow > examEndMs
+                          const graded = isGraded(submission)
+                          const totalScore = graded
+                            ? submission.questions?.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0)
+                            : null
+                          const totalPoints = submission.questions?.reduce((sum, q) => sum + Number(q.points || 0), 0)
                           return (
                             <div key={submission.id} style={styles.submissionRow}>
                               <div style={{ flex: 1, minWidth: 0 }}>
@@ -788,8 +1261,15 @@ async function renameTopic(topicId) {
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                                 {submission.status === 'ENTREGADO' ? (
-                                  isGraded(submission)
-                                    ? <span style={styles.gradedBadge}>Calificado</span>
+                                  graded
+                                    ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 16, fontWeight: 800, color: '#087A55' }}>
+                                          {totalScore % 1 === 0 ? totalScore : totalScore?.toFixed(2)} / {totalPoints}
+                                        </span>
+                                        <span style={styles.gradedBadge}>Calificado</span>
+                                      </div>
+                                    )
                                     : <span style={styles.submittedBadge}>Entregado</span>
                                 ) : (
                                   <span style={styles.progressBadge}>En progreso</span>
@@ -918,6 +1398,8 @@ async function renameTopic(topicId) {
                                       max="10"
                                       value={editForm.points}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'points', e.target.value)}
+                                      onInput={clearNumberInputValidity}
+                                      onInvalid={setNumberInputValidity}
                                       style={styles.smallInput}
                                       required
                                     />
@@ -1063,6 +1545,8 @@ async function renameTopic(topicId) {
                                 max="10"
                                 value={form.points}
                                 onChange={(e) => updateQuestionForm(topic.id, 'points', e.target.value)}
+                                onInput={clearNumberInputValidity}
+                                onInvalid={setNumberInputValidity}
                                 style={styles.smallInput}
                                 required
                               />
@@ -1230,15 +1714,29 @@ async function renameTopic(topicId) {
       {modal && (
         <div style={styles.modalOverlay} onClick={() => setModal(null)}>
           <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            {modal.type === 'confirmPublish' ? (
+            {modal.type === 'pastDate' ? (
               <>
-                <h3 style={styles.modalTitle}>Publicar examen</h3>
+                <h3 style={styles.modalTitle}>⚠️ Fecha y hora ya pasaron</h3>
                 <p style={styles.modalText}>
-                  Al publicar, el examen estará disponible para los alumnos y <strong>no podrás volver a borrador</strong>.
+                  La fecha programada ({new Date(modal.isoDate).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}) ya pasó.
+                  No podés publicar con una hora anterior a la actual.
+                </p>
+                <p style={styles.modalText}>
+                  Actualizá la fecha y hora en <strong>Datos del borrador</strong> antes de publicar.
+                </p>
+                <div style={styles.modalActions}>
+                  <button onClick={() => setModal(null)} style={styles.primaryBtn}>Entendido</button>
+                </div>
+              </>
+            ) : modal.type === 'confirmPublish' ? (
+              <>
+                <h3 style={styles.modalTitle}>Finalizar examen</h3>
+                <p style={styles.modalText}>
+                  Al finalizar, el examen pasará a "Listos" y los alumnos podrán iniciarlo. <strong>No podrás volver a borrador.</strong>
                 </p>
                 <div style={styles.modalActions}>
                   <button onClick={() => setModal(null)} style={styles.secondaryBtn}>Cancelar</button>
-                  <button onClick={() => { setModal(null); publishExam() }} style={styles.primaryBtn}>Publicar</button>
+                  <button onClick={() => { setModal(null); publishExam() }} style={styles.primaryBtn}>Finalizar</button>
                 </div>
               </>
             ) : modal.type === 'confirmClose' ? (
@@ -1301,6 +1799,67 @@ async function renameTopic(topicId) {
   )
 }
 
+const fStyles = {
+  landingCards: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: '1fr', gap: 24, padding: '28px 32px', boxSizing: 'border-box', height: 'calc(100vh - 72px)' },
+  navCard: { background: '#fff', borderRadius: 14, padding: '36px 28px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 14 },
+  navCardTitle: { fontSize: 24, fontWeight: 800, margin: 0, lineHeight: 1.2 },
+  navCardSub: { fontSize: 14, color: '#6B7280', margin: 0, lineHeight: 1.5 },
+  navCardDivider: { borderTop: '1px solid #E5E7EB', margin: '4px 0' },
+  navCardStats: { display: 'flex', gap: 32, flexWrap: 'wrap' },
+  navStat: { display: 'flex', flexDirection: 'column', gap: 6 },
+  navCardArrow: { fontSize: 24, color: '#9CA3AF', textAlign: 'right', marginTop: 'auto', fontWeight: 700 },
+  createExamBannerBtn: { padding: '20px 80px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 14, fontSize: 22, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.02em', boxShadow: '0 6px 20px rgba(9,34,42,0.25)', transition: 'transform .15s ease, box-shadow .15s ease' },
+  backLink: { background: 'none', border: 'none', color: '#6B7280', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: 6 },
+  pageHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  pageTitle: { fontSize: 28, fontWeight: 800, margin: '0 0 4px', color: '#09222A' },
+  pageSubtitle: { fontSize: 14, color: '#6B7280', margin: 0 },
+  createBtn: { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer' },
+  tableCard: { background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: { padding: '14px 20px', textAlign: 'left', fontSize: 13, fontWeight: 700, color: '#374151', borderBottom: '2px solid #E5E7EB' },
+  tr: { borderBottom: '1px solid #F3F4F6' },
+  td: { padding: '14px 20px', fontSize: 14, color: '#09222A' },
+  editBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, cursor: 'pointer', fontSize: 14 },
+  deleteBtn: { background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 16 },
+  deleteBtnVisible: { background: 'none', border: '1px solid #9B2C2C', color: '#9B2C2C', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  emptyBox: { padding: '48px', textAlign: 'center' },
+  formCard: { background: '#fff', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' },
+  // Running exam
+  runningMain: { display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28, padding: '32px 40px', maxWidth: 1200, margin: '0 auto' },
+  runningLeft: {},
+  runningRight: { display: 'flex', flexDirection: 'column', gap: 16, alignSelf: 'start', position: 'sticky', top: 24 },
+  finalizeBtn: { padding: '16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  iniciarBtn: { padding: '16px', background: '#09222A', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 800, cursor: 'pointer', textAlign: 'center' },
+  examFinishedBtn: { padding: '16px', background: '#6B7280', color: '#fff', border: 'none', borderRadius: 12, fontSize: 18, fontWeight: 700, textAlign: 'center' },
+  examScheduledBtn: { padding: '16px', background: '#FEF3C7', color: '#92400E', border: '1px solid #F0D36A', borderRadius: 12, fontSize: 18, fontWeight: 800, textAlign: 'center' },
+  timerWidget: { background: '#fff', borderRadius: 12, padding: '20px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', textAlign: 'center' },
+  timerLabel: { fontSize: 12, fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' },
+  timerValue: { fontSize: 44, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  countersWidget: { background: '#fff', borderRadius: 12, padding: '16px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', display: 'flex', justifyContent: 'space-around' },
+  counterItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
+}
+
+const lStyles = {
+  landingMain: { display: 'grid', gridTemplateColumns: '360px 1fr', gap: 32, padding: '32px 40px', maxWidth: 1400, margin: '0 auto' },
+  detailMain: { padding: '24px 40px', maxWidth: 1200, margin: '0 auto', width: '100%', boxSizing: 'border-box' },
+  createCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 12, padding: '24px 22px', alignSelf: 'start', position: 'sticky', top: 24 },
+  createTitle: { fontSize: 18, fontWeight: 800, color: '#1956D8', margin: '0 0 18px' },
+  createForm: { display: 'flex', flexDirection: 'column', gap: 8 },
+  examPanel: { minWidth: 0 },
+  examPanelTitle: { fontSize: 22, fontWeight: 800, color: '#09222A', margin: '0 0 20px' },
+  groupsContainer: { display: 'flex', flexDirection: 'column', gap: 24 },
+  group: {},
+  groupHeader: { display: 'flex', alignItems: 'center', gap: 10, borderLeft: '3px solid #ccc', paddingLeft: 10, marginBottom: 10 },
+  groupLabel: { fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  groupCount: { fontSize: 12, fontWeight: 700, color: '#7B919B', background: '#F0F4F6', borderRadius: 999, padding: '1px 8px' },
+  examCards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 },
+  examCard: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 10, padding: '14px 16px', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, transition: 'box-shadow .15s, border-color .15s', boxShadow: '0 1px 4px rgba(9,34,42,0.06)' },
+  examCardTitle: { fontSize: 14, fontWeight: 700, color: '#09222A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  examCardMeta: { fontSize: 12, color: '#536B76' },
+  backBtn: { background: 'none', border: 'none', color: 'rgba(203,238,243,0.85)', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 12px 0 0', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 },
+  backBtnSide: { background: 'none', border: 'none', color: '#1956D8', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '4px 0', display: 'block' },
+}
+
 function isGraded(submission) {
   return submission.questions?.some(q => q.score != null)
 }
@@ -1309,11 +1868,60 @@ function nextTopicLetter(topics) {
   return String.fromCharCode(65 + Math.min((topics || []).length, 25))
 }
 
-function toDatetimeLocal(isoString) {
+function isoToDate(isoString) {
   if (!isoString) return ''
   const d = new Date(isoString)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function isoToTime(isoString) {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  const pad = n => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function isValidTime(t) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
+}
+
+function todayStr() {
+  const d = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function combineDateTime(date, time) {
+  if (!date) return null
+  if (!time) return null
+  if (!isValidTime(time)) return null
+  return new Date(`${date}T${time}:00`).toISOString()
+}
+
+function scheduleIsoFromForm(form) {
+  const hasDate = Boolean(form.availableDate)
+  const hasTime = Boolean(form.availableTime)
+  if (!hasDate && !hasTime) return null
+  if (!hasDate || !hasTime) {
+    throw new Error('Completa fecha y hora de inicio, o deja ambos campos vacios.')
+  }
+  if (!isValidTime(form.availableTime)) {
+    throw new Error('La hora de inicio es invalida. Usa formato HH:MM.')
+  }
+  return combineDateTime(form.availableDate, form.availableTime)
+}
+
+function formatScheduleDateTime(isoString) {
+  if (!isoString) return 'fecha a definir'
+  return new Date(isoString).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function publishSuccessMessage(exam) {
+  if (derivedStatus(exam) === 'PROGRAMADO') {
+    return `Examen programado. Estara disponible el ${formatScheduleDateTime(exam.availableFrom)}.`
+  }
+  return 'Examen publicado. Los alumnos ya pueden iniciarlo.'
 }
 
 function formatProfTime(seconds) {
@@ -1326,26 +1934,50 @@ function formatProfTime(seconds) {
   return `${pad(m)}:${pad(sec)}`
 }
 
-function labelStatus(status) {
-  return {
-    BORRADOR: 'Borrador',
-    PUBLICADO: 'Publicado',
-    CERRADO: 'Cerrado',
-  }[status] || status
+function clearNumberInputValidity(event) {
+  event.currentTarget.setCustomValidity('')
 }
 
-function statusStyle(status) {
-  const base = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    height: 24,
-    padding: '0 10px',
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
+function setNumberInputValidity(event) {
+  const input = event.currentTarget
+  if (input.validity.rangeOverflow) {
+    input.setCustomValidity(`El valor debe ser menor o igual a ${input.max}.`)
+  } else if (input.validity.rangeUnderflow) {
+    input.setCustomValidity(`El valor debe ser mayor o igual a ${input.min}.`)
+  } else if (input.validity.stepMismatch) {
+    input.setCustomValidity(`Usá incrementos de ${input.step}.`)
+  } else if (input.validity.valueMissing) {
+    input.setCustomValidity('Completá este campo.')
+  } else {
+    input.setCustomValidity('')
   }
-  if (status === 'PUBLICADO') return { ...base, background: '#DDF6EC', color: '#087A55' }
-  if (status === 'CERRADO') return { ...base, background: '#ECEFF3', color: '#4A5565' }
+}
+
+function derivedStatus(exam) {
+  if (!exam) return 'BORRADOR'
+  if (exam.status === 'BORRADOR') return 'BORRADOR'
+  if (exam.status === 'CERRADO') return 'CERRADO'
+  if (exam.status === 'PUBLICADO') {
+    if (!exam.availableFrom) return 'SIN_PROGRAMAR'
+    if (new Date(exam.availableFrom).getTime() > Date.now()) return 'PROGRAMADO'
+    return 'EN_CURSO'
+  }
+  return exam.status
+}
+
+function labelStatus(examOrStatus) {
+  const s = typeof examOrStatus === 'string' ? examOrStatus : derivedStatus(examOrStatus)
+  return { BORRADOR: 'Borrador', PUBLICADO: 'Publicado', EN_CURSO: 'En curso', PROGRAMADO: 'Programado', CERRADO: 'Cerrado', SIN_PROGRAMAR: 'Sin programar' }[s] || s
+}
+
+function statusStyle(examOrStatus) {
+  const s = typeof examOrStatus === 'string' ? examOrStatus : derivedStatus(examOrStatus)
+  const base = { display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 }
+  if (s === 'EN_CURSO')   return { ...base, background: '#DDF6EC', color: '#087A55' }
+  if (s === 'PUBLICADO')  return { ...base, background: '#DDF6EC', color: '#087A55' }
+  if (s === 'PROGRAMADO') return { ...base, background: '#FEF3C7', color: '#92400E' }
+  if (s === 'CERRADO')    return { ...base, background: '#ECEFF3', color: '#4A5565' }
+  if (s === 'SIN_PROGRAMAR') return { ...base, background: '#EDE9FE', color: '#5B21B6' }
   return { ...base, background: '#E6EEFF', color: '#1956D8' }
 }
 
@@ -1441,7 +2073,7 @@ function questionDisplayTitle(question) {
 
 const styles = {
   page: { minHeight: '100vh', background: '#F4F8FA', color: '#09222A' },
-  header: { background: '#09222A', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { background: 'linear-gradient(120deg, #09222A 0%, #1956D8 100%)', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   brand: { display: 'flex', alignItems: 'center', gap: 12 },
   headerTitle: { fontSize: 20, fontWeight: 700, margin: 0 },
   headerUser: { fontSize: 13, opacity: 0.72 },
@@ -1461,6 +2093,8 @@ const styles = {
   secondaryBtn: { minHeight: 38, padding: '8px 14px', background: '#fff', color: '#1956D8', border: '1px solid #1956D8', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   disabledBtn: { minHeight: 38, padding: '8px 16px', background: '#C9DDE3', color: '#536B76', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700 },
   closeBtn: { minHeight: 38, padding: '8px 16px', background: '#fff', color: '#9B2C2C', border: '1px solid #9B2C2C', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  examGroup: { marginBottom: 10 },
+  examGroupLabel: { fontSize: 11, fontWeight: 800, color: '#7B919B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '10px 0 4px', paddingLeft: 4 },
   examItem: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#fff', padding: '8px 4px', display: 'flex', alignItems: 'center', gap: 4 },
   examItemActive: { width: '100%', borderBottom: '1px solid #E7F0F3', background: '#F0F5FF', padding: '8px 8px', display: 'flex', alignItems: 'center', gap: 4, borderRadius: 6 },
   examItemSelect: { flex: 1, border: 'none', background: 'none', padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left', minWidth: 0 },
@@ -1515,6 +2149,7 @@ const styles = {
   templateActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   inlineFields: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
   muted: { color: '#536B76', fontSize: 14, margin: 0 },
+  fieldError: { color: '#9B2C2C', fontSize: 12, fontWeight: 600 },
   submissionPanel: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: 16, marginBottom: 16 },
   submissionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 },
   submissionTitle: { fontSize: 17, margin: 0 },
@@ -1558,7 +2193,7 @@ const styles = {
 practicalAnswerContainer: {
   width: '100%',
   maxWidth: '100%',
-  height: 220,
+  height: 460,
   overflow: 'auto',
   boxSizing: 'border-box',
   border: '1px solid #D8E8EC',

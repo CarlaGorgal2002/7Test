@@ -19,19 +19,13 @@ export default function LoginPage({ recovery = false }) {
   const [loading, setLoading] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [recoveryMsg, setRecoveryMsg] = useState('')
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('seventest.theme') === 'dark')
   const [showPassword, setShowPassword] = useState(false)
-
-  useEffect(() => {
-    localStorage.setItem('seventest.theme', darkMode ? 'dark' : 'light')
-  }, [darkMode])
 
   async function handleLogin(e) {
     e.preventDefault()
     const cleanEmail = email.trim().toLowerCase()
     const cleanPassword = password.trim()
     if (!cleanEmail || !cleanPassword) return
-
     setError('')
     setLoading(true)
     sessionStorage.setItem('lastLoginEmail', cleanEmail)
@@ -41,8 +35,7 @@ export default function LoginPage({ recovery = false }) {
       sessionStorage.removeItem('lastLoginEmail')
       navigate(ROLE_ROUTES[res.data.role] || '/login', { replace: true })
     } catch (err) {
-      const msg = err.response?.data?.message || 'No se pudo iniciar sesión.'
-      setError(msg)
+      setError(err.response?.data?.message || 'No se pudo iniciar sesión.')
     } finally {
       setLoading(false)
     }
@@ -52,212 +45,230 @@ export default function LoginPage({ recovery = false }) {
     e.preventDefault()
     const cleanEmail = recoveryEmail.trim().toLowerCase()
     if (!cleanEmail) return
-
     setRecoveryMsg('')
     try {
       await api.post('/auth/password-recovery', { email: cleanEmail })
       setRecoveryMsg('Si el email existe, registramos la solicitud de recuperación.')
     } catch {
-      setRecoveryMsg('Revisa que el email tenga un formato valido.')
+      setRecoveryMsg('Revisá que el email tenga un formato válido.')
     }
   }
 
-  const dm = darkMode
   const canSubmit = email.trim() && password.trim() && !loading
 
   return (
-    <>
-      {dm && (
-        <style>{`
-          .dm-input {
-            background-color: #122430 !important;
-            -webkit-box-shadow: 0 0 0 30px #122430 inset !important;
-            color: #F4F8FA !important;
-            -webkit-text-fill-color: #F4F8FA !important;
-          }
-          .dm-input::placeholder {
-            color: #9BB6C1 !important;
-            opacity: 1;
-          }
-        `}</style>
-      )}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: dm
-          ? 'linear-gradient(135deg, #050f14 0%, #09222A 100%)'
-          : 'linear-gradient(135deg, #09222A 0%, #1956D8 100%)',
-      }}>
-        <div style={{
-          background: dm ? '#0d1e28' : '#fff',
-          borderRadius: 12,
-          padding: '40px 48px',
-          width: '100%',
-          maxWidth: 420,
-          boxShadow: '0 8px 32px rgba(9,34,42,0.28)',
-          position: 'relative',
-        }}>
-          <button
-            type="button"
-            onClick={() => setDarkMode(!dm)}
-            style={styles.themeButton}
-            title={dm ? 'Modo claro' : 'Modo oscuro'}
-            aria-label={dm ? 'Activar modo claro' : 'Activar modo oscuro'}
-          >
-            {dm ? 'Claro' : 'Oscuro'}
-          </button>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
-            <Logo dark={dm} size={52} />
-            <h1 style={{ fontSize: 32, fontWeight: 700, color: dm ? '#03BB83' : '#09222A', textAlign: 'center', marginTop: 8 }}>
-              7test
-            </h1>
+    <div style={styles.root}>
+      {/* Panel izquierdo */}
+      <div style={styles.leftPanel}>
+        <div style={styles.leftContent}>
+          <div style={styles.logoRow}>
+            <Logo dark size={48} />
+            <span style={styles.brandName}>7test</span>
           </div>
-          <p style={{ fontSize: 13, color: dm ? '#CBEEF3' : '#1956D8', textAlign: 'center', marginBottom: 32 }}>
-            Plataforma de evaluaciones - UADE
-          </p>
+          <h2 style={styles.tagline}>
+            Toda la gestión de evaluaciones en una sola plataforma.
+          </h2>
+          <p style={styles.sub}>UADE · Testing de Aplicaciones</p>
+        </div>
+      </div>
 
+      {/* Panel derecho */}
+      <div style={styles.rightPanel}>
+        <div style={styles.formCard}>
           {!recovery ? (
             <>
-              <form onSubmit={handleLogin} style={styles.form}>
-                <label htmlFor="email" style={labelStyle(dm)}>Email institucional</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    sessionStorage.setItem('lastLoginEmail', e.target.value.trim().toLowerCase())
-                  }}
-                  placeholder="usuario@uade.edu.ar"
-                  required
-                  className={dm ? 'dm-input' : ''}
-                  style={inputStyle(dm)}
-                />
+              <h1 style={styles.formTitle}>Bienvenido, iniciá sesión</h1>
+              <p style={styles.formSub}>Ingresá con tu cuenta institucional</p>
 
-                <label htmlFor="password" style={labelStyle(dm)}>Contraseña</label>
-                <div style={{ position: 'relative' }}>
+              <form onSubmit={handleLogin} style={styles.form}>
+                <div style={styles.fieldGroup}>
+                  <label htmlFor="email" style={styles.label}>Email institucional</label>
                   <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Ingresa tu contraseña"
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      sessionStorage.setItem('lastLoginEmail', e.target.value.trim().toLowerCase())
+                    }}
+                    placeholder="usuario@uade.edu.ar"
                     required
-                    className={dm ? 'dm-input' : ''}
-                    style={{ ...inputStyle(dm), width: '100%', paddingRight: 86, boxSizing: 'border-box' }}
+                    style={styles.input}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{ ...styles.inlineButton, color: dm ? '#CBEEF3' : '#09222A' }}
-                  >
-                    {showPassword ? 'Ocultar' : 'Ver'}
-                  </button>
                 </div>
 
-                {error && <p style={messageStyle('#FFC012')}>{error}</p>}
+                <div style={styles.fieldGroup}>
+                  <label htmlFor="password" style={styles.label}>Contraseña</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Ingresá tu contraseña"
+                      required
+                      style={{ ...styles.input, paddingRight: 72, boxSizing: 'border-box', width: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={styles.showBtn}
+                    >
+                      {showPassword ? 'Ocultar' : 'Ver'}
+                    </button>
+                  </div>
+                </div>
 
-                <button type="submit" disabled={!canSubmit} style={canSubmit ? styles.primaryButton : styles.disabledButton}>
-                  {loading ? 'Ingresando...' : 'Iniciar sesión'}
+                {error && (
+                  <p style={styles.errorMsg}>{error}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  style={canSubmit ? styles.submitBtn : styles.submitBtnDisabled}
+                >
+                  {loading ? 'Ingresando...' : 'Ingresá'}
                 </button>
               </form>
 
-              <button onClick={() => navigate('/recuperar-contrasena')} style={linkStyle(dm)}>
+              <button onClick={() => navigate('/recuperar-contrasena')} style={styles.linkBtn}>
                 Olvidé mi contraseña
               </button>
             </>
           ) : (
             <>
+              <h1 style={styles.formTitle}>Recuperar contraseña</h1>
+              <p style={styles.formSub}>Te enviaremos las instrucciones por email</p>
+
               <form onSubmit={handleRecovery} style={styles.form}>
-                <label htmlFor="recovery-email" style={labelStyle(dm)}>Email institucional</label>
-                <input
-                  id="recovery-email"
-                  type="email"
-                  value={recoveryEmail}
-                  onChange={(e) => setRecoveryEmail(e.target.value)}
-                  placeholder="usuario@uade.edu.ar"
-                  required
-                  className={dm ? 'dm-input' : ''}
-                  style={inputStyle(dm)}
-                />
-                {recoveryMsg && <p style={messageStyle('#03BB83')}>{recoveryMsg}</p>}
-                <button type="submit" disabled={!recoveryEmail.trim()} style={recoveryEmail.trim() ? styles.primaryButton : styles.disabledButton}>
+                <div style={styles.fieldGroup}>
+                  <label htmlFor="recovery-email" style={styles.label}>Email institucional</label>
+                  <input
+                    id="recovery-email"
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    placeholder="usuario@uade.edu.ar"
+                    required
+                    style={styles.input}
+                  />
+                </div>
+                {recoveryMsg && <p style={{ ...styles.errorMsg, borderColor: '#03BB83', background: '#F0FDF4', color: '#087A55' }}>{recoveryMsg}</p>}
+                <button
+                  type="submit"
+                  disabled={!recoveryEmail.trim()}
+                  style={recoveryEmail.trim() ? styles.submitBtn : styles.submitBtnDisabled}
+                >
                   Enviar solicitud
                 </button>
               </form>
 
-              <button onClick={() => navigate('/login')} style={linkStyle(dm)}>
-                Volver al inicio de sesión
+              <button onClick={() => navigate('/login')} style={styles.linkBtn}>
+                ← Volver al inicio de sesión
               </button>
             </>
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
-function labelStyle(dm) {
-  return { fontSize: 13, fontWeight: 600, color: dm ? '#CBEEF3' : '#09222A' }
-}
-
-function inputStyle(dm) {
-  return {
-    padding: '10px 14px',
-    border: `1.5px solid ${dm ? '#3D6574' : '#CBEEF3'}`,
+const styles = {
+  root: {
+    display: 'flex',
+    minHeight: '100vh',
+  },
+  leftPanel: {
+    flex: '0 0 45%',
+    background: 'linear-gradient(150deg, #09222A 0%, #0d3060 50%, #1956D8 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '48px 56px',
+    '@media (max-width: 768px)': { display: 'none' },
+  },
+  leftContent: {
+    maxWidth: 360,
+  },
+  logoRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 40,
+  },
+  brandName: {
+    fontSize: 32,
+    fontWeight: 800,
+    color: '#fff',
+    letterSpacing: '-0.5px',
+  },
+  tagline: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: '#fff',
+    lineHeight: 1.3,
+    margin: '0 0 16px',
+  },
+  sub: {
+    fontSize: 14,
+    color: 'rgba(203,238,243,0.7)',
+    margin: 0,
+  },
+  rightPanel: {
+    flex: 1,
+    background: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '48px 40px',
+  },
+  formCard: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  formTitle: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: '#1956D8',
+    margin: '0 0 6px',
+  },
+  formSub: {
+    fontSize: 14,
+    color: '#536B76',
+    margin: '0 0 32px',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 18,
+  },
+  fieldGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#09222A',
+  },
+  input: {
+    padding: '12px 14px',
+    border: '1.5px solid #D8E8EC',
     borderRadius: 8,
     fontSize: 15,
     outline: 'none',
-    color: dm ? '#F4F8FA' : '#09222A',
-    background: dm ? '#122430' : '#fff',
-  }
-}
-
-function messageStyle(borderColor) {
-  return {
     color: '#09222A',
-    fontSize: 13,
-    background: '#CBEEF3',
-    padding: '8px 12px',
-    borderRadius: 6,
-    borderLeft: `3px solid ${borderColor}`,
-  }
-}
-
-function linkStyle(dm) {
-  return {
-    marginTop: 16,
-    display: 'block',
-    textAlign: 'center',
-    background: 'none',
-    border: 'none',
-    color: dm ? '#CBEEF3' : '#1956D8',
-    fontSize: 13,
-    textDecoration: 'underline',
+    background: '#FAFCFD',
+    transition: 'border-color .15s',
     width: '100%',
-    cursor: 'pointer',
-  }
-}
-
-const styles = {
-  form: { display: 'flex', flexDirection: 'column', gap: 12 },
-  themeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    background: 'none',
-    border: 'none',
-    fontSize: 13,
-    cursor: 'pointer',
-    color: '#1956D8',
-    fontWeight: 700,
+    boxSizing: 'border-box',
   },
-  inlineButton: {
+  showBtn: {
     position: 'absolute',
-    right: 10,
+    right: 12,
     top: '50%',
     transform: 'translateY(-50%)',
     background: 'none',
@@ -265,27 +276,49 @@ const styles = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 700,
+    color: '#1956D8',
   },
-  primaryButton: {
-    marginTop: 8,
-    padding: '12px',
+  errorMsg: {
+    fontSize: 13,
+    color: '#7A0000',
+    background: '#FFF0F0',
+    padding: '10px 14px',
+    borderRadius: 6,
+    borderLeft: '3px solid #DC2626',
+    margin: 0,
+  },
+  submitBtn: {
+    padding: '13px',
     background: '#1956D8',
     color: '#fff',
     border: 'none',
     borderRadius: 8,
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     cursor: 'pointer',
+    marginTop: 4,
   },
-  disabledButton: {
-    marginTop: 8,
-    padding: '12px',
+  submitBtnDisabled: {
+    padding: '13px',
     background: '#C9DDE3',
     color: '#536B76',
     border: 'none',
     borderRadius: 8,
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     cursor: 'not-allowed',
+    marginTop: 4,
+  },
+  linkBtn: {
+    marginTop: 20,
+    display: 'block',
+    textAlign: 'center',
+    background: 'none',
+    border: 'none',
+    color: '#1956D8',
+    fontSize: 13,
+    textDecoration: 'underline',
+    width: '100%',
+    cursor: 'pointer',
   },
 }
