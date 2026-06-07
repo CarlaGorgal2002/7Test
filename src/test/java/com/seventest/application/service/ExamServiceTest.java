@@ -40,6 +40,9 @@ class ExamServiceTest {
     @Mock
     private ExamSubmissionRepository submissionRepository;
 
+    @Mock
+    private GeminiGradingService geminiGradingService;
+
     @InjectMocks
     private ExamService examService;
 

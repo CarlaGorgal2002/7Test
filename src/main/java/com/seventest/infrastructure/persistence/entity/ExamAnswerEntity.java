@@ -30,6 +30,17 @@ public class ExamAnswerEntity {
     @Column(name = "comment", length = 3000)
     private String comment;
 
+    @Column(name = "score_ia", precision = 6, scale = 2)
+    private java.math.BigDecimal scoreIa;
+
+    @Column(name = "accuracy_ia", precision = 3, scale = 2)
+    private java.math.BigDecimal accuracyIa;
+
+    @Column(name = "feedback_ia", length = 4000)
+    private String feedbackIa;
+
+    @Column(name = "grading_status", length = 50)
+    private String gradingStatus;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

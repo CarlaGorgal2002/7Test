@@ -512,7 +512,13 @@ async function renameTopic(topicId) {
       setGradingSubmission(detail)
       const initial = {}
       detail.questions.forEach(q => {
-        initial[q.questionId] = { score: q.score ?? '', comment: q.comment ?? '' }
+        const initialScore = q.score != null ? q.score : (q.scoreIa != null ? q.scoreIa : '');
+        const initialComment = q.comment != null ? q.comment : (q.feedbackIa != null ? q.feedbackIa : '');
+        initial[q.questionId] = {
+          score: initialScore,
+          comment: initialComment,
+          correctionIncorrect: false
+        }
       })
       setGradeData(initial)
     } catch (err) {
@@ -524,11 +530,15 @@ async function renameTopic(topicId) {
     if (!gradingSubmission) return
     setGradeSaving(true)
     try {
-      const answers = gradingSubmission.questions.map(q => ({
-        questionId: q.questionId,
-        score: gradeData[q.questionId]?.score === '' ? null : Number(gradeData[q.questionId]?.score ?? null),
-        comment: gradeData[q.questionId]?.comment || '',
-      }))
+      const answers = gradingSubmission.questions.map(q => {
+        const gd = gradeData[q.questionId]
+        return {
+          questionId: q.questionId,
+          score: gd?.score === '' ? null : Number(gd?.score ?? null),
+          comment: gd?.comment || '',
+          correctionIncorrect: !!gd?.correctionIncorrect
+        }
+      })
       const res = await api.put(`/submissions/${gradingSubmission.id}/grade`, { answers })
       setGradingSubmission(res.data)
       setMessage('Calificación guardada.')
@@ -1666,6 +1676,38 @@ async function renameTopic(topicId) {
                         <pre style={styles.gradeAnswerText}>{q.answerText || '(sin respuesta)'}</pre>
                       )}
                     </div>
+                    
+                    {/* Caja de sugerencias de IA */}
+                    {!isTable && !isTree && (
+                      q.gradingStatus === 'IA_FAILED' ? (
+                        <div style={{ background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 8, padding: '8px 12px', margin: '8px 0 12px', fontSize: 13, color: '#C53030' }}>
+                          ⚠️ Sin corrección automática por fallo en procesamiento de IA
+                        </div>
+                      ) : q.scoreIa != null ? (
+                        <div style={{ background: '#EBF8FF', border: '1px solid #BEE3F8', borderRadius: 8, padding: '10px 14px', margin: '8px 0 12px', fontSize: 13, color: '#2B6CB0' }}>
+                          <div style={{ fontWeight: 'bold', marginBottom: 4 }}>🤖 Sugerencia de la IA: {q.scoreIa} pts (Exactitud: {Number(q.accuracyIa) * 100}%)</div>
+                          {q.feedbackIa && <div style={{ fontStyle: 'italic' }}>"{q.feedbackIa}"</div>}
+                        </div>
+                      ) : null
+                    )}
+
+                    {/* Checkbox de Discrepancia si el puntaje difiere */}
+                    {!isTable && !isTree && q.scoreIa != null && gd.score !== '' && Number(gd.score) !== Number(q.scoreIa) && (
+                      <div style={{ background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 8, padding: '8px 12px', margin: '8px 0 12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9B2C2C', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!gd.correctionIncorrect}
+                            onChange={e => setGradeData(prev => ({
+                              ...prev,
+                              [q.questionId]: { ...gd, correctionIncorrect: e.target.checked }
+                            }))}
+                          />
+                          Marcar como corrección incorrecta de IA
+                        </label>
+                      </div>
+                    )}
+
                     <div style={styles.gradeInputRow}>
                       <div style={styles.gradeScoreBlock}>
                         <label style={styles.label}>Puntaje otorgado</label>
@@ -1861,7 +1903,7 @@ const lStyles = {
 }
 
 function isGraded(submission) {
-  return submission.questions?.some(q => q.score != null)
+  return submission.reviewed || (submission.questions && submission.questions.length > 0 && submission.questions.every(q => q.score != null))
 }
 
 function nextTopicLetter(topics) {

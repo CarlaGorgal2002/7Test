@@ -9,15 +9,12 @@ import java.util.UUID;
 
 @Getter
 @Builder(toBuilder = true)
-public class ExamAnswer {
+public class IncorrectCorrectionLog {
     private final UUID id;
     private final UUID questionId;
-    private final String answerText;
-    private final BigDecimal score;
-    private final String comment;
-    private final BigDecimal scoreIa;
+    private final UUID submissionId;
     private final BigDecimal accuracyIa;
-    private final String feedbackIa;
-    private final String gradingStatus;
-    private final Instant updatedAt;
+    private final BigDecimal scoreIa;
+    private final BigDecimal scoreCorrected;
+    private final Instant timestamp;
 }

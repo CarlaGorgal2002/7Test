@@ -13,10 +13,12 @@ import com.seventest.domain.model.Role;
 import com.seventest.domain.model.SubmissionStatus;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
+import com.seventest.domain.model.IncorrectCorrectionLog;
 import com.seventest.domain.port.in.ExamSubmissionUseCase;
 import com.seventest.domain.port.out.ExamRepository;
 import com.seventest.domain.port.out.ExamSubmissionRepository;
 import com.seventest.domain.port.out.UserRepository;
+import com.seventest.domain.port.out.IncorrectCorrectionLogRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +46,9 @@ class ExamSubmissionServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private IncorrectCorrectionLogRepository logRepository;
 
     @InjectMocks
     private ExamSubmissionService examSubmissionService;
@@ -978,5 +983,65 @@ class ExamSubmissionServiceTest {
                 () -> examSubmissionService.grade("teacher@test.com", submissionId, new ArrayList<>())
         );
         Assertions.assertEquals("El examen pertenece a otro profesor", exception.getMessage());
+    }
+
+    @Test
+    void grade_withDiscrepancyLog_savesLogAndRecalculatesFinalScore() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId1 = UUID.randomUUID();
+        UUID qId2 = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion q1 = ExamQuestion.builder().id(qId1).prompt("Q1").points(new BigDecimal("5.0")).build();
+        ExamQuestion q2 = ExamQuestion.builder().id(qId2).prompt("Q2").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(q1, q2));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer a1 = ExamAnswer.builder()
+                .id(UUID.randomUUID())
+                .questionId(qId1)
+                .answerText("Answer 1")
+                .scoreIa(new BigDecimal("3.0"))
+                .accuracyIa(new BigDecimal("0.6"))
+                .build();
+        ExamAnswer a2 = ExamAnswer.builder()
+                .id(UUID.randomUUID())
+                .questionId(qId2)
+                .answerText("Answer 2")
+                .scoreIa(new BigDecimal("4.0"))
+                .accuracyIa(new BigDecimal("0.8"))
+                .build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(a1, a2));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // update q1 with different score and correctionIncorrect = true
+        // update q2 with same score
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId1, new BigDecimal("4.5"), "Updated by teacher", true),
+                new ExamSubmissionUseCase.GradeUpdate(qId2, new BigDecimal("4.0"), "IA score correct", false)
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, new BigDecimal("4.5").compareTo(result.getAnswers().get(0).getScore()));
+        Assertions.assertEquals(0, new BigDecimal("4.0").compareTo(result.getAnswers().get(1).getScore()));
+        // check final score is the sum: 4.5 + 4.0 = 8.5
+        Assertions.assertEquals(0, new BigDecimal("8.5").compareTo(result.getFinalScore()));
+        // all questions scored, so reviewed should be true
+        Assertions.assertTrue(result.isReviewed());
+
+        // verify log repository was called once for the discrepancy
+        Mockito.verify(logRepository, Mockito.times(1)).save(Mockito.any(IncorrectCorrectionLog.class));
     }
 }

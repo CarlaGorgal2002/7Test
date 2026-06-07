@@ -12,6 +12,7 @@ public record GradeRequest(
     public record QuestionGrade(
             @NotNull UUID questionId,
             BigDecimal score,
-            String comment
+            String comment,
+            Boolean correctionIncorrect
     ) {}
 }
