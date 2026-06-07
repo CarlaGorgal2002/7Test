@@ -3,6 +3,7 @@ package com.seventest.application.service;
 import com.seventest.domain.exception.ExamNotFoundException;
 import com.seventest.domain.exception.UserNotFoundException;
 import com.seventest.domain.model.Exam;
+import com.seventest.domain.model.ExamSubmission;
 import com.seventest.domain.model.ExamQuestion;
 import com.seventest.domain.model.ExamStatus;
 import com.seventest.domain.model.ExamTopic;
@@ -39,6 +40,9 @@ class ExamServiceTest {
 
     @Mock
     private ExamSubmissionRepository submissionRepository;
+
+    @Mock
+    private GeminiGradingService geminiGradingService;
 
     @InjectMocks
     private ExamService examService;
@@ -1048,14 +1052,46 @@ class ExamServiceTest {
     }
 
     @Test
-    void publishFeedback_statusClosed_savesWithFeedbackPublished() {
+    void publishFeedback_notAllSubmissionsReviewed_throwsIllegalArgumentException() {
         // Arrange
         UUID teacherId = UUID.randomUUID();
         UUID examId = UUID.randomUUID();
         User teacher = createSampleTeacher(teacherId, "teacher@test.com");
         Exam exam = createSampleExam(examId, teacherId, ExamStatus.CERRADO, new ArrayList<>());
+        
+        ExamSubmission unreviewedSubmission = ExamSubmission.builder()
+                .id(UUID.randomUUID())
+                .reviewed(false)
+                .build();
+        
         Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
         Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(unreviewedSubmission));
+
+        // Act & Assert
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> examService.publishFeedback("teacher@test.com", examId)
+        );
+        Assertions.assertEquals("No se pueden publicar devoluciones porque hay entregas pendientes de revisión", exception.getMessage());
+    }
+
+    @Test
+    void publishFeedback_allSubmissionsReviewed_savesWithFeedbackPublished() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.CERRADO, new ArrayList<>());
+        
+        ExamSubmission reviewedSubmission = ExamSubmission.builder()
+                .id(UUID.randomUUID())
+                .reviewed(true)
+                .build();
+        
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(reviewedSubmission));
         Mockito.when(examRepository.save(Mockito.any(Exam.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // Act

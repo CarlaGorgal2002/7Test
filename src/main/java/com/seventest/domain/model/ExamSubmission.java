@@ -3,6 +3,7 @@ package com.seventest.domain.model;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,8 @@ public class ExamSubmission {
     private final String studentName;
     private final SubmissionStatus status;
     private final List<ExamAnswer> answers;
+    private final BigDecimal finalScore;
+    private final boolean reviewed;
     private final Instant startedAt;
     private final Instant updatedAt;
     private final Instant submittedAt;

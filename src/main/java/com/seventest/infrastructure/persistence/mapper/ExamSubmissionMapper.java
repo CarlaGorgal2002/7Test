@@ -27,6 +27,8 @@ public final class ExamSubmissionMapper {
                         .sorted(Comparator.comparing(answer -> answer.getQuestionId().toString()))
                         .map(ExamSubmissionMapper::toDomain)
                         .toList())
+                .finalScore(entity.getFinalScore())
+                .reviewed(Boolean.TRUE.equals(entity.getReviewed()))
                 .startedAt(entity.getStartedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .submittedAt(entity.getSubmittedAt())
@@ -43,6 +45,8 @@ public final class ExamSubmissionMapper {
                 .studentId(submission.getStudentId())
                 .studentName(submission.getStudentName())
                 .status(submission.getStatus())
+                .finalScore(submission.getFinalScore())
+                .reviewed(submission.isReviewed())
                 .startedAt(submission.getStartedAt())
                 .updatedAt(submission.getUpdatedAt())
                 .submittedAt(submission.getSubmittedAt())
@@ -56,6 +60,8 @@ public final class ExamSubmissionMapper {
         entity.setExamTitle(submission.getExamTitle());
         entity.setTopicName(submission.getTopicName());
         entity.setStatus(submission.getStatus());
+        entity.setFinalScore(submission.getFinalScore());
+        entity.setReviewed(submission.isReviewed());
         entity.setUpdatedAt(submission.getUpdatedAt());
         entity.setSubmittedAt(submission.getSubmittedAt());
         entity.getAnswers().clear();
@@ -69,6 +75,10 @@ public final class ExamSubmissionMapper {
                 .answerText(entity.getAnswerText())
                 .score(entity.getScore())
                 .comment(entity.getComment())
+                .scoreIa(entity.getScoreIa())
+                .accuracyIa(entity.getAccuracyIa())
+                .feedbackIa(entity.getFeedbackIa())
+                .gradingStatus(entity.getGradingStatus())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
     }
@@ -84,6 +94,10 @@ public final class ExamSubmissionMapper {
                     .answerText(answer.getAnswerText())
                     .score(answer.getScore())
                     .comment(answer.getComment())
+                    .scoreIa(answer.getScoreIa())
+                    .accuracyIa(answer.getAccuracyIa())
+                    .feedbackIa(answer.getFeedbackIa())
+                    .gradingStatus(answer.getGradingStatus())
                     .updatedAt(answer.getUpdatedAt())
                     .submission(entity)
                     .build());

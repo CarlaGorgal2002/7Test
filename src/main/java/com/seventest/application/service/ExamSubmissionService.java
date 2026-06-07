@@ -11,10 +11,11 @@ import com.seventest.domain.model.ExamSubmission;
 import com.seventest.domain.model.ExamTopic;
 import com.seventest.domain.model.Role;
 import com.seventest.domain.model.SubmissionStatus;
-import com.seventest.domain.model.User;
+import com.seventest.domain.model.*;
 import com.seventest.domain.port.in.ExamSubmissionUseCase;
 import com.seventest.domain.port.out.ExamRepository;
 import com.seventest.domain.port.out.ExamSubmissionRepository;
+import com.seventest.domain.port.out.IncorrectCorrectionLogRepository;
 import com.seventest.domain.port.out.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
     private final ExamSubmissionRepository submissionRepository;
     private final ExamRepository examRepository;
     private final UserRepository userRepository;
+    private final IncorrectCorrectionLogRepository logRepository;
 
     @Override
     public ExamSubmission start(String studentEmail, UUID examId, UUID topicId) {
@@ -136,6 +138,7 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
         Map<UUID, GradeUpdate> updateMap = updates == null ? Map.of() : updates.stream()
                 .collect(Collectors.toMap(GradeUpdate::questionId, u -> u, (a, b) -> b));
         Instant now = Instant.now();
+
         List<ExamAnswer> answers = submission.getAnswers().stream()
                 .map(answer -> {
                     GradeUpdate u = updateMap.get(answer.getQuestionId());
@@ -148,6 +151,21 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
                         if (max != null && score.compareTo(max) > 0)
                             throw new IllegalArgumentException("El puntaje no puede superar el valor máximo de la pregunta");
                     }
+
+                    // Registrar log si el profesor marca que la corrección de IA es incorrecta
+                    if (Boolean.TRUE.equals(u.correctionIncorrect()) && answer.getScoreIa() != null) {
+                        IncorrectCorrectionLog logObj = IncorrectCorrectionLog.builder()
+                                .id(UUID.randomUUID())
+                                .questionId(answer.getQuestionId())
+                                .submissionId(submission.getId())
+                                .accuracyIa(answer.getAccuracyIa())
+                                .scoreIa(answer.getScoreIa())
+                                .scoreCorrected(score)
+                                .timestamp(now)
+                                .build();
+                        logRepository.save(logObj);
+                    }
+
                     return answer.toBuilder()
                             .score(score)
                             .comment(u.comment() == null ? null : u.comment().trim())
@@ -155,7 +173,24 @@ public class ExamSubmissionService implements ExamSubmissionUseCase {
                             .build();
                 })
                 .toList();
-        return submissionRepository.save(submission.toBuilder().answers(answers).updatedAt(now).build());
+
+        // Calcular la nota final del examen
+        BigDecimal finalScore = BigDecimal.ZERO;
+        for (ExamAnswer answer : answers) {
+            if (answer.getScore() != null) {
+                finalScore = finalScore.add(answer.getScore());
+            }
+        }
+
+        // reviewed = true si todas las preguntas de la entrega tienen puntaje
+        boolean reviewed = answers.stream().allMatch(a -> a.getScore() != null);
+
+        return submissionRepository.save(submission.toBuilder()
+                .answers(answers)
+                .finalScore(finalScore)
+                .reviewed(reviewed)
+                .updatedAt(now)
+                .build());
     }
 
     @Override
