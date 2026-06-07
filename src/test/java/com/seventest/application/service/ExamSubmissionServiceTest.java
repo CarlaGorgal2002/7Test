@@ -1044,4 +1044,43 @@ class ExamSubmissionServiceTest {
         // verify log repository was called once for the discrepancy
         Mockito.verify(logRepository, Mockito.times(1)).save(Mockito.any(IncorrectCorrectionLog.class));
     }
+
+    @Test
+    void grade_withCorrectionIncorrectTrueButScoreIaNull_doesNotSaveLog() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        ExamQuestion q = ExamQuestion.builder().id(qId).prompt("Q").points(new BigDecimal("5.0")).build();
+        ExamTopic topic = createSampleTopic(topicId, "Topic", List.of(q));
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.PUBLICADO, List.of(topic));
+
+        ExamAnswer a = ExamAnswer.builder()
+                .id(UUID.randomUUID())
+                .questionId(qId)
+                .answerText("Answer")
+                .scoreIa(null)
+                .build();
+        ExamSubmission submission = createSampleSubmission(submissionId, examId, UUID.randomUUID(), SubmissionStatus.ENTREGADO, topicId, List.of(a));
+
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.save(Mockito.any(ExamSubmission.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ExamSubmissionUseCase.GradeUpdate> updates = List.of(
+                new ExamSubmissionUseCase.GradeUpdate(qId, new BigDecimal("4.5"), "Comment", true)
+        );
+
+        // Act
+        ExamSubmission result = examSubmissionService.grade("teacher@test.com", submissionId, updates);
+
+        // Assert
+        Assertions.assertNotNull(result);
+        Mockito.verify(logRepository, Mockito.never()).save(Mockito.any(IncorrectCorrectionLog.class));
+    }
 }

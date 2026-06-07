@@ -656,4 +656,147 @@ class GeminiGradingServiceTest {
         // Assert
         Mockito.verify(geminiClient, Mockito.times(1)).evaluate(Mockito.anyString(), Mockito.anyString());
     }
+
+    @Test
+    void processExamSubmissions_submissionThrowsException_continuesProcessing() {
+        // Arrange
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        ExamTopic topic = ExamTopic.builder().id(topicId).questions(new ArrayList<>()).build();
+        Exam exam = Exam.builder().id(examId).topics(List.of(topic)).build();
+
+        // This submission has null answers list, which throws a NullPointerException in the loop
+        ExamSubmission badSubmission = ExamSubmission.builder()
+                .id(UUID.randomUUID())
+                .examId(examId)
+                .topicId(topicId)
+                .answers(null)
+                .build();
+
+        // This submission is valid
+        ExamSubmission goodSubmission = ExamSubmission.builder()
+                .id(UUID.randomUUID())
+                .examId(examId)
+                .topicId(topicId)
+                .answers(new ArrayList<>())
+                .build();
+
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(badSubmission, goodSubmission));
+        Mockito.when(syllabusProvider.getSyllabus()).thenReturn("Syllabus");
+
+        // Act
+        geminiGradingService.processExamSubmissions(examId);
+
+        // Assert
+        Mockito.verify(submissionRepository, Mockito.times(1)).save(Mockito.any(ExamSubmission.class));
+    }
+
+    @Test
+    void processExamSubmissions_nullAnswerText_usesSinResponderPlaceholder() {
+        // Arrange
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        ExamQuestion question = ExamQuestion.builder()
+                .id(qId)
+                .prompt("Q")
+                .modelAnswer("Answer")
+                .points(BigDecimal.TEN)
+                .build();
+
+        ExamTopic topic = ExamTopic.builder()
+                .id(topicId)
+                .questions(List.of(question))
+                .build();
+
+        Exam exam = Exam.builder()
+                .id(examId)
+                .topics(List.of(topic))
+                .build();
+
+        ExamAnswer answer = ExamAnswer.builder()
+                .questionId(qId)
+                .answerText(null) // null answer text
+                .build();
+
+        ExamSubmission submission = ExamSubmission.builder()
+                .id(UUID.randomUUID())
+                .examId(examId)
+                .topicId(topicId)
+                .answers(List.of(answer))
+                .build();
+
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(submission));
+        Mockito.when(syllabusProvider.getSyllabus()).thenReturn("Syllabus");
+
+        GeminiClient.GradingResult mockResult = GeminiClient.GradingResult.builder()
+                .accuracy(BigDecimal.ZERO)
+                .feedback("Sin respuesta")
+                .build();
+
+        Mockito.when(geminiClient.evaluate(Mockito.anyString(), Mockito.anyString())).thenReturn(mockResult);
+
+        // Act
+        geminiGradingService.processExamSubmissions(examId);
+
+        // Assert
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(geminiClient).evaluate(Mockito.anyString(), promptCaptor.capture());
+        Assertions.assertTrue(promptCaptor.getValue().contains("(Sin responder)"));
+    }
+
+    @Test
+    void processExamSubmissions_withNullPromptAndNonNullModelAnswer_isTextQuestionTrue() {
+        // Arrange
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID qId = UUID.randomUUID();
+
+        ExamQuestion question = ExamQuestion.builder()
+                .id(qId)
+                .prompt(null) // null prompt
+                .modelAnswer("Some model answer") // non-null model answer
+                .points(BigDecimal.TEN)
+                .build();
+
+        ExamTopic topic = ExamTopic.builder()
+                .id(topicId)
+                .questions(List.of(question))
+                .build();
+
+        Exam exam = Exam.builder()
+                .id(examId)
+                .topics(List.of(topic))
+                .build();
+
+        ExamAnswer answer = ExamAnswer.builder()
+                .questionId(qId)
+                .build();
+
+        ExamSubmission submission = ExamSubmission.builder()
+                .examId(examId)
+                .topicId(topicId)
+                .answers(List.of(answer))
+                .build();
+
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(submission));
+        Mockito.when(syllabusProvider.getSyllabus()).thenReturn("Syllabus");
+
+        GeminiClient.GradingResult mockResult = GeminiClient.GradingResult.builder()
+                .accuracy(BigDecimal.ONE)
+                .feedback("Good")
+                .build();
+
+        Mockito.when(geminiClient.evaluate(Mockito.anyString(), Mockito.anyString())).thenReturn(mockResult);
+
+        // Act
+        geminiGradingService.processExamSubmissions(examId);
+
+        // Assert
+        Mockito.verify(geminiClient, Mockito.times(1)).evaluate(Mockito.anyString(), Mockito.anyString());
+    }
 }
