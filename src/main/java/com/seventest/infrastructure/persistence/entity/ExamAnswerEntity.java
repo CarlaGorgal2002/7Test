@@ -24,7 +24,7 @@ public class ExamAnswerEntity {
     @Column(name = "answer_text", nullable = false, length = 20000)
     private String answerText;
 
-    @Column(name = "score", precision = 6, scale = 2)
+    @Column(name = "score", precision = 10, scale = 4)
     private java.math.BigDecimal score;
 
     @Column(name = "comment", length = 3000)

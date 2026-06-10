@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/**", "/api/config/**").hasRole("ADMINISTRADOR")
                 .requestMatchers("/api/exams/**").authenticated()
                 .requestMatchers("/api/submissions/**").authenticated()
+                .requestMatchers("/api/ai-grading/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthFilter(jwtProvider, tokenBlacklist),

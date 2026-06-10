@@ -7,6 +7,7 @@ public record ExamQuestionResponse(
         UUID id,
         String prompt,
         String modelAnswer,
+        String teacherCriteria,
         BigDecimal points,
         int displayOrder
 ) {

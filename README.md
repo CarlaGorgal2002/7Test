@@ -88,6 +88,27 @@ http://localhost:8080/v3/api-docs
 | `app.jwt.expiration-ms` | Duración del token en ms | `3600000` (1 hora) |
 | `app.security.max-login-attempts` | Intentos antes de bloquear cuenta | `5` |
 | `app.security.lockout-duration-minutes` | Minutos de bloqueo | `15` |
+| `GEMINI_ENABLED` | Habilita sugerencias tentativas de correccion | `false` |
+| `GEMINI_API_KEY` | Clave secreta de Gemini, solo backend | vacio |
+| `GEMINI_MODEL` | Modelo Gemini configurable | `gemini-3.5-flash` |
+
+### Configurar Gemini localmente
+
+1. Ingresar a [Google AI Studio API Keys](https://aistudio.google.com/apikey).
+2. Crear una clave asociada al proyecto y restringirla a Gemini API.
+3. Abrir PowerShell en la raiz del proyecto.
+4. Definir las variables solo para esa terminal:
+
+```powershell
+$env:GEMINI_ENABLED="true"
+$env:GEMINI_API_KEY="tu-clave"
+$env:GEMINI_MODEL="gemini-3.5-flash"
+.\mvnw.cmd spring-boot:run
+```
+
+La clave nunca debe colocarse en React, Vite, archivos YAML versionados, Dockerfile ni commits.
+Sin clave o con `GEMINI_ENABLED=false`, toda la correccion manual continua funcionando.
+La guia completa esta en `PLAN_EJECUCION_INTEGRACION_IA_GEMINI_DESDE_CERO.md`.
 
 ---
 

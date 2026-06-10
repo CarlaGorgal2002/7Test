@@ -12,6 +12,7 @@ public class ExamQuestion {
     private final UUID id;
     private final String prompt;
     private final String modelAnswer;
+    private final String teacherCriteria;
     private final BigDecimal points;
     private final int displayOrder;
 }

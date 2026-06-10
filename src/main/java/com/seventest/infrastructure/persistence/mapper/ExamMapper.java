@@ -96,6 +96,7 @@ public final class ExamMapper {
                 .id(entity.getId())
                 .prompt(entity.getPrompt())
                 .modelAnswer(entity.getModelAnswer())
+                .teacherCriteria(entity.getTeacherCriteria())
                 .points(entity.getPoints())
                 .displayOrder(entity.getDisplayOrder())
                 .build();
@@ -127,6 +128,7 @@ public final class ExamMapper {
                     .id(question.getId())
                     .prompt(question.getPrompt())
                     .modelAnswer(question.getModelAnswer())
+                    .teacherCriteria(question.getTeacherCriteria() == null ? "" : question.getTeacherCriteria())
                     .points(question.getPoints())
                     .displayOrder(question.getDisplayOrder())
                     .topic(topicEntity)

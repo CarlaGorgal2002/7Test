@@ -100,7 +100,7 @@ public class ExamController {
                                                     @Valid @RequestBody ExamQuestionRequest request,
                                                     Principal principal) {
         return ResponseEntity.ok(toResponse(examManagementUseCase.addQuestion(principal.getName(), examId, topicId,
-                request.prompt(), request.modelAnswer(), request.points())));
+                request.prompt(), request.modelAnswer(), request.teacherCriteria(), request.points())));
     }
 
     @Operation(summary = "Editar pregunta")
@@ -112,7 +112,7 @@ public class ExamController {
                                                        @Valid @RequestBody ExamQuestionRequest request,
                                                        Principal principal) {
         return ResponseEntity.ok(toResponse(examManagementUseCase.updateQuestion(principal.getName(), examId, topicId, questionId,
-                request.prompt(), request.modelAnswer(), request.points())));
+                request.prompt(), request.modelAnswer(), request.teacherCriteria(), request.points())));
     }
 
     @Operation(summary = "Eliminar pregunta")
@@ -220,6 +220,7 @@ public class ExamController {
                 question.getId(),
                 question.getPrompt(),
                 question.getModelAnswer(),
+                question.getTeacherCriteria(),
                 question.getPoints(),
                 question.getDisplayOrder());
     }

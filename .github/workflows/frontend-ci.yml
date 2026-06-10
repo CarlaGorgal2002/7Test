@@ -28,6 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Test and build
+        run: |
+          npm test
+          npm run build
         # Verifica que no haya errores de compilación/imports rotos

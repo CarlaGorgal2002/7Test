@@ -14,6 +14,9 @@ public record ExamQuestionRequest(
         @Size(max = 20000, message = "La respuesta modelo no puede superar 20000 caracteres")
         String modelAnswer,
 
+        @Size(max = 4000, message = "Los criterios no pueden superar 4000 caracteres")
+        String teacherCriteria,
+
         @NotNull(message = "El puntaje es obligatorio")
         @DecimalMin(value = "0.01", message = "El puntaje debe ser mayor a cero")
         @DecimalMax(value = "10.00", message = "El puntaje no puede superar 10")

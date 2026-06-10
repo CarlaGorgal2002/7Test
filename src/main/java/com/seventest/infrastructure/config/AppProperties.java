@@ -13,6 +13,7 @@ public class AppProperties {
 
     private Jwt jwt = new Jwt();
     private Security security = new Security();
+    private AiGrading aiGrading = new AiGrading();
 
     @Getter
     @Setter
@@ -26,5 +27,21 @@ public class AppProperties {
     public static class Security {
         private int maxLoginAttempts = 5;
         private int lockoutDurationMinutes = 15;
+    }
+
+    @Getter
+    @Setter
+    public static class AiGrading {
+        private boolean enabled;
+        private String apiKey = "";
+        private String model = "gemini-3.5-flash";
+        private String materialVersion = "testing-apps-2026-06-10-v1";
+        private String materialResource = "classpath:course-material/Todo_Testing_de_Apps.pdf";
+        private String materialSha256;
+        private String promptVersion = "testing-grading-v1";
+
+        public boolean isReady() {
+            return enabled && apiKey != null && !apiKey.isBlank();
+        }
     }
 }

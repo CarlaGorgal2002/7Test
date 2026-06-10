@@ -16,8 +16,14 @@ public interface ExamManagementUseCase {
     Exam addTopic(String teacherEmail, UUID examId, String name);
     Exam updateTopic(String teacherEmail, UUID examId, UUID topicId, String name);
     Exam removeTopic(String teacherEmail, UUID examId, UUID topicId);
-    Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, BigDecimal points);
-    Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, BigDecimal points);
+    default Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, BigDecimal points) {
+        return addQuestion(teacherEmail, examId, topicId, prompt, modelAnswer, "", points);
+    }
+    Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points);
+    default Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, BigDecimal points) {
+        return updateQuestion(teacherEmail, examId, topicId, questionId, prompt, modelAnswer, "", points);
+    }
+    Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points);
     Exam removeQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId);
     Exam publish(String teacherEmail, UUID examId);
     Exam close(String teacherEmail, UUID examId);

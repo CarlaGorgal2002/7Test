@@ -24,6 +24,10 @@ public class ExamQuestionEntity {
     @Column(name = "model_answer", nullable = false, length = 20000)
     private String modelAnswer;
 
+    @Column(name = "teacher_criteria", length = 4000)
+    @Builder.Default
+    private String teacherCriteria = "";
+
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal points;
 

@@ -16,27 +16,31 @@ import DecisionTreeEditor, {
   isDecisionTreeValue,
 } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
+import AiSuggestionCard from '../components/AiSuggestionCard.jsx'
 
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
 const emptyExam = { title: '', description: '', courseName: 'Testing de Aplicaciones', durationMinutes: 120, availableDate: '', availableTime: '' }
-const emptyQuestion = { prompt: '', modelAnswer: '', points: '1' }
+const emptyQuestion = { prompt: '', modelAnswer: '', teacherCriteria: '', points: '1' }
 
 const theoryTemplate = {
   prompt: '',
   modelAnswer: '',
+  teacherCriteria: '',
   points: '1',
 }
 
 const decisionTableTemplate = {
   prompt: '',
   modelAnswer: emptyDecisionTableValue(),
+  teacherCriteria: '',
   points: '2',
 }
 
 const decisionTreeTemplate = {
   prompt: '',
   modelAnswer: emptyDecisionTreeValue(),
+  teacherCriteria: '',
   points: '2',
 }
 
@@ -75,6 +79,10 @@ export default function ProfesorLanding() {
   const [gradingSubmission, setGradingSubmission] = useState(null)
   const [gradeData, setGradeData] = useState({})
   const [gradeSaving, setGradeSaving] = useState(false)
+  const [aiStatus, setAiStatus] = useState(null)
+  const [aiJob, setAiJob] = useState(null)
+  const [aiSuggestions, setAiSuggestions] = useState([])
+  const [aiLoading, setAiLoading] = useState(false)
   const [timeoutPopup, setTimeoutPopup] = useState(null)
   const [popupExtraMinutes, setPopupExtraMinutes] = useState(15)
   const [popupCountdown, setPopupCountdown] = useState(600)
@@ -125,6 +133,23 @@ export default function ProfesorLanding() {
     const interval = setInterval(() => setProfNow(Date.now()), 1000)
     return () => clearInterval(interval)
   }, [selectedExam?.status])
+
+  useEffect(() => {
+    if (!aiJob || !['QUEUED', 'RUNNING'].includes(aiJob.status) || !gradingSubmission) return
+    const interval = setInterval(async () => {
+      try {
+        const [jobRes, suggestionsRes] = await Promise.all([
+          api.get(`/ai-grading/jobs/${aiJob.id}`),
+          api.get(`/ai-grading/submissions/${gradingSubmission.id}/suggestions`),
+        ])
+        setAiJob(jobRes.data)
+        setAiSuggestions(suggestionsRes.data)
+      } catch {
+        clearInterval(interval)
+      }
+    }, 1500)
+    return () => clearInterval(interval)
+  }, [aiJob?.id, aiJob?.status, gradingSubmission?.id])
 
   useEffect(() => {
     if (!selectedExam) return
@@ -293,6 +318,7 @@ async function renameTopic(topicId) {
       const res = await api.post(`/exams/${selectedExam.id}/topics/${topicId}/questions`, {
         prompt: form.prompt,
         modelAnswer,
+        teacherCriteria: form.teacherCriteria || '',
         points: Number(form.points),
       })
       replaceExam(res.data)
@@ -314,6 +340,7 @@ async function renameTopic(topicId) {
       const res = await api.put(`/exams/${selectedExam.id}/topics/${topic.id}/questions/${question.id}`, {
         prompt: form.prompt,
         modelAnswer,
+        teacherCriteria: form.teacherCriteria || '',
         points: Number(form.points),
       })
       replaceExam(res.data)
@@ -353,6 +380,7 @@ async function renameTopic(topicId) {
       const res = await api.post(`/exams/${updated.id}/topics/${topicId}/questions`, {
         prompt: question.prompt,
         modelAnswer: question.modelAnswer,
+        teacherCriteria: question.teacherCriteria || '',
         points: Number(question.points),
       })
       updated = res.data
@@ -471,6 +499,7 @@ async function renameTopic(topicId) {
       const res = await api.put(`/exams/${updated.id}/topics/${topic.id}/questions/${q.id}`, {
         prompt: q.prompt,
         modelAnswer: q.modelAnswer,
+        teacherCriteria: q.teacherCriteria || '',
         points: q.targetPoints,
       })
       updated = res.data
@@ -515,6 +544,13 @@ async function renameTopic(topicId) {
         initial[q.questionId] = { score: q.score ?? '', comment: q.comment ?? '' }
       })
       setGradeData(initial)
+      setAiJob(null)
+      const [statusRes, suggestionRes] = await Promise.allSettled([
+        api.get('/ai-grading/status'),
+        api.get(`/ai-grading/submissions/${submission.id}/suggestions`),
+      ])
+      setAiStatus(statusRes.status === 'fulfilled' ? statusRes.value.data : null)
+      setAiSuggestions(suggestionRes.status === 'fulfilled' ? suggestionRes.value.data : [])
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo cargar la entrega.')
     }
@@ -536,6 +572,41 @@ async function renameTopic(topicId) {
       setMessage(err.response?.data?.message || 'No se pudo guardar la calificación.')
     } finally {
       setGradeSaving(false)
+    }
+  }
+
+  async function startAiGrading() {
+    if (!gradingSubmission || aiLoading) return
+    setAiLoading(true)
+    setMessage('')
+    try {
+      const res = await api.post(`/ai-grading/submissions/${gradingSubmission.id}/jobs`)
+      setAiJob(res.data)
+      setMessage('La IA esta generando sugerencias pregunta por pregunta.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo iniciar la correccion con IA.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function reviewAiSuggestion(suggestion, action) {
+    try {
+      const res = await api.post(`/ai-grading/suggestions/${suggestion.id}/${action}`)
+      if (action === 'accept') {
+        setGradeData(prev => ({
+          ...prev,
+          [suggestion.questionId]: {
+            score: String(res.data.suggestedScore),
+            comment: res.data.suggestedComment || '',
+          },
+        }))
+      }
+      const suggestionsRes = await api.get(`/ai-grading/submissions/${gradingSubmission.id}/suggestions`)
+      setAiSuggestions(suggestionsRes.data)
+      setMessage(action === 'accept' ? 'Sugerencia aceptada y copiada a la correccion oficial.' : 'Sugerencia rechazada.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo revisar la sugerencia.')
     }
   }
 
@@ -564,6 +635,7 @@ async function renameTopic(topicId) {
       [question.id]: {
         prompt: question.prompt,
         modelAnswer: initialEditorValue(question),
+        teacherCriteria: question.teacherCriteria || '',
         points: String(question.points),
       },
     }))
@@ -1430,7 +1502,7 @@ async function renameTopic(topicId) {
                                             compact
                                           />
                                         </div>
-                                      ) : (
+                                  ) : (
                                     <AutoGrowTextarea
                                       value={editForm.modelAnswer}
                                       onChange={(e) => updateEditingQuestionForm(question.id, 'modelAnswer', e.target.value)}
@@ -1440,6 +1512,14 @@ async function renameTopic(topicId) {
                                       maxHeight={1400}
                                     />
                                   )}
+                                  <label style={styles.label}>Criterios especificos de correccion (opcional)</label>
+                                  <textarea
+                                    value={editForm.teacherCriteria || ''}
+                                    onChange={(e) => updateEditingQuestionForm(question.id, 'teacherCriteria', e.target.value)}
+                                    style={{ ...styles.textarea, minHeight: 90 }}
+                                    maxLength={4000}
+                                    placeholder="Tienen prioridad sobre la respuesta modelo y los apuntes."
+                                  />
                                   <div style={styles.editQuestionActions}>
                                     <button type="button" onClick={() => { cancelEditQuestion(question.id); removeQuestion(topic.id, question.id) }} style={styles.linkBtn}>Eliminar</button>
                                     <button type="button" onClick={() => cancelEditQuestion(question.id)} style={styles.secondaryBtn}>Cancelar</button>
@@ -1460,6 +1540,9 @@ async function renameTopic(topicId) {
                                         </div>
                                       ) : (
                                       <p style={styles.answer}>Modelo: {question.modelAnswer || 'Sin completar'}</p>
+                                    )}
+                                    {question.teacherCriteria && (
+                                      <p style={styles.criteriaNote}>Criterios: {question.teacherCriteria}</p>
                                     )}
                                   </div>
                                   <div style={styles.questionActions}>
@@ -1535,6 +1618,14 @@ async function renameTopic(topicId) {
                               maxHeight={1400}
                             />
                           )}
+                          <label style={styles.label}>Criterios especificos de correccion (opcional)</label>
+                          <textarea
+                            value={form.teacherCriteria || ''}
+                            onChange={(e) => updateQuestionForm(topic.id, 'teacherCriteria', e.target.value)}
+                            style={{ ...styles.textarea, minHeight: 90 }}
+                            maxLength={4000}
+                            placeholder="Tienen prioridad sobre la respuesta modelo y los apuntes."
+                          />
                           <div style={styles.inlineFields}>
                             <div>
                               <label style={styles.label}>Puntos</label>
@@ -1637,6 +1728,15 @@ async function renameTopic(topicId) {
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {message && <span style={{ color: '#087A55', fontSize: 13, fontWeight: 700 }}>{message}</span>}
+                {aiStatus?.available && !gradingSubmission.feedbackPublished && (
+                  <button
+                    onClick={startAiGrading}
+                    disabled={aiLoading || ['QUEUED', 'RUNNING'].includes(aiJob?.status)}
+                    style={aiLoading || ['QUEUED', 'RUNNING'].includes(aiJob?.status) ? styles.disabledBtn : styles.aiBtn}
+                  >
+                    {['QUEUED', 'RUNNING'].includes(aiJob?.status) ? 'IA trabajando...' : 'Generar sugerencias con IA'}
+                  </button>
+                )}
                 <button onClick={saveGrade} disabled={gradeSaving} style={gradeSaving ? styles.disabledBtn : styles.primaryBtn}>
                   {gradeSaving ? 'Guardando...' : 'Guardar'}
                 </button>
@@ -1644,11 +1744,25 @@ async function renameTopic(topicId) {
               </div>
             </div>
             <div style={{ ...styles.gradingBody, background: gradingPastel }}>
+              {aiStatus && !aiStatus.available && (
+                <div style={styles.aiUnavailable}>
+                  La correccion con IA no esta configurada. La correccion manual sigue disponible.
+                </div>
+              )}
+              {aiJob && (
+                <div style={styles.aiProgress}>
+                  <strong>Trabajo IA: {aiJob.status}</strong>
+                  <span>{aiJob.completedQuestions} / {aiJob.totalQuestions} preguntas procesadas</span>
+                  {aiJob.failedQuestions > 0 && <span>{aiJob.failedQuestions} con error individual</span>}
+                </div>
+              )}
               {gradingSubmission.questions.map((q, i) => {
                 const gd = gradeData[q.questionId] || { score: '', comment: '' }
                 const maxPts = Number(q.points)
                 const isTree = q.interactionType === 'DECISION_TREE'
                 const isTable = q.interactionType === 'DECISION_TABLE'
+                const questionSuggestions = aiSuggestions.filter(s => s.questionId === q.questionId)
+                const aiSuggestion = questionSuggestions[0]
                 return (
                   <div key={q.questionId} style={styles.gradeCard}>
                     <div style={styles.gradeCardHeader}>
@@ -1666,6 +1780,12 @@ async function renameTopic(topicId) {
                         <pre style={styles.gradeAnswerText}>{q.answerText || '(sin respuesta)'}</pre>
                       )}
                     </div>
+                    <AiSuggestionCard
+                      suggestion={aiSuggestion}
+                      history={questionSuggestions}
+                      maxPoints={maxPts}
+                      onReview={reviewAiSuggestion}
+                    />
                     <div style={styles.gradeInputRow}>
                       <div style={styles.gradeScoreBlock}>
                         <label style={styles.label}>Puntaje otorgado</label>
@@ -1674,7 +1794,7 @@ async function renameTopic(topicId) {
                             type="number"
                             min="0"
                             max={maxPts}
-                            step="0.25"
+                            step="0.0001"
                             value={gd.score}
                             onChange={e => setGradeData(prev => ({ ...prev, [q.questionId]: { ...gd, score: e.target.value } }))}
                             style={{ ...styles.smallInput, width: 90 }}
@@ -2139,6 +2259,7 @@ const styles = {
     overflow: 'hidden',
   },
   answer: { margin: '6px 0 0', color: '#536B76', fontSize: 13, lineHeight: 1.4, whiteSpace: 'pre-wrap' },
+  criteriaNote: { margin: '8px 0 0', padding: '8px 10px', background: '#F5F0FF', borderRadius: 6, color: '#5B21B6', fontSize: 12, lineHeight: 1.4, whiteSpace: 'pre-wrap' },
   questionActions: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 },
   points: { color: '#1956D8', fontWeight: 800, fontSize: 13 },
   editLinkBtn: { background: 'none', border: 'none', color: '#1956D8', fontWeight: 700, cursor: 'pointer', fontSize: 13 },
@@ -2156,6 +2277,7 @@ const styles = {
   submissionList: { display: 'flex', flexDirection: 'column', gap: 8 },
   submissionRow: { border: '1px solid #E7F0F3', borderRadius: 6, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   gradeBtn: { minHeight: 28, padding: '4px 10px', background: '#fff', color: '#7C3AED', border: '1px solid #7C3AED', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  aiBtn: { minHeight: 38, padding: '8px 16px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   publishFeedbackBtn: { minHeight: 30, padding: '5px 14px', background: '#087A55', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 800, cursor: 'pointer' },
   feedbackPublishedBadge: { background: '#087A55', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800 },
   closeXBtn: { width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(203,238,243,0.4)', background: 'rgba(203,238,243,0.1)', color: '#CBEEF3', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -2171,6 +2293,17 @@ const styles = {
   gradeAnswerBox: { background: '#F4F8FA', borderRadius: 6, padding: '10px 12px', marginBottom: 12 },
   gradeAnswerLabel: { fontSize: 11, fontWeight: 700, color: '#536B76', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' },
   gradeAnswerText: { margin: 0, fontSize: 13, color: '#09222A', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.5 },
+  aiUnavailable: { background: '#FFF8DF', border: '1px solid #E7CE74', borderRadius: 8, padding: '10px 12px', color: '#5D4700', fontSize: 13 },
+  aiProgress: { background: '#F5F0FF', border: '1px solid #C4B5FD', borderRadius: 8, padding: '10px 12px', color: '#5B21B6', display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 },
+  aiSuggestion: { background: '#F7F4FF', border: '1px solid #C4B5FD', borderRadius: 8, padding: 12, marginBottom: 14 },
+  aiSuggestionFailed: { background: '#FFF5F5', border: '1px solid #FCA5A5', borderRadius: 8, padding: 12, marginBottom: 14 },
+  aiSuggestionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#5B21B6', fontSize: 12, marginBottom: 6 },
+  aiScore: { margin: '4px 0', color: '#5B21B6', fontWeight: 800, fontSize: 13 },
+  aiText: { margin: '5px 0', color: '#304653', fontSize: 13, lineHeight: 1.45 },
+  aiMeta: { margin: '5px 0', color: '#536B76', fontSize: 12 },
+  aiWarning: { margin: '8px 0', background: '#FFF8DF', border: '1px solid #E7CE74', borderRadius: 6, padding: 8, color: '#7A5600', fontSize: 12, fontWeight: 700 },
+  aiActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 },
+  aiHistory: { marginTop: 10, color: '#536B76', fontSize: 12 },
   gradeInputRow: { display: 'flex', gap: 16, alignItems: 'flex-start' },
   gradeScoreBlock: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 },
   gradeTotalRow: { background: '#fff', border: '1px solid #D8E8EC', borderRadius: 8, padding: '12px 16px', textAlign: 'right', fontSize: 15 },

@@ -117,11 +117,11 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     @Override
-    public Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, BigDecimal points) {
+    public Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
         Exam exam = requireEditableOwnedExam(teacherEmail, examId);
         List<ExamTopic> topics = safeTopics(exam).stream()
                 .map(topic -> topic.getId().equals(topicId)
-                        ? topic.toBuilder().questions(addQuestion(topic, prompt, modelAnswer, points)).build()
+                        ? topic.toBuilder().questions(addQuestion(topic, prompt, modelAnswer, teacherCriteria, points)).build()
                         : topic)
                 .toList();
         ensureTopicExists(topics, topicId);
@@ -129,7 +129,7 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     @Override
-    public Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, BigDecimal points) {
+    public Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
         Exam exam = requireEditableOwnedExam(teacherEmail, examId);
         List<ExamTopic> topics = safeTopics(exam).stream()
                 .map(topic -> {
@@ -141,6 +141,7 @@ public class ExamService implements ExamManagementUseCase {
                                     ? question.toBuilder()
                                         .prompt(cleanOptional(prompt))
                                         .modelAnswer(cleanOptional(modelAnswer))
+                                        .teacherCriteria(cleanOptional(teacherCriteria))
                                         .points(validPoints(points))
                                         .build()
                                     : question)
@@ -298,12 +299,13 @@ public class ExamService implements ExamManagementUseCase {
                 .build());
     }
 
-    private List<ExamQuestion> addQuestion(ExamTopic topic, String prompt, String modelAnswer, BigDecimal points) {
+    private List<ExamQuestion> addQuestion(ExamTopic topic, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
         List<ExamQuestion> questions = new ArrayList<>(safeQuestions(topic));
         questions.add(ExamQuestion.builder()
                 .id(UUID.randomUUID())
                 .prompt(cleanOptional(prompt))
                 .modelAnswer(cleanOptional(modelAnswer))
+                .teacherCriteria(cleanOptional(teacherCriteria))
                 .points(validPoints(points))
                 .displayOrder(questions.size() + 1)
                 .build());
