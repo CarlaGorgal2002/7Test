@@ -1,4 +1,4 @@
-# Migracion del backend de Render para habilitar Gemini
+# Alternativa: migracion del backend de Render para habilitar Gemini
 
 ## Motivo
 
@@ -14,8 +14,15 @@ La comprobacion autenticada `POST /api/ai-grading/status/check` confirmo que
 el rechazo ocurre incluso con una solicitud minima, sin PDF ni datos de
 alumnos. Tambien se comprobo con `gemini-3.5-flash` y `gemini-2.5-flash`.
 
-La solucion preparada crea solamente un backend nuevo en Render Virginia.
-La base PostgreSQL y el backend actual se conservan hasta terminar el QA.
+La solucion oficial prioritaria de Google para este `400 FAILED_PRECONDITION`
+es habilitar billing en el proyecto de Google AI Studio. Primero debe
+habilitarse billing, reemplazarse la API key expuesta y ejecutarse
+`POST /api/ai-grading/status/check`.
+
+Este Blueprint debe usarse solamente si el rechazo persiste despues de que
+Google AI Studio muestre el proyecto como Paid. Crea un backend nuevo en
+Render Virginia. La base PostgreSQL y el backend actual se conservan hasta
+terminar el QA.
 
 ## Antes de migrar
 

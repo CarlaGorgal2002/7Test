@@ -171,8 +171,9 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
             case TIMEOUT -> "Gemini excedio el tiempo disponible para evaluar la respuesta.";
             case MATERIAL -> "Gemini no pudo preparar o leer el PDF oficial.";
             case MODEL -> "El modelo Gemini configurado no esta disponible para esta API key.";
-            case LOCATION -> "Google rechazo la IP de salida de Render por ubicacion, aunque el backend esta en "
-                    + "una region admitida. Reintenta o usa otra region/IP de salida de Render.";
+            case LOCATION -> "Google rechazo el uso de Gemini Free Tier desde la ubicacion detectada para Render. "
+                    + "Habilita billing en el proyecto de Google AI Studio; como alternativa, usa otra region/IP "
+                    + "de salida para el backend.";
             case SAFETY -> "Gemini bloqueo la evaluacion por sus filtros de seguridad.";
             case INVALID_REQUEST -> "Gemini rechazo la configuracion de la solicitud. " + safeApiDiagnostic(failure);
             case INVALID_RESPONSE -> "Gemini devolvio una respuesta incompleta o invalida.";
