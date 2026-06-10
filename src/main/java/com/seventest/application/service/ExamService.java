@@ -8,7 +8,6 @@ import com.seventest.domain.model.Exam;
 import com.seventest.domain.model.ExamQuestion;
 import com.seventest.domain.model.ExamStatus;
 import com.seventest.domain.model.ExamTopic;
-import com.seventest.domain.model.ExamSubmission;
 import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.port.in.ExamManagementUseCase;
@@ -44,7 +43,6 @@ public class ExamService implements ExamManagementUseCase {
     private final ExamRepository examRepository;
     private final UserRepository userRepository;
     private final ExamSubmissionRepository submissionRepository;
-    private final GeminiGradingService geminiGradingService;
 
     @Override
     public Exam create(String teacherEmail, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
@@ -195,12 +193,10 @@ public class ExamService implements ExamManagementUseCase {
         if (exam.getStatus() == ExamStatus.CERRADO) {
             return exam;
         }
-        Exam closedExam = examRepository.save(exam.toBuilder()
+        return examRepository.save(exam.toBuilder()
                 .status(ExamStatus.CERRADO)
                 .updatedAt(Instant.now())
                 .build());
-        geminiGradingService.processExamSubmissions(examId);
-        return closedExam;
     }
 
     @Override
@@ -253,11 +249,6 @@ public class ExamService implements ExamManagementUseCase {
         Exam exam = requireOwnedExam(teacherEmail, examId);
         if (exam.getStatus() == ExamStatus.BORRADOR) {
             throw new IllegalArgumentException("No se puede publicar devoluciones de un examen en borrador");
-        }
-        List<ExamSubmission> submissions = submissionRepository.findByExamId(examId);
-        boolean allReviewed = submissions.stream().allMatch(ExamSubmission::isReviewed);
-        if (!allReviewed) {
-            throw new IllegalArgumentException("No se pueden publicar devoluciones porque hay entregas pendientes de revisión");
         }
         return examRepository.save(exam.toBuilder().feedbackPublished(true).updatedAt(Instant.now()).build());
     }

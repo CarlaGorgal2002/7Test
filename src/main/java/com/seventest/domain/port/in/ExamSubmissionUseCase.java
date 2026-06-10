@@ -15,9 +15,5 @@ public interface ExamSubmissionUseCase {
     ExamSubmission grade(String teacherEmail, UUID submissionId, List<GradeUpdate> updates);
 
     record AnswerUpdate(UUID questionId, String answerText) {}
-    record GradeUpdate(UUID questionId, java.math.BigDecimal score, String comment, Boolean correctionIncorrect) {
-        public GradeUpdate(UUID questionId, java.math.BigDecimal score, String comment) {
-            this(questionId, score, comment, false);
-        }
-    }
+    record GradeUpdate(UUID questionId, java.math.BigDecimal score, String comment) {}
 }

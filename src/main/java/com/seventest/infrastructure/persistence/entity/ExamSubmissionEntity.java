@@ -56,16 +56,6 @@ public class ExamSubmissionEntity {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
-    @Column(name = "final_score", precision = 6, scale = 2)
-    private java.math.BigDecimal finalScore;
-
-    @Column(name = "reviewed")
-    @Builder.Default
-    private Boolean reviewed = false;
-
-    @Column(name = "overall_feedback_ia", columnDefinition = "TEXT")
-    private String overallFeedbackIa;
-
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ExamAnswerEntity> answers = new LinkedHashSet<>();

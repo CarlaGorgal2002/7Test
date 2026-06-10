@@ -15,9 +15,5 @@ public class ExamAnswer {
     private final String answerText;
     private final BigDecimal score;
     private final String comment;
-    private final BigDecimal scoreIa;
-    private final BigDecimal accuracyIa;
-    private final String feedbackIa;
-    private final String gradingStatus;
     private final Instant updatedAt;
 }

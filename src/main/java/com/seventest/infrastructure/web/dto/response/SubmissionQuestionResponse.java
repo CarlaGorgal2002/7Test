@@ -13,10 +13,6 @@ public record SubmissionQuestionResponse(
         Instant answerUpdatedAt,
         String interactionType,
         BigDecimal score,
-        String comment,
-        BigDecimal scoreIa,
-        BigDecimal accuracyIa,
-        String feedbackIa,
-        String gradingStatus
+        String comment
 ) {
 }

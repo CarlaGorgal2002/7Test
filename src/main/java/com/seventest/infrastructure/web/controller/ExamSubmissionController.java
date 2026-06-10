@@ -102,7 +102,7 @@ public class ExamSubmissionController {
                                                         @Valid @RequestBody GradeRequest request,
                                                         Principal principal) {
         List<ExamSubmissionUseCase.GradeUpdate> updates = request.answers().stream()
-                .map(a -> new ExamSubmissionUseCase.GradeUpdate(a.questionId(), a.score(), a.comment(), a.correctionIncorrect()))
+                .map(a -> new ExamSubmissionUseCase.GradeUpdate(a.questionId(), a.score(), a.comment()))
                 .toList();
         return ResponseEntity.ok(toResponse(submissionUseCase.grade(principal.getName(), submissionId, updates)));
     }
@@ -130,11 +130,7 @@ public class ExamSubmissionController {
                             answer == null ? null : answer.getUpdatedAt(),
                             interactionType(question),
                             answer == null ? null : answer.getScore(),
-                            answer == null ? null : answer.getComment(),
-                            answer == null ? null : answer.getScoreIa(),
-                            answer == null ? null : answer.getAccuracyIa(),
-                            answer == null ? null : answer.getFeedbackIa(),
-                            answer == null ? null : answer.getGradingStatus());
+                            answer == null ? null : answer.getComment());
                 })
                 .toList();
 
@@ -148,9 +144,6 @@ public class ExamSubmissionController {
                 submission.getStudentName(),
                 submission.getStatus(),
                 questions,
-                submission.getFinalScore(),
-                submission.isReviewed(),
-                submission.getOverallFeedbackIa(),
                 submission.getStartedAt(),
                 submission.getUpdatedAt(),
                 submission.getSubmittedAt(),

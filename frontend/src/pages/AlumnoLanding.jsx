@@ -241,15 +241,6 @@ export default function AlumnoLanding() {
       }
     })
 
-    // Ordenar historial por fecha de entrega (submittedAt) descendente
-    groups.historial.sort((a, b) => {
-      const subA = submissionsByExam[a.id]
-      const subB = submissionsByExam[b.id]
-      const dateA = subA?.submittedAt ? new Date(subA.submittedAt).getTime() : 0
-      const dateB = subB?.submittedAt ? new Date(subB.submittedAt).getTime() : 0
-      return dateB - dateA
-    })
-
     return groups
   }, [sortedExams, submissionsByExam])
 
@@ -395,22 +386,9 @@ export default function AlumnoLanding() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={styles.examTitle}>{exam.title}</h3>
                     <p style={styles.muted}>{exam.courseName || 'Testing de Aplicaciones'} · {exam.durationMinutes || '-'} min</p>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                      <span style={examStatusBadgeStyle(submission, exam)}>
-                        {examStatusLabel(submission, exam)}
-                      </span>
-                      {currentListKey === 'historial' && submission && (
-                        submission.feedbackPublished ? (
-                          <span style={styles.scoreBadge}>
-                            Nota: {submission.finalScore != null ? submission.finalScore : '-'}
-                          </span>
-                        ) : (
-                          <span style={styles.pendingBadge}>
-                            Pendiente de devolución
-                          </span>
-                        )
-                      )}
-                    </div>
+                    <span style={examStatusBadgeStyle(submission, exam)}>
+                      {examStatusLabel(submission, exam)}
+                    </span>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     {isDelivered || isClosed ? (
@@ -538,28 +516,6 @@ export default function AlumnoLanding() {
             {timedOut && current.status === 'EN_PROGRESO' && (
               <div style={styles.waitingBanner}>
                 ⏸ Tiempo finalizado — aguardá la decisión del profesor. Tus respuestas están guardadas.
-              </div>
-            )}
-
-            {current.feedbackPublished && current.finalScore != null && (
-              <div style={styles.finalScoreCard}>
-                <div style={styles.finalScoreInfo}>
-                  <h3 style={styles.finalScoreTitle}>¡Examen Corregido!</h3>
-                  <p style={styles.finalScoreDescription}>
-                    El docente ha publicado las devoluciones. A continuación podés ver el puntaje y feedback detallado por cada ejercicio.
-                  </p>
-                </div>
-                <div style={styles.finalScoreValueContainer}>
-                  <span style={styles.finalScoreLabel}>Nota Final</span>
-                  <strong style={styles.finalScoreNumber}>{current.finalScore}</strong>
-                </div>
-              </div>
-            )}
-
-            {current.feedbackPublished && current.overallFeedbackIa && (
-              <div style={styles.overallFeedbackCard}>
-                <p style={styles.overallFeedbackLabel}>Comentario general</p>
-                <p style={styles.overallFeedbackText}>💬 {current.overallFeedbackIa}</p>
               </div>
             )}
 
@@ -832,87 +788,10 @@ const styles = {
   feedbackBox: { background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', marginBottom: 10 },
   feedbackScore: { fontWeight: 800, color: '#087A55', fontSize: 14 },
   feedbackComment: { margin: '4px 0 0', color: '#304653', fontSize: 13, lineHeight: 1.4 },
-  overallFeedbackCard: { background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '14px 18px', marginBottom: 20 },
-  overallFeedbackLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#3B82F6', margin: '0 0 6px' },
-  overallFeedbackText: { color: '#1e3a5f', fontSize: 14, lineHeight: 1.6, margin: 0 },
   // Modal
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 460, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },
   modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 10px', color: '#09222A' },
   modalText: { fontSize: 14, color: '#304653', margin: '0 0 20px' },
   modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end' },
-  // Feedback y Calificaciones
-  finalScoreCard: {
-    background: 'linear-gradient(135deg, #1956D8 0%, #1e40af 100%)',
-    color: '#fff',
-    borderRadius: 12,
-    padding: '24px 32px',
-    marginBottom: 24,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    boxShadow: '0 10px 25px rgba(25, 86, 216, 0.25)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  finalScoreInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-  },
-  finalScoreTitle: {
-    fontSize: 20,
-    fontWeight: 800,
-    margin: 0,
-    color: '#fff',
-  },
-  finalScoreDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.85)',
-    margin: 0,
-    lineHeight: 1.5,
-  },
-  finalScoreValueContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    background: 'rgba(255, 255, 255, 0.15)',
-    padding: '12px 24px',
-    borderRadius: 10,
-    border: '1px solid rgba(255, 255, 255, 0.25)',
-    minWidth: 100,
-  },
-  finalScoreLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    color: '#CBEEF3',
-    marginBottom: 4,
-  },
-  finalScoreNumber: {
-    fontSize: 36,
-    fontWeight: 900,
-    color: '#fff',
-    lineHeight: 1.1,
-  },
-  scoreBadge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 800,
-    background: '#E6EEFF',
-    color: '#1956D8',
-    border: '1px solid #BFDBFE'
-  },
-  pendingBadge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 800,
-    background: '#FEF3C7',
-    color: '#92400E',
-    border: '1px solid #FDE68A'
-  },
 }
