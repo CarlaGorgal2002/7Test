@@ -27,6 +27,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class GeminiCorrectionAdapter implements AiCorrectionProvider {
+    private static final String COMPATIBILITY_MODEL = "gemini-2.5-flash";
+
     private final CourseMaterialManager materialManager;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
@@ -54,16 +56,33 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
         if (!properties.getAiGrading().isReady()) {
             return new Availability(false, "Gemini no esta configurado. La correccion manual sigue disponible.");
         }
+        String configuredModel = properties.getAiGrading().getModel();
         try {
-            GenerateContentResponse response = materialManager.client().models.generateContent(
-                    properties.getAiGrading().getModel(), "Responde exactamente OK.",
-                    GenerateContentConfig.builder().temperature(0f).maxOutputTokens(16).build());
-            if (response.text() == null || response.text().isBlank()) {
-                return new Availability(false, "Gemini respondio sin contenido.");
-            }
+            probeModel(configuredModel);
             return new Availability(true, "Gemini respondio correctamente desde el backend.");
         } catch (Exception failure) {
-            return new Availability(false, classified(failure).getSafeMessage());
+            AiCorrectionProviderException primary = classified(failure);
+            if (primary.getReason() == AiCorrectionProviderException.Reason.LOCATION
+                    && !COMPATIBILITY_MODEL.equals(configuredModel)) {
+                try {
+                    probeModel(COMPATIBILITY_MODEL);
+                    return new Availability(false, "Google rechazo el modelo configurado desde Render, pero "
+                            + COMPATIBILITY_MODEL + " respondio correctamente. Configura GEMINI_MODEL="
+                            + COMPATIBILITY_MODEL + " y vuelve a desplegar.");
+                } catch (Exception ignored) {
+                    // The primary safe diagnostic remains the actionable result.
+                }
+            }
+            return new Availability(false, primary.getSafeMessage());
+        }
+    }
+
+    void probeModel(String model) {
+        GenerateContentResponse response = materialManager.client().models.generateContent(
+                model, "Responde exactamente OK.",
+                GenerateContentConfig.builder().temperature(0f).maxOutputTokens(16).build());
+        if (response.text() == null || response.text().isBlank()) {
+            throw new IllegalStateException("Gemini devolvio una respuesta vacia");
         }
     }
 
