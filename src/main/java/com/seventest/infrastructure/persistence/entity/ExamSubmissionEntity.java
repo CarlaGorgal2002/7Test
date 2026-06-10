@@ -63,6 +63,9 @@ public class ExamSubmissionEntity {
     @Builder.Default
     private Boolean reviewed = false;
 
+    @Column(name = "overall_feedback_ia", columnDefinition = "TEXT")
+    private String overallFeedbackIa;
+
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ExamAnswerEntity> answers = new LinkedHashSet<>();

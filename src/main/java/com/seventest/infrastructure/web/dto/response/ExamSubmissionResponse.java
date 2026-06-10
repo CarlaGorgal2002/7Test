@@ -19,6 +19,7 @@ public record ExamSubmissionResponse(
         List<SubmissionQuestionResponse> questions,
         BigDecimal finalScore,
         boolean reviewed,
+        String overallFeedbackIa,
         Instant startedAt,
         Instant updatedAt,
         Instant submittedAt,

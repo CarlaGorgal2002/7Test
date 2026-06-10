@@ -29,6 +29,7 @@ public final class ExamSubmissionMapper {
                         .toList())
                 .finalScore(entity.getFinalScore())
                 .reviewed(Boolean.TRUE.equals(entity.getReviewed()))
+                .overallFeedbackIa(entity.getOverallFeedbackIa())
                 .startedAt(entity.getStartedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .submittedAt(entity.getSubmittedAt())
@@ -47,6 +48,7 @@ public final class ExamSubmissionMapper {
                 .status(submission.getStatus())
                 .finalScore(submission.getFinalScore())
                 .reviewed(submission.isReviewed())
+                .overallFeedbackIa(submission.getOverallFeedbackIa())
                 .startedAt(submission.getStartedAt())
                 .updatedAt(submission.getUpdatedAt())
                 .submittedAt(submission.getSubmittedAt())
@@ -62,6 +64,7 @@ public final class ExamSubmissionMapper {
         entity.setStatus(submission.getStatus());
         entity.setFinalScore(submission.getFinalScore());
         entity.setReviewed(submission.isReviewed());
+        entity.setOverallFeedbackIa(submission.getOverallFeedbackIa());
         entity.setUpdatedAt(submission.getUpdatedAt());
         entity.setSubmittedAt(submission.getSubmittedAt());
         entity.getAnswers().clear();

@@ -556,6 +556,13 @@ export default function AlumnoLanding() {
               </div>
             )}
 
+            {current.feedbackPublished && current.overallFeedbackIa && (
+              <div style={styles.overallFeedbackCard}>
+                <p style={styles.overallFeedbackLabel}>Comentario general</p>
+                <p style={styles.overallFeedbackText}>💬 {current.overallFeedbackIa}</p>
+              </div>
+            )}
+
             <div style={styles.questions}>
               {current.questions.map((question) => {
                 const treeQuestion = isDecisionTreeQuestion(question)
@@ -825,6 +832,9 @@ const styles = {
   feedbackBox: { background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', marginBottom: 10 },
   feedbackScore: { fontWeight: 800, color: '#087A55', fontSize: 14 },
   feedbackComment: { margin: '4px 0 0', color: '#304653', fontSize: 13, lineHeight: 1.4 },
+  overallFeedbackCard: { background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '14px 18px', marginBottom: 20 },
+  overallFeedbackLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#3B82F6', margin: '0 0 6px' },
+  overallFeedbackText: { color: '#1e3a5f', fontSize: 14, lineHeight: 1.6, margin: 0 },
   // Modal
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(9,34,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalBox: { background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 460, width: '90%', boxShadow: '0 8px 40px rgba(9,34,42,0.22)' },

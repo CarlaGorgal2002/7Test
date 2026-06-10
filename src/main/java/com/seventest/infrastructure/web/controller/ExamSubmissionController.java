@@ -150,6 +150,7 @@ public class ExamSubmissionController {
                 questions,
                 submission.getFinalScore(),
                 submission.isReviewed(),
+                submission.getOverallFeedbackIa(),
                 submission.getStartedAt(),
                 submission.getUpdatedAt(),
                 submission.getSubmittedAt(),

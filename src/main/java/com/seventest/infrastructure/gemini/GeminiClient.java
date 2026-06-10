@@ -39,6 +39,66 @@ public class GeminiClient {
         private final String feedback;
     }
 
+    public String evaluateSummary(String systemInstruction, String promptText) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Gemini API key is not configured. Summary evaluation skipped.");
+            throw new IllegalStateException("Gemini API key is not configured.");
+        }
+
+        try {
+            Map<String, Object> requestBody = Map.of(
+                    "systemInstruction", Map.of(
+                            "parts", List.of(Map.of("text", systemInstruction))
+                    ),
+                    "contents", List.of(
+                            Map.of("parts", List.of(Map.of("text", promptText)))
+                    ),
+                    "generationConfig", Map.of(
+                            "responseMimeType", "application/json",
+                            "responseSchema", Map.of(
+                                    "type", "OBJECT",
+                                    "properties", Map.of(
+                                            "summary", Map.of(
+                                                    "type", "STRING",
+                                                    "description", "Comentario global del desempeño del alumno en el examen, en español de Argentina, máximo 4 oraciones."
+                                            )
+                                    ),
+                                    "required", List.of("summary")
+                            )
+                    )
+            );
+
+            String url = String.format("/v1beta/models/%s:generateContent?key=%s", model, apiKey);
+
+            String responseJson = restClient.post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            var root = objectMapper.readTree(responseJson);
+            var text = root.path("candidates")
+                    .path(0)
+                    .path("content")
+                    .path("parts")
+                    .path(0)
+                    .path("text")
+                    .asText();
+
+            if (text == null || text.isBlank()) {
+                throw new IllegalStateException("Empty response from Gemini API");
+            }
+
+            var summaryNode = objectMapper.readTree(text.trim());
+            return summaryNode.path("summary").asText("");
+
+        } catch (Exception e) {
+            log.error("Error invoking Gemini API for summary", e);
+            throw new RuntimeException("Error communicating with Gemini API", e);
+        }
+    }
+
     public GradingResult evaluate(String systemInstruction, String promptText) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("Gemini API key is not configured. Evaluation skipped.");

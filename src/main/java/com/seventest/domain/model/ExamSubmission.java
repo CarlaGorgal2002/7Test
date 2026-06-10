@@ -22,6 +22,7 @@ public class ExamSubmission {
     private final List<ExamAnswer> answers;
     private final BigDecimal finalScore;
     private final boolean reviewed;
+    private final String overallFeedbackIa;
     private final Instant startedAt;
     private final Instant updatedAt;
     private final Instant submittedAt;
