@@ -5,7 +5,7 @@
 **Material oficial:** `src/main/resources/course-material/Todo_Testing_de_Apps.pdf`  
 **SHA-256:** `FC7D8DA8052D96C2A3727DE4B4DFE91E93412F4B664EB8B2E31CDE5CC8E9DFF0`  
 **Version del material:** `testing-apps-2026-06-10-v1`  
-**Version del prompt:** `testing-grading-v1`
+**Version del prompt:** `testing-grading-v2`
 
 ## Objetivo y alcance
 
@@ -19,7 +19,7 @@ La implementacion fue creada con componentes nuevos y aislados:
 - `AiCorrectionUseCase` y `AiCorrectionService`: operaciones docentes, autorizacion y revision.
 - `AiCorrectionProvider`: puerto independiente del proveedor.
 - `GeminiCorrectionAdapter`: unica pieza que conoce el SDK oficial de Google.
-- `CourseMaterialManager`: carga y renovacion temporal del PDF en Gemini Files API.
+- `CourseMaterialManager`: extraccion, indexado y seleccion local de paginas relevantes del PDF.
 - `AiGradingWorker`: procesamiento asincrono y secuencial por pregunta.
 - Repositorios, entidades, controlador y DTO exclusivos para correccion con IA.
 
@@ -71,9 +71,10 @@ No crear variables `VITE_GEMINI_*`: todo valor `VITE_*` puede quedar visible en 
 
 ## Criterios academicos y salida
 
-El master prompt esta versionado en `src/main/resources/ai-grading/testing-grading-v1.txt`. Sus fuentes,
-en orden de prioridad, son criterios docentes, respuesta modelo, PDF completo y enunciado. La respuesta
-del alumno se delimita como contenido no confiable y nunca puede modificar instrucciones.
+El master prompt esta versionado en `src/main/resources/ai-grading/testing-grading-v2.txt`. Sus fuentes,
+en orden de prioridad, son criterios docentes, respuesta modelo, fragmentos relevantes seleccionados
+localmente del PDF y enunciado. La respuesta del alumno se delimita como contenido no confiable, nunca
+puede modificar instrucciones y tampoco participa en la seleccion de paginas.
 
 Solo se aceptan fracciones `0`, `0.25`, `0.50`, `0.75` y `1`. El backend calcula:
 
@@ -89,7 +90,9 @@ revision humana. Confianza baja o ausencia de paginas en una respuesta no vacia 
 - La API key solo vive en backend y nunca se devuelve en `/api/ai-grading/status`.
 - No se envian nombres, emails ni IDs personales a Gemini.
 - No se registran prompts completos, respuestas del alumno ni respuestas crudas de Gemini.
-- El PDF completo se referencia en cada llamada no vacia mediante Files API.
+- El PDF se indexa localmente una vez y cada llamada no vacia recibe como maximo 8 paginas relevantes.
+- La seleccion de paginas usa criterios docentes, respuesta modelo y enunciado; nunca usa la respuesta del alumno.
+- Gemini solo puede citar las paginas seleccionadas y debe exigir revision humana si resultan insuficientes.
 - La salida se valida antes de persistirse.
 - Solo el profesor propietario puede iniciar, consultar, aceptar o rechazar sugerencias.
 - Se bloquean trabajos y revisiones luego de publicar devoluciones.

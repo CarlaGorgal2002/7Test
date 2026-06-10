@@ -91,6 +91,8 @@ http://localhost:8080/v3/api-docs
 | `GEMINI_ENABLED` | Habilita sugerencias tentativas de correccion | `false` |
 | `GEMINI_API_KEY` | Clave secreta de Gemini, solo backend | vacio |
 | `GEMINI_MODEL` | Modelo Gemini configurable | `gemini-3.5-flash` |
+| `GEMINI_MAX_RELEVANT_PAGES` | Maximo de paginas relevantes enviadas por pregunta | `8` |
+| `GEMINI_MAX_CHARACTERS_PER_PAGE` | Maximo de caracteres enviados por pagina | `6000` |
 
 ### Configurar Gemini localmente
 

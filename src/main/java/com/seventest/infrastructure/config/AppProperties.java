@@ -38,7 +38,10 @@ public class AppProperties {
         private String materialVersion = "testing-apps-2026-06-10-v1";
         private String materialResource = "classpath:course-material/Todo_Testing_de_Apps.pdf";
         private String materialSha256;
-        private String promptVersion = "testing-grading-v1";
+        private String promptVersion = "testing-grading-v2";
+        private String promptResource = "classpath:ai-grading/testing-grading-v2.txt";
+        private int maxRelevantPages = 8;
+        private int maxCharactersPerPage = 6000;
 
         public boolean isReady() {
             return enabled && apiKey != null && !apiKey.isBlank();
