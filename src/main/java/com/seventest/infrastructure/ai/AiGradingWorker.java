@@ -2,6 +2,7 @@ package com.seventest.infrastructure.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seventest.domain.exception.AiCorrectionProviderException;
 import com.seventest.domain.model.*;
 import com.seventest.domain.port.out.*;
 import com.seventest.infrastructure.config.AppProperties;
@@ -209,6 +210,9 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
     }
 
     private String safeError(Exception ex) {
+        if (ex instanceof AiCorrectionProviderException providerException) {
+            return safe(providerException.getSafeMessage(), 500);
+        }
         return switch (ex.getClass().getSimpleName()) {
             case "IllegalArgumentException" -> safe(ex.getMessage(), 500);
             default -> "El proveedor de IA no pudo evaluar la respuesta";

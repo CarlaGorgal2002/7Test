@@ -1,6 +1,7 @@
 package com.seventest.infrastructure.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seventest.domain.exception.AiCorrectionProviderException;
 import com.seventest.domain.model.*;
 import com.seventest.domain.port.out.*;
 import com.seventest.infrastructure.config.AppProperties;
@@ -122,6 +123,24 @@ class AiGradingWorkerTest {
         Mockito.verify(suggestionRepository).save(suggestion.capture());
         assertEquals(AiGradingSuggestionStatus.FAILED, suggestion.getValue().getStatus());
         assertFinalStatus(AiGradingJobStatus.PARTIAL_FAILURE);
+    }
+
+    @Test
+    void exposesOnlySafeProviderFailureMessage() {
+        Fixture fixture = fixture(List.of("respuesta"), List.of(BigDecimal.ONE));
+        stub(fixture);
+        Mockito.when(provider.evaluate(Mockito.any())).thenThrow(new AiCorrectionProviderException(
+                AiCorrectionProviderException.Reason.QUOTA,
+                "Gemini rechazo la solicitud por cuota o limite de uso.",
+                new IllegalStateException("detalle sensible")));
+
+        worker.dispatch(jobId);
+
+        ArgumentCaptor<AiGradingSuggestion> suggestion = ArgumentCaptor.forClass(AiGradingSuggestion.class);
+        Mockito.verify(suggestionRepository).save(suggestion.capture());
+        assertEquals("Gemini rechazo la solicitud por cuota o limite de uso.",
+                suggestion.getValue().getErrorSummary());
+        assertFalse(suggestion.getValue().getErrorSummary().contains("detalle sensible"));
     }
 
     @Test
