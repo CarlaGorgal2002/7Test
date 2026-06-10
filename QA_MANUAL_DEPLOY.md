@@ -16,12 +16,19 @@ con IA. Esta aislado de produccion:
 | Profesor | `pfarias@uade.edu.ar` | `PabloFarias123` |
 | Alumno | `cgorgal@uade.edu.ar` | `CarlaGorgal123` |
 
-La rama contiene ademas las restantes cuentas de prueba anteriores.
+La rama contiene exactamente los 45 pares de cuentas antiguas de alumno y
+profesor solicitados para QA: 90 credenciales en total.
 
 ## Aislamiento
 
 Las credenciales anteriores solo funcionan contra el backend QA. Produccion
 continua usando su backend y su base de datos actuales.
+
+Auditoria del 10 de junio de 2026:
+
+- Las 90 credenciales solicitadas coinciden con las semillas del backend QA.
+- Se probaron las 90 credenciales contra produccion.
+- Produccion rechazo las 90 credenciales antiguas.
 
 El plan gratuito de Render usa almacenamiento efimero. Las cuentas semilla se
 recrean automaticamente, pero datos creados durante pruebas pueden perderse en
