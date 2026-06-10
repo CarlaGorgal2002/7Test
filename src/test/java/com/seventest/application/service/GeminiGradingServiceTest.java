@@ -1019,6 +1019,87 @@ class GeminiGradingServiceTest {
     }
 
     @Test
+    void processExamSubmissions_overallFeedback_skipsAnswersWithNullScoreIaInsideLoop() {
+        // Mixed submission: one text question (graded, scoreIa set) + one practical question (PENDING, scoreIa null).
+        // generateOverallFeedback must skip the practical answer without NPE.
+        UUID examId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        UUID textQId = UUID.randomUUID();
+        UUID practicalQId = UUID.randomUUID();
+
+        ExamQuestion textQuestion = ExamQuestion.builder()
+                .id(textQId)
+                .prompt("Define equivalence partitioning")
+                .modelAnswer("Divides input data into valid/invalid partitions")
+                .points(new BigDecimal("2.0"))
+                .build();
+
+        ExamQuestion practicalQuestion = ExamQuestion.builder()
+                .id(practicalQId)
+                .prompt("Arbol de decision")
+                .modelAnswer("7TEST_DECISION_TREE:{}")
+                .points(new BigDecimal("5.0"))
+                .build();
+
+        ExamTopic topic = ExamTopic.builder()
+                .id(topicId)
+                .questions(List.of(textQuestion, practicalQuestion))
+                .build();
+
+        Exam exam = Exam.builder()
+                .id(examId)
+                .topics(List.of(topic))
+                .build();
+
+        ExamAnswer textAnswer = ExamAnswer.builder()
+                .questionId(textQId)
+                .answerText("Groups inputs into partitions")
+                .build();
+
+        ExamAnswer practicalAnswer = ExamAnswer.builder()
+                .questionId(practicalQId)
+                .answerText("Some tree")
+                .build();
+
+        ExamSubmission submission = ExamSubmission.builder()
+                .examId(examId)
+                .topicId(topicId)
+                .answers(List.of(textAnswer, practicalAnswer))
+                .build();
+
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+        Mockito.when(submissionRepository.findByExamId(examId)).thenReturn(List.of(submission));
+        Mockito.when(syllabusProvider.getSyllabus()).thenReturn("Syllabus");
+
+        GeminiClient.GradingResult mockResult = GeminiClient.GradingResult.builder()
+                .accuracy(new BigDecimal("0.5"))
+                .feedback("Faltó mencionar casos inválidos")
+                .build();
+
+        Mockito.when(geminiClient.evaluate(Mockito.anyString(), Mockito.anyString())).thenReturn(mockResult);
+        Mockito.when(geminiClient.evaluateSummary(Mockito.anyString(), Mockito.anyString()))
+                .thenReturn("Comprensión parcial demostrada");
+
+        // Act
+        geminiGradingService.processExamSubmissions(examId);
+
+        // Assert: only text question was graded; practical remains PENDING; overall feedback generated
+        ArgumentCaptor<ExamSubmission> captor = ArgumentCaptor.forClass(ExamSubmission.class);
+        Mockito.verify(submissionRepository).save(captor.capture());
+        ExamSubmission saved = captor.getValue();
+
+        ExamAnswer gradedText = saved.getAnswers().stream()
+                .filter(a -> a.getQuestionId().equals(textQId)).findFirst().orElseThrow();
+        ExamAnswer pendingPractical = saved.getAnswers().stream()
+                .filter(a -> a.getQuestionId().equals(practicalQId)).findFirst().orElseThrow();
+
+        Assertions.assertEquals("IA_SUCCESS", gradedText.getGradingStatus());
+        Assertions.assertEquals("PENDING", pendingPractical.getGradingStatus());
+        Assertions.assertNull(pendingPractical.getScoreIa());
+        Assertions.assertEquals("Comprensión parcial demostrada", saved.getOverallFeedbackIa());
+    }
+
+    @Test
     void processExamSubmissions_promptTextWrapsStudentAnswerInXmlTags() {
         // Arrange
         UUID examId = UUID.randomUUID();

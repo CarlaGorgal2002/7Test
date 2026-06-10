@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import org.springframework.util.StringUtils;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -170,17 +172,18 @@ public class GeminiGradingService {
 
             StringBuilder sb = new StringBuilder("Resultados del examen:\n\n");
             for (ExamAnswer answer : answers) {
-                ExamQuestion q = questions.get(answer.getQuestionId());
-                if (q != null && answer.getScoreIa() != null) {
-                    String prompt = q.getPrompt() != null ? q.getPrompt() : "";
-                    sb.append("Pregunta: ").append(prompt, 0, Math.min(120, prompt.length())).append("\n");
-                    sb.append("Puntaje obtenido: ").append(answer.getScoreIa())
-                      .append(" / ").append(q.getPoints()).append(" pts\n");
-                    if (answer.getFeedbackIa() != null && !answer.getFeedbackIa().isBlank()) {
-                        sb.append("Observación: ").append(answer.getFeedbackIa()).append("\n");
-                    }
-                    sb.append("\n");
+                if (answer.getScoreIa() == null) {
+                    continue;
                 }
+                ExamQuestion q = questions.get(answer.getQuestionId());
+                String prompt = q.getPrompt() != null ? q.getPrompt() : "";
+                sb.append("Pregunta: ").append(prompt, 0, Math.min(120, prompt.length())).append("\n");
+                sb.append("Puntaje obtenido: ").append(answer.getScoreIa())
+                  .append(" / ").append(q.getPoints()).append(" pts\n");
+                if (StringUtils.hasText(answer.getFeedbackIa())) {
+                    sb.append("Observación: ").append(answer.getFeedbackIa()).append("\n");
+                }
+                sb.append("\n");
             }
             sb.append("Redactá el comentario global del examen.");
 
