@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface AiCorrectionUseCase {
     AiGradingStatus status();
+    AiGradingStatus checkStatus();
     AiGradingJob startJob(String teacherEmail, UUID submissionId);
     AiGradingJob findJob(String teacherEmail, UUID jobId);
     List<AiGradingSuggestion> listSuggestions(String teacherEmail, UUID submissionId);

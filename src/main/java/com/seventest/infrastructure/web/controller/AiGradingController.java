@@ -31,6 +31,11 @@ public class AiGradingController {
         return ResponseEntity.ok(useCase.status());
     }
 
+    @PostMapping("/status/check")
+    public ResponseEntity<AiGradingStatus> checkStatus() {
+        return ResponseEntity.ok(useCase.checkStatus());
+    }
+
     @PostMapping("/submissions/{submissionId}/jobs")
     public ResponseEntity<AiGradingJobResponse> start(@PathVariable UUID submissionId, Principal principal) {
         return ResponseEntity.accepted().body(toResponse(useCase.startJob(principal.getName(), submissionId)));

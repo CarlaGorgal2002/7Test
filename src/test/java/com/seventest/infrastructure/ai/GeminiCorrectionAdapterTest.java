@@ -44,8 +44,8 @@ class GeminiCorrectionAdapterTest {
         AiCorrectionProviderException exception = adapter.classified(failure);
 
         assertEquals(AiCorrectionProviderException.Reason.LOCATION, exception.getReason());
-        assertEquals("Gemini rechazo la ubicacion de Render para el nivel gratuito. "
-                + "Habilita billing en el proyecto de Google AI Studio o despliega el backend desde otra region.",
+        assertEquals("Google rechazo la IP de salida de Render por ubicacion, aunque el backend esta en "
+                + "una region admitida. Reintenta o usa otra region/IP de salida de Render.",
                 exception.getSafeMessage());
     }
 }

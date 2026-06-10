@@ -49,6 +49,24 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
         }
     }
 
+    @Override
+    public Availability checkAvailability() {
+        if (!properties.getAiGrading().isReady()) {
+            return new Availability(false, "Gemini no esta configurado. La correccion manual sigue disponible.");
+        }
+        try {
+            GenerateContentResponse response = materialManager.client().models.generateContent(
+                    properties.getAiGrading().getModel(), "Responde exactamente OK.",
+                    GenerateContentConfig.builder().temperature(0f).maxOutputTokens(16).build());
+            if (response.text() == null || response.text().isBlank()) {
+                return new Availability(false, "Gemini respondio sin contenido.");
+            }
+            return new Availability(true, "Gemini respondio correctamente desde el backend.");
+        } catch (Exception failure) {
+            return new Availability(false, classified(failure).getSafeMessage());
+        }
+    }
+
     private Result callGemini(Request request) throws Exception {
         var file = materialManager.materialFile();
         Content content = Content.fromParts(
@@ -149,8 +167,8 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
             case TIMEOUT -> "Gemini excedio el tiempo disponible para evaluar la respuesta.";
             case MATERIAL -> "Gemini no pudo preparar o leer el PDF oficial.";
             case MODEL -> "El modelo Gemini configurado no esta disponible para esta API key.";
-            case LOCATION -> "Gemini rechazo la ubicacion de Render para el nivel gratuito. "
-                    + "Habilita billing en el proyecto de Google AI Studio o despliega el backend desde otra region.";
+            case LOCATION -> "Google rechazo la IP de salida de Render por ubicacion, aunque el backend esta en "
+                    + "una region admitida. Reintenta o usa otra region/IP de salida de Render.";
             case SAFETY -> "Gemini bloqueo la evaluacion por sus filtros de seguridad.";
             case INVALID_REQUEST -> "Gemini rechazo la configuracion de la solicitud. " + safeApiDiagnostic(failure);
             case INVALID_RESPONSE -> "Gemini devolvio una respuesta incompleta o invalida.";

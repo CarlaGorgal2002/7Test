@@ -7,6 +7,7 @@ import com.seventest.domain.port.in.ExamSubmissionUseCase;
 import com.seventest.domain.port.out.AiGradingJobDispatcher;
 import com.seventest.domain.port.out.AiGradingJobRepository;
 import com.seventest.domain.port.out.AiGradingSuggestionRepository;
+import com.seventest.domain.port.out.AiCorrectionProvider;
 import com.seventest.domain.port.out.UserRepository;
 import com.seventest.infrastructure.config.AppProperties;
 import lombok.RequiredArgsConstructor;
@@ -26,12 +27,24 @@ public class AiCorrectionService implements AiCorrectionUseCase {
     private final AiGradingJobRepository jobRepository;
     private final AiGradingSuggestionRepository suggestionRepository;
     private final AiGradingJobDispatcher dispatcher;
+    private final AiCorrectionProvider provider;
 
     @Override
     public AiGradingStatus status() {
         AppProperties.AiGrading config = properties.getAiGrading();
         return new AiGradingStatus(config.isEnabled(), config.isReady(), config.getModel(),
-                config.getMaterialVersion(), config.getPromptVersion());
+                config.getMaterialVersion(), config.getPromptVersion(),
+                config.isReady() ? "Gemini esta configurado; falta comprobar conectividad."
+                        : "Gemini no esta configurado. La correccion manual sigue disponible.");
+    }
+
+    @Override
+    public AiGradingStatus checkStatus() {
+        AppProperties.AiGrading config = properties.getAiGrading();
+        if (!config.isReady()) return status();
+        AiCorrectionProvider.Availability availability = provider.checkAvailability();
+        return new AiGradingStatus(config.isEnabled(), availability.available(), config.getModel(),
+                config.getMaterialVersion(), config.getPromptVersion(), availability.message());
     }
 
     @Override

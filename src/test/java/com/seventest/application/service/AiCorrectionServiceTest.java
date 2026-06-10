@@ -32,6 +32,7 @@ class AiCorrectionServiceTest {
     @Mock private AiGradingJobRepository jobRepository;
     @Mock private AiGradingSuggestionRepository suggestionRepository;
     @Mock private AiGradingJobDispatcher dispatcher;
+    @Mock private AiCorrectionProvider provider;
 
     private AppProperties properties;
     private AiCorrectionService service;
@@ -47,7 +48,7 @@ class AiCorrectionServiceTest {
         config.setPromptVersion("prompt");
         properties.setAiGrading(config);
         service = new AiCorrectionService(properties, submissionUseCase, examUseCase, userRepository,
-                jobRepository, suggestionRepository, dispatcher);
+                jobRepository, suggestionRepository, dispatcher, provider);
     }
 
     @Test
@@ -58,6 +59,31 @@ class AiCorrectionServiceTest {
         assertEquals("model", status.model());
         assertEquals("material", status.materialVersion());
         assertEquals("prompt", status.promptVersion());
+        assertEquals("Gemini esta configurado; falta comprobar conectividad.", status.message());
+    }
+
+    @Test
+    void checkStatusReportsRealProviderAvailability() {
+        Mockito.when(provider.checkAvailability())
+                .thenReturn(new AiCorrectionProvider.Availability(false, "Proveedor inaccesible"));
+
+        AiGradingStatus status = service.checkStatus();
+
+        assertFalse(status.available());
+        assertEquals("Proveedor inaccesible", status.message());
+    }
+
+    @Test
+    void statusAndCheckReportDisabledConfigurationWithoutCallingProvider() {
+        properties.getAiGrading().setEnabled(false);
+
+        AiGradingStatus status = service.status();
+        AiGradingStatus checked = service.checkStatus();
+
+        assertFalse(status.available());
+        assertEquals("Gemini no esta configurado. La correccion manual sigue disponible.", status.message());
+        assertEquals(status, checked);
+        Mockito.verifyNoInteractions(provider);
     }
 
     @Test

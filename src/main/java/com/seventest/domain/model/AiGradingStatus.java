@@ -5,6 +5,7 @@ public record AiGradingStatus(
         boolean available,
         String model,
         String materialVersion,
-        String promptVersion
+        String promptVersion,
+        String message
 ) {
 }

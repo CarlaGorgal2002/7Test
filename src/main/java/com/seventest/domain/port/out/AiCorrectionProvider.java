@@ -7,6 +7,10 @@ import java.util.List;
 
 public interface AiCorrectionProvider {
     Result evaluate(Request request);
+    Availability checkAvailability();
+
+    record Availability(boolean available, String message) {
+    }
 
     record Request(
             String questionType,

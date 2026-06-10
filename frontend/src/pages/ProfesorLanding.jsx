@@ -546,7 +546,7 @@ async function renameTopic(topicId) {
       setGradeData(initial)
       setAiJob(null)
       const [statusRes, suggestionRes] = await Promise.allSettled([
-        api.get('/ai-grading/status'),
+        api.post('/ai-grading/status/check'),
         api.get(`/ai-grading/submissions/${submission.id}/suggestions`),
       ])
       setAiStatus(statusRes.status === 'fulfilled' ? statusRes.value.data : null)
@@ -1746,7 +1746,7 @@ async function renameTopic(topicId) {
             <div style={{ ...styles.gradingBody, background: gradingPastel }}>
               {aiStatus && !aiStatus.available && (
                 <div style={styles.aiUnavailable}>
-                  La correccion con IA no esta configurada. La correccion manual sigue disponible.
+                  {aiStatus.message || 'La correccion con IA no esta disponible. La correccion manual sigue disponible.'}
                 </div>
               )}
               {aiJob && (
