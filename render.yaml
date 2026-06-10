@@ -5,10 +5,10 @@ services:
     region: virginia
     plan: free
     branch: qa-manual-only
+    autoDeploy: false
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /v3/api-docs
     envVars:
       - key: JWT_SECRET
         generateValue: true
-

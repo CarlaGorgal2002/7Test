@@ -8,6 +8,10 @@ con IA. Esta aislado de produccion:
 - Frontend Vercel: `7test-qa-manual`
 - Persistencia: H2 propia del servicio QA
 
+Despliegue directo del backend:
+
+`https://render.com/deploy?repo=https://github.com/CarlaGorgal2002/7Test/tree/qa-manual-only`
+
 ## Credenciales QA anteriores
 
 | Rol | Usuario | Contrasena |
