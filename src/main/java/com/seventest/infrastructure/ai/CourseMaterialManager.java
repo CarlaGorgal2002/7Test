@@ -21,6 +21,7 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class CourseMaterialManager {
     private static final int PROCESSING_ATTEMPTS = 60;
+    private static final int REQUEST_TIMEOUT_MS = 90_000;
 
     private final AppProperties properties;
     private final ResourceLoader resourceLoader;
@@ -33,7 +34,7 @@ public class CourseMaterialManager {
             client = Client.builder()
                     .apiKey(properties.getAiGrading().getApiKey())
                     .httpOptions(HttpOptions.builder()
-                            .timeout(90)
+                            .timeout(REQUEST_TIMEOUT_MS)
                             .retryOptions(HttpRetryOptions.builder()
                                     .attempts(3)
                                     .httpStatusCodes(408, 429, 500, 502, 503, 504)
