@@ -19,6 +19,7 @@ public class AiCorrectionProviderException extends RuntimeException {
         TIMEOUT,
         MATERIAL,
         MODEL,
+        LOCATION,
         SAFETY,
         INVALID_REQUEST,
         INVALID_RESPONSE,

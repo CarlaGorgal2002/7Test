@@ -141,7 +141,7 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
         return false;
     }
 
-    private AiCorrectionProviderException classified(Throwable failure) {
+    AiCorrectionProviderException classified(Throwable failure) {
         AiCorrectionProviderException.Reason reason = reason(failure);
         String safeMessage = switch (reason) {
             case AUTHENTICATION -> "Gemini rechazo la API key o sus permisos.";
@@ -149,6 +149,8 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
             case TIMEOUT -> "Gemini excedio el tiempo disponible para evaluar la respuesta.";
             case MATERIAL -> "Gemini no pudo preparar o leer el PDF oficial.";
             case MODEL -> "El modelo Gemini configurado no esta disponible para esta API key.";
+            case LOCATION -> "Gemini rechazo la ubicacion de Render para el nivel gratuito. "
+                    + "Habilita billing en el proyecto de Google AI Studio o despliega el backend desde otra region.";
             case SAFETY -> "Gemini bloqueo la evaluacion por sus filtros de seguridad.";
             case INVALID_REQUEST -> "Gemini rechazo la configuracion de la solicitud. " + safeApiDiagnostic(failure);
             case INVALID_RESPONSE -> "Gemini devolvio una respuesta incompleta o invalida.";
@@ -172,6 +174,10 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
                 if (api.code() >= 500) return AiCorrectionProviderException.Reason.UNAVAILABLE;
             }
             String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+            if (message.contains("user location is not supported")
+                    || message.contains("free tier is not available")) {
+                return AiCorrectionProviderException.Reason.LOCATION;
+            }
             if (message.contains("quota") || message.contains("rate limit")) return AiCorrectionProviderException.Reason.QUOTA;
             if (message.contains("timeout") || message.contains("timed out")) return AiCorrectionProviderException.Reason.TIMEOUT;
             if (message.contains("pdf") || message.contains("file") || message.contains("material")) {

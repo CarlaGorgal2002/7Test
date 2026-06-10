@@ -2,6 +2,7 @@ package com.seventest.infrastructure.ai;
 
 import com.google.genai.types.File;
 import com.google.genai.errors.ClientException;
+import com.seventest.domain.exception.AiCorrectionProviderException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,5 +34,18 @@ class GeminiCorrectionAdapterTest {
         String diagnostic = adapter.safeApiDiagnostic(failure);
 
         assertEquals("Detalle: Invalid file files/[ID] at [URL] using [API_KEY]", diagnostic);
+    }
+
+    @Test
+    void classifiesUnsupportedProviderLocationWithActionableMessage() {
+        ClientException failure = new ClientException(400, "FAILED_PRECONDITION",
+                "User location is not supported for the API use.");
+
+        AiCorrectionProviderException exception = adapter.classified(failure);
+
+        assertEquals(AiCorrectionProviderException.Reason.LOCATION, exception.getReason());
+        assertEquals("Gemini rechazo la ubicacion de Render para el nivel gratuito. "
+                + "Habilita billing en el proyecto de Google AI Studio o despliega el backend desde otra region.",
+                exception.getSafeMessage());
     }
 }
