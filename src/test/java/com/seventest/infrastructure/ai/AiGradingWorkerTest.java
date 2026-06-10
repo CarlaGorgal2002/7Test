@@ -131,14 +131,14 @@ class AiGradingWorkerTest {
         stub(fixture);
         Mockito.when(provider.evaluate(Mockito.any())).thenThrow(new AiCorrectionProviderException(
                 AiCorrectionProviderException.Reason.QUOTA,
-                "Gemini rechazo la solicitud por cuota o limite de uso.",
+                "OpenAI rechazo la solicitud por falta de creditos, cuota o limite de uso.",
                 new IllegalStateException("detalle sensible")));
 
         worker.dispatch(jobId);
 
         ArgumentCaptor<AiGradingSuggestion> suggestion = ArgumentCaptor.forClass(AiGradingSuggestion.class);
         Mockito.verify(suggestionRepository).save(suggestion.capture());
-        assertEquals("Gemini rechazo la solicitud por cuota o limite de uso.",
+        assertEquals("OpenAI rechazo la solicitud por falta de creditos, cuota o limite de uso.",
                 suggestion.getValue().getErrorSummary());
         assertFalse(suggestion.getValue().getErrorSummary().contains("detalle sensible"));
     }

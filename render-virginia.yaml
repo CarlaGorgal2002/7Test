@@ -11,11 +11,11 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: postgres
-      - key: GEMINI_ENABLED
+      - key: OPENAI_ENABLED
         value: "true"
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash
-      - key: GEMINI_API_KEY
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      - key: OPENAI_API_KEY
         sync: false
       - key: SPRING_DATASOURCE_URL
         sync: false

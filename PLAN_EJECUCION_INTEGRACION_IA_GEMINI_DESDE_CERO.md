@@ -1,4 +1,7 @@
-# Integracion de Correccion con IA Gemini Desde Cero
+# Plan Historico: Integracion de Correccion con IA Gemini Desde Cero
+
+> **Reemplazado el 10 de junio de 2026:** la implementacion activa utiliza OpenAI Responses API.
+> Consultar `MIGRACION_CORRECCION_IA_OPENAI.md`.
 
 **Estado:** implementado  
 **Fecha base:** 10 de junio de 2026  

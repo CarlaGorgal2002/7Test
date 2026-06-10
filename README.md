@@ -88,29 +88,29 @@ http://localhost:8080/v3/api-docs
 | `app.jwt.expiration-ms` | Duración del token en ms | `3600000` (1 hora) |
 | `app.security.max-login-attempts` | Intentos antes de bloquear cuenta | `5` |
 | `app.security.lockout-duration-minutes` | Minutos de bloqueo | `15` |
-| `GEMINI_ENABLED` | Habilita sugerencias tentativas de correccion | `false` |
-| `GEMINI_API_KEY` | Clave secreta de Gemini, solo backend | vacio |
-| `GEMINI_MODEL` | Modelo Gemini configurable | `gemini-3.5-flash` |
-| `GEMINI_MAX_RELEVANT_PAGES` | Maximo de paginas relevantes enviadas por pregunta | `8` |
-| `GEMINI_MAX_CHARACTERS_PER_PAGE` | Maximo de caracteres enviados por pagina | `6000` |
+| `OPENAI_ENABLED` | Habilita sugerencias tentativas de correccion | `false` |
+| `OPENAI_API_KEY` | Clave secreta de OpenAI, solo backend | vacio |
+| `OPENAI_MODEL` | Modelo OpenAI configurable | `gpt-5.4-mini` |
+| `OPENAI_MAX_RELEVANT_PAGES` | Maximo de paginas relevantes enviadas por pregunta | `8` |
+| `OPENAI_MAX_CHARACTERS_PER_PAGE` | Maximo de caracteres enviados por pagina | `6000` |
 
-### Configurar Gemini localmente
+### Configurar OpenAI localmente
 
-1. Ingresar a [Google AI Studio API Keys](https://aistudio.google.com/apikey).
-2. Crear una clave asociada al proyecto y restringirla a Gemini API.
+1. Ingresar a [OpenAI API Keys](https://platform.openai.com/api-keys).
+2. Crear una clave secreta nueva y no compartirla.
 3. Abrir PowerShell en la raiz del proyecto.
 4. Definir las variables solo para esa terminal:
 
 ```powershell
-$env:GEMINI_ENABLED="true"
-$env:GEMINI_API_KEY="tu-clave"
-$env:GEMINI_MODEL="gemini-3.5-flash"
+$env:OPENAI_ENABLED="true"
+$env:OPENAI_API_KEY="tu-clave"
+$env:OPENAI_MODEL="gpt-5.4-mini"
 .\mvnw.cmd spring-boot:run
 ```
 
 La clave nunca debe colocarse en React, Vite, archivos YAML versionados, Dockerfile ni commits.
-Sin clave o con `GEMINI_ENABLED=false`, toda la correccion manual continua funcionando.
-La guia completa esta en `PLAN_EJECUCION_INTEGRACION_IA_GEMINI_DESDE_CERO.md`.
+Sin clave o con `OPENAI_ENABLED=false`, toda la correccion manual continua funcionando.
+La guia de migracion esta en `MIGRACION_CORRECCION_IA_OPENAI.md`.
 
 ---
 

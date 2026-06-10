@@ -1,8 +1,5 @@
 package com.seventest.infrastructure.ai;
 
-import com.google.genai.Client;
-import com.google.genai.types.HttpOptions;
-import com.google.genai.types.HttpRetryOptions;
 import com.seventest.domain.port.out.AiCorrectionProvider;
 import com.seventest.infrastructure.config.AppProperties;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +26,6 @@ import java.util.regex.Pattern;
 @Component
 @RequiredArgsConstructor
 public class CourseMaterialManager {
-    private static final int REQUEST_TIMEOUT_MS = 90_000;
     private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9]+");
     private static final Set<String> STOP_WORDS = Set.of(
             "ademas", "alguna", "algunas", "alguno", "algunos", "ante", "cada", "como", "con", "contra",
@@ -40,24 +36,7 @@ public class CourseMaterialManager {
 
     private final AppProperties properties;
     private final ResourceLoader resourceLoader;
-    private Client client;
     private List<IndexedPage> indexedPages;
-
-    public synchronized Client client() {
-        if (client == null) {
-            client = Client.builder()
-                    .apiKey(properties.getAiGrading().getApiKey())
-                    .httpOptions(HttpOptions.builder()
-                            .timeout(REQUEST_TIMEOUT_MS)
-                            .retryOptions(HttpRetryOptions.builder()
-                                    .attempts(3)
-                                    .httpStatusCodes(408, 429, 500, 502, 503, 504)
-                                    .build())
-                            .build())
-                    .build();
-        }
-        return client;
-    }
 
     public Selection selectRelevantPages(AiCorrectionProvider.Request request) {
         Map<String, Integer> weightedQuery = new HashMap<>();

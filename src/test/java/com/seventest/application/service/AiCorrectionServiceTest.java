@@ -59,7 +59,7 @@ class AiCorrectionServiceTest {
         assertEquals("model", status.model());
         assertEquals("material", status.materialVersion());
         assertEquals("prompt", status.promptVersion());
-        assertEquals("Gemini esta configurado; falta comprobar conectividad.", status.message());
+        assertEquals("OpenAI esta configurado; falta comprobar conectividad.", status.message());
     }
 
     @Test
@@ -81,7 +81,7 @@ class AiCorrectionServiceTest {
         AiGradingStatus checked = service.checkStatus();
 
         assertFalse(status.available());
-        assertEquals("Gemini no esta configurado. La correccion manual sigue disponible.", status.message());
+        assertEquals("OpenAI no esta configurado. La correccion manual sigue disponible.", status.message());
         assertEquals(status, checked);
         Mockito.verifyNoInteractions(provider);
     }

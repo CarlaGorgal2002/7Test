@@ -34,8 +34,8 @@ public class AiCorrectionService implements AiCorrectionUseCase {
         AppProperties.AiGrading config = properties.getAiGrading();
         return new AiGradingStatus(config.isEnabled(), config.isReady(), config.getModel(),
                 config.getMaterialVersion(), config.getPromptVersion(),
-                config.isReady() ? "Gemini esta configurado; falta comprobar conectividad."
-                        : "Gemini no esta configurado. La correccion manual sigue disponible.");
+                config.isReady() ? "OpenAI esta configurado; falta comprobar conectividad."
+                        : "OpenAI no esta configurado. La correccion manual sigue disponible.");
     }
 
     @Override

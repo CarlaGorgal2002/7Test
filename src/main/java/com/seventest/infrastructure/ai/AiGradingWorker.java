@@ -115,7 +115,7 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
         boolean missingPages = !answerText.isBlank() && result.sourcePages().isEmpty();
         boolean humanReview = result.requiresHumanReview() || result.confidence() == AiGradingConfidence.LOW || missingPages;
         String reviewReason = missingPages && blank(result.reviewReason())
-                ? "Gemini no indico paginas de respaldo" : safe(result.reviewReason(), 1000);
+                ? "La IA no indico paginas de respaldo" : safe(result.reviewReason(), 1000);
         AppProperties.AiGrading config = properties.getAiGrading();
         return AiGradingSuggestion.builder().id(UUID.randomUUID()).jobId(job.getId()).submissionId(submission.getId())
                 .answerId(answer.getId()).questionId(question.getId())

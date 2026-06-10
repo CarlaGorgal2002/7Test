@@ -26,13 +26,13 @@ app:
     max-login-attempts: 9999
     lockout-duration-minutes: 0
   ai-grading:
-    enabled: ${GEMINI_ENABLED:false}
-    api-key: ${GEMINI_API_KEY:}
-    model: ${GEMINI_MODEL:gemini-3.5-flash}
+    enabled: ${OPENAI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-5.4-mini}
     material-version: testing-apps-2026-06-10-v1
     material-resource: classpath:course-material/Todo_Testing_de_Apps.pdf
     material-sha256: FC7D8DA8052D96C2A3727DE4B4DFE91E93412F4B664EB8B2E31CDE5CC8E9DFF0
     prompt-version: testing-grading-v2
     prompt-resource: classpath:ai-grading/testing-grading-v2.txt
-    max-relevant-pages: ${GEMINI_MAX_RELEVANT_PAGES:8}
-    max-characters-per-page: ${GEMINI_MAX_CHARACTERS_PER_PAGE:6000}
+    max-relevant-pages: ${OPENAI_MAX_RELEVANT_PAGES:8}
+    max-characters-per-page: ${OPENAI_MAX_CHARACTERS_PER_PAGE:6000}
