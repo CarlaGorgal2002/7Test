@@ -4,14 +4,12 @@ import com.seventest.domain.model.Role;
 import com.seventest.domain.model.User;
 import com.seventest.domain.model.UserStatus;
 import com.seventest.domain.port.out.UserRepository;
-import com.seventest.infrastructure.persistence.repository.UserJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -20,13 +18,10 @@ import java.util.UUID;
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
-    private final UserJpaRepository userJpaRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
-        long deletedUsers = userJpaRepository.deleteByRoleIn(List.of(Role.ALUMNO, Role.PROFESOR));
-        log.info("Cuentas persistidas de alumnos y profesores eliminadas: {}", deletedUsers);
         ensureAdmin();
     }
 
