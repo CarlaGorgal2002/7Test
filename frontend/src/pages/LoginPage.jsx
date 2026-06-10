@@ -35,7 +35,10 @@ export default function LoginPage({ recovery = false }) {
       sessionStorage.removeItem('lastLoginEmail')
       navigate(ROLE_ROUTES[res.data.role] || '/login', { replace: true })
     } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo iniciar sesión.')
+      const backendUnavailable = !err.response || err.response.status === 404 || err.response.status >= 500
+      setError(backendUnavailable
+        ? 'El backend QA todavía no está disponible en Render.'
+        : err.response?.data?.message || 'No se pudo iniciar sesión.')
     } finally {
       setLoading(false)
     }
