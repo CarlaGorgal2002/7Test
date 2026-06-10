@@ -7,10 +7,8 @@ import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.Part;
-import com.google.genai.types.Schema;
 import com.google.genai.types.ThinkingConfig;
 import com.google.genai.types.ThinkingLevel;
-import com.google.genai.types.Type;
 import com.seventest.domain.exception.AiCorrectionProviderException;
 import com.seventest.domain.model.AiGradingConfidence;
 import com.seventest.domain.port.out.AiCorrectionProvider;
@@ -55,7 +53,7 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
         var file = materialManager.materialFile();
         Content content = Content.fromParts(
                 Part.fromText(academicInput(request)),
-                Part.fromUri(file.name().orElseThrow(), file.mimeType().orElse("application/pdf")));
+                Part.fromUri(fileUri(file), file.mimeType().orElse("application/pdf")));
         GenerateContentResponse response = materialManager.client().models.generateContent(
                 properties.getAiGrading().getModel(), content, generationConfig());
         String responseText = response.text();
@@ -72,8 +70,7 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
         return GenerateContentConfig.builder()
                 .systemInstruction(Content.fromParts(Part.fromText(masterPrompt())))
                 .responseMimeType("application/json")
-                .responseSchema(responseSchema())
-                .candidateCount(1)
+                .responseJsonSchema(responseJsonSchema())
                 .temperature(0.1f)
                 .thinkingConfig(ThinkingConfig.builder()
                         .thinkingLevel(ThinkingLevel.Known.MEDIUM)
@@ -95,22 +92,28 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
                 + objectMapper.writeValueAsString(input);
     }
 
-    private Schema responseSchema() {
-        Schema string = Schema.builder().type(Type.Known.STRING).build();
-        Schema stringList = Schema.builder().type(Type.Known.ARRAY).items(string).build();
-        Map<String, Schema> fields = new LinkedHashMap<>();
-        fields.put("suggestedFraction", Schema.builder().type(Type.Known.NUMBER).minimum(0.0).maximum(1.0).build());
-        fields.put("suggestedComment", string);
-        fields.put("strengths", stringList);
-        fields.put("issues", stringList);
-        fields.put("sourcePages", Schema.builder().type(Type.Known.ARRAY)
-                .items(Schema.builder().type(Type.Known.INTEGER).minimum(1.0).maximum(158.0)).build());
-        fields.put("confidence", Schema.builder().type(Type.Known.STRING).enum_("LOW", "MEDIUM", "HIGH").build());
-        fields.put("requiresHumanReview", Schema.builder().type(Type.Known.BOOLEAN).build());
-        fields.put("reviewReason", string);
-        return Schema.builder().type(Type.Known.OBJECT).properties(fields)
-                .required("suggestedFraction", "suggestedComment", "strengths", "issues", "sourcePages",
-                        "confidence", "requiresHumanReview", "reviewReason").build();
+    private Map<String, Object> responseJsonSchema() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("suggestedFraction", Map.of("type", "number", "enum", List.of(0, 0.25, 0.5, 0.75, 1)));
+        fields.put("suggestedComment", Map.of("type", "string"));
+        fields.put("strengths", Map.of("type", "array", "items", Map.of("type", "string")));
+        fields.put("issues", Map.of("type", "array", "items", Map.of("type", "string")));
+        fields.put("sourcePages", Map.of("type", "array",
+                "items", Map.of("type", "integer", "minimum", 1, "maximum", 158)));
+        fields.put("confidence", Map.of("type", "string", "enum", List.of("LOW", "MEDIUM", "HIGH")));
+        fields.put("requiresHumanReview", Map.of("type", "boolean"));
+        fields.put("reviewReason", Map.of("type", "string"));
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("type", "object");
+        schema.put("properties", fields);
+        schema.put("required", List.of("suggestedFraction", "suggestedComment", "strengths", "issues", "sourcePages",
+                "confidence", "requiresHumanReview", "reviewReason"));
+        schema.put("additionalProperties", false);
+        return schema;
+    }
+
+    String fileUri(com.google.genai.types.File file) {
+        return file.uri().orElseThrow(() -> new IllegalStateException("Gemini no devolvio la URI del PDF oficial"));
     }
 
     private String masterPrompt() {
