@@ -28,4 +28,5 @@ public interface ExamManagementUseCase {
     Exam publishFeedback(String teacherEmail, UUID examId);
     Exam addExtraTime(String teacherEmail, UUID examId, int extraMinutes);
     void deleteExam(String teacherEmail, UUID examId);
+    void regrade(String teacherEmail, UUID examId);
 }

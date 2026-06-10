@@ -82,6 +82,7 @@ export default function ProfesorLanding() {
   const [hoveredCard, setHoveredCard] = useState(null)
   const [hoveredSubCard, setHoveredSubCard] = useState(null)
   const [examListFilter, setExamListFilter] = useState(null) // 'borrador' | 'listo' | null
+  const [regrading, setRegrading] = useState(false)
 
   const selectedExam = useMemo(
     () => exams.find((exam) => exam.id === selectedId) || null,
@@ -476,6 +477,19 @@ async function renameTopic(topicId) {
       updated = res.data
     }
     return updated
+  }
+
+  async function triggerRegrade() {
+    if (!selectedExam) return
+    setRegrading(true)
+    try {
+      await api.post(`/exams/${selectedExam.id}/regrade`)
+      setMessage('Re-corrección iniciada. Actualizá la página en unos segundos para ver los resultados.')
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'No se pudo iniciar la re-corrección.')
+    } finally {
+      setRegrading(false)
+    }
   }
 
   async function closeExam() {
@@ -1225,6 +1239,15 @@ async function renameTopic(topicId) {
                         <span style={styles.counterBadgeProgress}>En progreso: {enProgreso}</span>
                         <span style={styles.counterBadgeDone}>Entregado: {entregados}</span>
                         <span style={styles.counterBadgeTotal}>Total: {submissions.length}</span>
+                        {selectedExam.status === 'CERRADO' && (
+                          <button
+                            onClick={triggerRegrade}
+                            disabled={regrading}
+                            style={{ ...styles.publishFeedbackBtn, background: '#1956D8', borderColor: '#1956D8', opacity: regrading ? 0.6 : 1 }}
+                          >
+                            {regrading ? 'Iniciando...' : '🤖 Re-corregir con IA'}
+                          </button>
+                        )}
                         {(() => {
                           const allGraded = submissions.length > 0
                             && submissions.every(s => s.status === 'ENTREGADO' && isGraded(s))

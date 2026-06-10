@@ -139,6 +139,14 @@ public class ExamController {
         return ResponseEntity.ok(toResponse(examManagementUseCase.close(principal.getName(), examId)));
     }
 
+    @Operation(summary = "Re-corregir examen con IA")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @PostMapping("/{examId}/regrade")
+    public ResponseEntity<Void> regrade(@PathVariable UUID examId, Principal principal) {
+        examManagementUseCase.regrade(principal.getName(), examId);
+        return ResponseEntity.accepted().build();
+    }
+
     @Operation(summary = "Agregar tiempo extra al examen (max 1 vez, max 60 min)")
     @PreAuthorize("hasRole('PROFESOR')")
     @PatchMapping("/{examId}/add-extra-time")

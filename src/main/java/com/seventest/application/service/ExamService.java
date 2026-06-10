@@ -204,6 +204,12 @@ public class ExamService implements ExamManagementUseCase {
     }
 
     @Override
+    public void regrade(String teacherEmail, UUID examId) {
+        requireOwnedExam(teacherEmail, examId);
+        geminiGradingService.processExamSubmissions(examId);
+    }
+
+    @Override
     public List<Exam> listForTeacher(String teacherEmail) {
         User teacher = requireTeacher(teacherEmail);
         return examRepository.findByTeacherId(teacher.getId());
