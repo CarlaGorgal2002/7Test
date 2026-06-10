@@ -864,6 +864,40 @@ class ExamServiceTest {
         Mockito.verify(examRepository, Mockito.times(1)).save(Mockito.any(Exam.class));
     }
 
+    // ========================================== REGRADE ==========================================
+
+    @Test
+    void regrade_validTeacherAndExam_callsGeminiGradingService() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Exam exam = createSampleExam(examId, teacherId, ExamStatus.CERRADO, new ArrayList<>());
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        // Act
+        examService.regrade("teacher@test.com", examId);
+
+        // Assert
+        Mockito.verify(geminiGradingService, Mockito.times(1)).processExamSubmissions(examId);
+    }
+
+    @Test
+    void regrade_examNotFound_throwsException() {
+        // Arrange
+        UUID teacherId = UUID.randomUUID();
+        UUID examId = UUID.randomUUID();
+        User teacher = createSampleTeacher(teacherId, "teacher@test.com");
+        Mockito.when(userRepository.findByEmail("teacher@test.com")).thenReturn(Optional.of(teacher));
+        Mockito.when(examRepository.findById(examId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Assertions.assertThrows(RuntimeException.class,
+                () -> examService.regrade("teacher@test.com", examId));
+        Mockito.verify(geminiGradingService, Mockito.never()).processExamSubmissions(Mockito.any());
+    }
+
     // ========================================== LIST FOR TEACHER / SUPERVISION / STUDENTS ==========================================
 
     @Test
