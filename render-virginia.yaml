@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: 7test-backend-virginia
+    runtime: docker
+    region: virginia
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /v3/api-docs
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: postgres
+      - key: GEMINI_ENABLED
+        value: "true"
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
