@@ -150,7 +150,7 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
             case MATERIAL -> "Gemini no pudo preparar o leer el PDF oficial.";
             case MODEL -> "El modelo Gemini configurado no esta disponible para esta API key.";
             case SAFETY -> "Gemini bloqueo la evaluacion por sus filtros de seguridad.";
-            case INVALID_REQUEST -> "Gemini rechazo la configuracion de la solicitud.";
+            case INVALID_REQUEST -> "Gemini rechazo la configuracion de la solicitud. " + safeApiDiagnostic(failure);
             case INVALID_RESPONSE -> "Gemini devolvio una respuesta incompleta o invalida.";
             case UNAVAILABLE -> "Gemini esta temporalmente no disponible.";
         };
@@ -185,6 +185,24 @@ public class GeminiCorrectionAdapter implements AiCorrectionProvider {
             current = current.getCause();
         }
         return AiCorrectionProviderException.Reason.INVALID_REQUEST;
+    }
+
+    String safeApiDiagnostic(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof ApiException api && api.code() == 400) {
+                String detail = api.message() == null ? "" : api.message();
+                detail = detail.replaceAll("AIza[0-9A-Za-z_-]+", "[API_KEY]")
+                        .replaceAll("https?://\\S+", "[URL]")
+                        .replaceAll("files/[0-9A-Za-z_-]+", "files/[ID]")
+                        .replaceAll("\\s+", " ").trim();
+                if (detail.isBlank()) return "Detalle: INVALID_ARGUMENT.";
+                if (detail.length() > 350) detail = detail.substring(0, 350);
+                return "Detalle: " + detail;
+            }
+            current = current.getCause();
+        }
+        return "Detalle: INVALID_ARGUMENT.";
     }
 
     private record GeminiResult(
