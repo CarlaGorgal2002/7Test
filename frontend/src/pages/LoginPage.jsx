@@ -31,7 +31,7 @@ export default function LoginPage({ recovery = false }) {
     sessionStorage.setItem('lastLoginEmail', cleanEmail)
     try {
       const res = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword })
-      setSession(res.data.token, { role: res.data.role, fullName: res.data.fullName })
+      setSession(res.data.token, { role: res.data.role, fullName: res.data.fullName, email: cleanEmail })
       sessionStorage.removeItem('lastLoginEmail')
       navigate(ROLE_ROUTES[res.data.role] || '/login', { replace: true })
     } catch (err) {

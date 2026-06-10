@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class AiCorrectionServiceTest {
-    private static final String EMAIL = "teacher@test.com";
+    private static final String EMAIL = "pfarias@uade.edu.ar";
+    private static final String NON_VIP_EMAIL = "prof.mgueler@uade.edu.ar";
     private final UUID submissionId = UUID.randomUUID();
     private final UUID examId = UUID.randomUUID();
     private final UUID teacherId = UUID.randomUUID();
@@ -53,7 +55,7 @@ class AiCorrectionServiceTest {
 
     @Test
     void statusReportsSafeConfiguration() {
-        AiGradingStatus status = service.status();
+        AiGradingStatus status = service.status(EMAIL);
         assertTrue(status.enabled());
         assertTrue(status.available());
         assertEquals("model", status.model());
@@ -67,7 +69,7 @@ class AiCorrectionServiceTest {
         Mockito.when(provider.checkAvailability())
                 .thenReturn(new AiCorrectionProvider.Availability(false, "Proveedor inaccesible"));
 
-        AiGradingStatus status = service.checkStatus();
+        AiGradingStatus status = service.checkStatus(EMAIL);
 
         assertFalse(status.available());
         assertEquals("Proveedor inaccesible", status.message());
@@ -77,8 +79,8 @@ class AiCorrectionServiceTest {
     void statusAndCheckReportDisabledConfigurationWithoutCallingProvider() {
         properties.getAiGrading().setEnabled(false);
 
-        AiGradingStatus status = service.status();
-        AiGradingStatus checked = service.checkStatus();
+        AiGradingStatus status = service.status(EMAIL);
+        AiGradingStatus checked = service.checkStatus(EMAIL);
 
         assertFalse(status.available());
         assertEquals("OpenAI no esta configurado. La correccion manual sigue disponible.", status.message());
@@ -90,6 +92,31 @@ class AiCorrectionServiceTest {
     void startRejectsWhenDisabled() {
         properties.getAiGrading().setEnabled(false);
         assertThrows(IllegalArgumentException.class, () -> service.startJob(EMAIL, submissionId));
+    }
+
+    @Test
+    void everyAiOperationRejectsNonVipTeacher() {
+        UUID id = UUID.randomUUID();
+
+        assertThrows(AccessDeniedException.class, () -> service.status(NON_VIP_EMAIL));
+        assertThrows(AccessDeniedException.class, () -> service.checkStatus(NON_VIP_EMAIL));
+        assertThrows(AccessDeniedException.class, () -> service.startJob(NON_VIP_EMAIL, submissionId));
+        assertThrows(AccessDeniedException.class, () -> service.findJob(NON_VIP_EMAIL, id));
+        assertThrows(AccessDeniedException.class, () -> service.listSuggestions(NON_VIP_EMAIL, submissionId));
+        assertThrows(AccessDeniedException.class, () -> service.accept(NON_VIP_EMAIL, id));
+        assertThrows(AccessDeniedException.class, () -> service.reject(NON_VIP_EMAIL, id));
+
+        Mockito.verifyNoInteractions(provider, dispatcher, jobRepository, suggestionRepository, submissionUseCase);
+    }
+
+    @Test
+    void vipAuthorizationNormalizesEmailAndRejectsMissingConfiguration() {
+        properties.getAiGrading().setVipTeacherEmail(" PFARIAS@UADE.EDU.AR ");
+        assertTrue(service.status(" pfarias@uade.edu.ar ").available());
+
+        assertThrows(AccessDeniedException.class, () -> service.status(null));
+        properties.getAiGrading().setVipTeacherEmail(null);
+        assertThrows(AccessDeniedException.class, () -> service.status(EMAIL));
     }
 
     @Test

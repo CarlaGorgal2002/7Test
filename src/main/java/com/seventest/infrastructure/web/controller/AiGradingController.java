@@ -27,13 +27,13 @@ public class AiGradingController {
     private final AiCorrectionUseCase useCase;
 
     @GetMapping("/status")
-    public ResponseEntity<AiGradingStatus> status() {
-        return ResponseEntity.ok(useCase.status());
+    public ResponseEntity<AiGradingStatus> status(Principal principal) {
+        return ResponseEntity.ok(useCase.status(principal.getName()));
     }
 
     @PostMapping("/status/check")
-    public ResponseEntity<AiGradingStatus> checkStatus() {
-        return ResponseEntity.ok(useCase.checkStatus());
+    public ResponseEntity<AiGradingStatus> checkStatus(Principal principal) {
+        return ResponseEntity.ok(useCase.checkStatus(principal.getName()));
     }
 
     @PostMapping("/submissions/{submissionId}/jobs")

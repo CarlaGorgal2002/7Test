@@ -17,6 +17,7 @@ import DecisionTreeEditor, {
 } from '../components/DecisionTreeEditor.jsx'
 import Logo from '../components/Logo.jsx'
 import AiSuggestionCard from '../components/AiSuggestionCard.jsx'
+import { canTeacherUseAi } from '../auth/aiAccess.js'
 
 const _d = (a) => a.map((c) => String.fromCharCode(c)).join('')
 
@@ -58,6 +59,7 @@ const defaultExamTemplate = [
 export default function ProfesorLanding() {
   const navigate = useNavigate()
   const user = getCurrentUser() || {}
+  const canUseAi = canTeacherUseAi(user)
 
   const [exams, setExams] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -135,7 +137,7 @@ export default function ProfesorLanding() {
   }, [selectedExam?.status])
 
   useEffect(() => {
-    if (!aiJob || !['QUEUED', 'RUNNING'].includes(aiJob.status) || !gradingSubmission) return
+    if (!canUseAi || !aiJob || !['QUEUED', 'RUNNING'].includes(aiJob.status) || !gradingSubmission) return
     const interval = setInterval(async () => {
       try {
         const [jobRes, suggestionsRes] = await Promise.all([
@@ -149,7 +151,7 @@ export default function ProfesorLanding() {
       }
     }, 1500)
     return () => clearInterval(interval)
-  }, [aiJob?.id, aiJob?.status, gradingSubmission?.id])
+  }, [canUseAi, aiJob?.id, aiJob?.status, gradingSubmission?.id])
 
   useEffect(() => {
     if (!selectedExam) return
@@ -545,12 +547,17 @@ async function renameTopic(topicId) {
       })
       setGradeData(initial)
       setAiJob(null)
-      const [statusRes, suggestionRes] = await Promise.allSettled([
-        api.post('/ai-grading/status/check'),
-        api.get(`/ai-grading/submissions/${submission.id}/suggestions`),
-      ])
-      setAiStatus(statusRes.status === 'fulfilled' ? statusRes.value.data : null)
-      setAiSuggestions(suggestionRes.status === 'fulfilled' ? suggestionRes.value.data : [])
+      if (canUseAi) {
+        const [statusRes, suggestionRes] = await Promise.allSettled([
+          api.post('/ai-grading/status/check'),
+          api.get(`/ai-grading/submissions/${submission.id}/suggestions`),
+        ])
+        setAiStatus(statusRes.status === 'fulfilled' ? statusRes.value.data : null)
+        setAiSuggestions(suggestionRes.status === 'fulfilled' ? suggestionRes.value.data : [])
+      } else {
+        setAiStatus(null)
+        setAiSuggestions([])
+      }
     } catch (err) {
       setMessage(err.response?.data?.message || 'No se pudo cargar la entrega.')
     }
@@ -1728,7 +1735,7 @@ async function renameTopic(topicId) {
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {message && <span style={{ color: '#087A55', fontSize: 13, fontWeight: 700 }}>{message}</span>}
-                {aiStatus?.available && !gradingSubmission.feedbackPublished && (
+                {canUseAi && aiStatus?.available && !gradingSubmission.feedbackPublished && (
                   <button
                     onClick={startAiGrading}
                     disabled={aiLoading || ['QUEUED', 'RUNNING'].includes(aiJob?.status)}
@@ -1744,12 +1751,12 @@ async function renameTopic(topicId) {
               </div>
             </div>
             <div style={{ ...styles.gradingBody, background: gradingPastel }}>
-              {aiStatus && !aiStatus.available && (
+              {canUseAi && aiStatus && !aiStatus.available && (
                 <div style={styles.aiUnavailable}>
                   {aiStatus.message || 'La correccion con IA no esta disponible. La correccion manual sigue disponible.'}
                 </div>
               )}
-              {aiJob && (
+              {canUseAi && aiJob && (
                 <div style={styles.aiProgress}>
                   <strong>Trabajo IA: {aiJob.status}</strong>
                   <span>{aiJob.completedQuestions} / {aiJob.totalQuestions} preguntas procesadas</span>
@@ -1780,12 +1787,14 @@ async function renameTopic(topicId) {
                         <pre style={styles.gradeAnswerText}>{q.answerText || '(sin respuesta)'}</pre>
                       )}
                     </div>
-                    <AiSuggestionCard
-                      suggestion={aiSuggestion}
-                      history={questionSuggestions}
-                      maxPoints={maxPts}
-                      onReview={reviewAiSuggestion}
-                    />
+                    {canUseAi && (
+                      <AiSuggestionCard
+                        suggestion={aiSuggestion}
+                        history={questionSuggestions}
+                        maxPoints={maxPts}
+                        onReview={reviewAiSuggestion}
+                      />
+                    )}
                     <div style={styles.gradeInputRow}>
                       <div style={styles.gradeScoreBlock}>
                         <label style={styles.label}>Puntaje otorgado</label>

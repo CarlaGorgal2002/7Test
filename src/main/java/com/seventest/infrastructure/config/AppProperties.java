@@ -34,6 +34,7 @@ public class AppProperties {
     public static class AiGrading {
         private boolean enabled;
         private String apiKey = "";
+        private String vipTeacherEmail = "pfarias@uade.edu.ar";
         private String model = "gpt-5.4-mini";
         private String materialVersion = "testing-apps-2026-06-10-v1";
         private String materialResource = "classpath:course-material/Todo_Testing_de_Apps.pdf";

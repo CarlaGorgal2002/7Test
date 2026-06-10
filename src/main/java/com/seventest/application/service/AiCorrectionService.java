@@ -11,10 +11,12 @@ import com.seventest.domain.port.out.AiCorrectionProvider;
 import com.seventest.domain.port.out.UserRepository;
 import com.seventest.infrastructure.config.AppProperties;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -30,7 +32,8 @@ public class AiCorrectionService implements AiCorrectionUseCase {
     private final AiCorrectionProvider provider;
 
     @Override
-    public AiGradingStatus status() {
+    public AiGradingStatus status(String teacherEmail) {
+        requireVipTeacher(teacherEmail);
         AppProperties.AiGrading config = properties.getAiGrading();
         return new AiGradingStatus(config.isEnabled(), config.isReady(), config.getModel(),
                 config.getMaterialVersion(), config.getPromptVersion(),
@@ -39,9 +42,10 @@ public class AiCorrectionService implements AiCorrectionUseCase {
     }
 
     @Override
-    public AiGradingStatus checkStatus() {
+    public AiGradingStatus checkStatus(String teacherEmail) {
+        requireVipTeacher(teacherEmail);
         AppProperties.AiGrading config = properties.getAiGrading();
-        if (!config.isReady()) return status();
+        if (!config.isReady()) return status(teacherEmail);
         AiCorrectionProvider.Availability availability = provider.checkAvailability();
         return new AiGradingStatus(config.isEnabled(), availability.available(), config.getModel(),
                 config.getMaterialVersion(), config.getPromptVersion(), availability.message());
@@ -49,6 +53,7 @@ public class AiCorrectionService implements AiCorrectionUseCase {
 
     @Override
     public synchronized AiGradingJob startJob(String teacherEmail, UUID submissionId) {
+        requireVipTeacher(teacherEmail);
         if (!properties.getAiGrading().isReady()) {
             throw new IllegalArgumentException("La correccion con IA no esta disponible");
         }
@@ -68,6 +73,7 @@ public class AiCorrectionService implements AiCorrectionUseCase {
 
     @Override
     public AiGradingJob findJob(String teacherEmail, UUID jobId) {
+        requireVipTeacher(teacherEmail);
         AiGradingJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Trabajo de IA no encontrado"));
         submissionUseCase.findForTeacher(teacherEmail, job.getSubmissionId());
@@ -76,12 +82,14 @@ public class AiCorrectionService implements AiCorrectionUseCase {
 
     @Override
     public List<AiGradingSuggestion> listSuggestions(String teacherEmail, UUID submissionId) {
+        requireVipTeacher(teacherEmail);
         submissionUseCase.findForTeacher(teacherEmail, submissionId);
         return suggestionRepository.findBySubmissionId(submissionId);
     }
 
     @Override
     public AiGradingSuggestion accept(String teacherEmail, UUID suggestionId) {
+        requireVipTeacher(teacherEmail);
         AiGradingSuggestion suggestion = requireReviewableSuggestion(teacherEmail, suggestionId);
         submissionUseCase.grade(teacherEmail, suggestion.getSubmissionId(), List.of(
                 new ExamSubmissionUseCase.GradeUpdate(suggestion.getQuestionId(),
@@ -98,6 +106,7 @@ public class AiCorrectionService implements AiCorrectionUseCase {
 
     @Override
     public AiGradingSuggestion reject(String teacherEmail, UUID suggestionId) {
+        requireVipTeacher(teacherEmail);
         AiGradingSuggestion suggestion = requireReviewableSuggestion(teacherEmail, suggestionId);
         User teacher = requireTeacher(teacherEmail);
         return suggestionRepository.save(suggestion.toBuilder().status(AiGradingSuggestionStatus.REJECTED)
@@ -134,5 +143,14 @@ public class AiCorrectionService implements AiCorrectionUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Profesor no encontrado"));
         if (teacher.getRole() != Role.PROFESOR) throw new IllegalArgumentException("Solo un profesor puede usar IA");
         return teacher;
+    }
+
+    private void requireVipTeacher(String teacherEmail) {
+        String configuredVip = properties.getAiGrading().getVipTeacherEmail();
+        String normalizedEmail = teacherEmail == null ? "" : teacherEmail.trim().toLowerCase(Locale.ROOT);
+        String normalizedVip = configuredVip == null ? "" : configuredVip.trim().toLowerCase(Locale.ROOT);
+        if (!normalizedEmail.equals(normalizedVip)) {
+            throw new AccessDeniedException("La correccion con IA esta reservada al docente VIP");
+        }
     }
 }

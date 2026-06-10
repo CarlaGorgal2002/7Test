@@ -28,6 +28,7 @@ app:
   ai-grading:
     enabled: ${OPENAI_ENABLED:false}
     api-key: ${OPENAI_API_KEY:}
+    vip-teacher-email: pfarias@uade.edu.ar
     model: ${OPENAI_MODEL:gpt-5.4-mini}
     material-version: testing-apps-2026-06-10-v1
     material-resource: classpath:course-material/Todo_Testing_de_Apps.pdf

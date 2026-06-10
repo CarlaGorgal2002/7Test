@@ -88,7 +88,8 @@ public class AuthController {
         return userRepository.findByEmail(principal.getName())
                 .map(user -> ResponseEntity.ok(java.util.Map.of(
                         "role", user.getRole().name(),
-                        "fullName", user.getFullName())))
+                        "fullName", user.getFullName(),
+                        "email", user.getEmail())))
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
 }

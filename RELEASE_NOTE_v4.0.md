@@ -34,6 +34,8 @@ Como principal novedad, esta versión incorpora un módulo de **corrección tent
 
 La sugerencia nunca reemplaza la decisión del profesor. El docente puede aceptarla, rechazarla, editar el puntaje o comentario y continuar utilizando la corrección manual aunque el proveedor de IA no esté disponible.
 
+Por control de acceso, la corrección con IA está habilitada exclusivamente para la cuenta docente VIP `pfarias@uade.edu.ar`. Los demás docentes utilizan el flujo de corrección manual.
+
 ---
 
 ## 2. Funcionalidades incluidas en esta versión
@@ -285,7 +287,7 @@ Para reportar defectos, utilizar:
 | Carla Gorgal | `cgorgal@uade.edu.ar` | `VayanseTodosALaMierda20021995` | ALUMNO |
 | Claudio Godio | `cgodio@uade.edu.ar` | `ClaudioGodio123` | DIRECTOR_DE_CATEDRA |
 
-> Las cuentas antiguas de alumnos y profesores fueron retiradas de producción.
+> Las cuentas de alumnos y profesores se mantienen en producción. Solamente la cuenta docente VIP `pfarias@uade.edu.ar` puede utilizar corrección con IA.
 
 ### Entorno QA manual sin IA
 
@@ -324,7 +326,7 @@ Este entorno conserva las 45 cuentas antiguas de alumnos y sus 45 cuentas equiva
 - `POST /api/ai-grading/suggestions/{suggestionId}/accept` · aceptar y copiar sugerencia.
 - `POST /api/ai-grading/suggestions/{suggestionId}/reject` · rechazar sugerencia.
 
-Todos los endpoints de corrección con IA son exclusivos para el rol `PROFESOR`.
+Todos los endpoints de corrección con IA son exclusivos para la cuenta docente VIP `pfarias@uade.edu.ar`.
 
 ### Variables de entorno de OpenAI
 

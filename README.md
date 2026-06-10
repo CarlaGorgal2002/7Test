@@ -94,6 +94,9 @@ http://localhost:8080/v3/api-docs
 | `OPENAI_MAX_RELEVANT_PAGES` | Maximo de paginas relevantes enviadas por pregunta | `8` |
 | `OPENAI_MAX_CHARACTERS_PER_PAGE` | Maximo de caracteres enviados por pagina | `6000` |
 
+La correccion con IA esta reservada exclusivamente a `pfarias@uade.edu.ar`.
+Los demas profesores conservan todos los flujos de correccion manual.
+
 ### Configurar OpenAI localmente
 
 1. Ingresar a [OpenAI API Keys](https://platform.openai.com/api-keys).

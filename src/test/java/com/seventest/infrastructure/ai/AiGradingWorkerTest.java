@@ -155,9 +155,23 @@ class AiGradingWorkerTest {
         assertFinalStatus(AiGradingJobStatus.FAILED);
     }
 
+    @Test
+    void refusesQueuedJobRequestedByRegularTeacher() {
+        AiGradingJob queued = AiGradingJob.builder().id(jobId).submissionId(submissionId)
+                .requestedByTeacherId(teacherId).requestedByTeacherEmail("prof.mgueler@uade.edu.ar")
+                .status(AiGradingJobStatus.QUEUED).totalQuestions(1).build();
+        Mockito.when(jobRepository.findById(jobId)).thenReturn(Optional.of(queued));
+
+        worker.dispatch(jobId);
+
+        Mockito.verifyNoInteractions(provider, suggestionRepository, submissionRepository, examRepository);
+        assertFinalStatus(AiGradingJobStatus.FAILED);
+    }
+
     private void stub(Fixture fixture) {
         AiGradingJob queued = AiGradingJob.builder().id(jobId).submissionId(submissionId)
                 .requestedByTeacherId(teacherId)
+                .requestedByTeacherEmail("pfarias@uade.edu.ar")
                 .status(AiGradingJobStatus.QUEUED).totalQuestions(fixture.answers.size()).build();
         Mockito.when(jobRepository.findById(jobId)).thenReturn(Optional.of(queued));
         Mockito.when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(fixture.submission));

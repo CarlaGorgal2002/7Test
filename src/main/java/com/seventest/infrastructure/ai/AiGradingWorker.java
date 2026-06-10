@@ -64,6 +64,9 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
     }
 
     private void process(AiGradingJob initialJob) {
+        if (!isVipTeacher(initialJob.getRequestedByTeacherEmail())) {
+            throw new IllegalArgumentException("El trabajo de IA no pertenece al docente VIP");
+        }
         ExamSubmission submission = submissionRepository.findById(initialJob.getSubmissionId())
                 .orElseThrow(() -> new IllegalArgumentException("Entrega no encontrada"));
         Exam exam = examRepository.findById(submission.getExamId())
@@ -226,5 +229,10 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
 
     private boolean blank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private boolean isVipTeacher(String email) {
+        String vipEmail = properties.getAiGrading().getVipTeacherEmail();
+        return email != null && vipEmail != null && email.trim().equalsIgnoreCase(vipEmail.trim());
     }
 }
