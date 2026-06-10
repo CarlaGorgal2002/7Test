@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: 7test-qa-manual-backend
+    runtime: docker
+    region: virginia
+    plan: free
+    branch: qa-manual-only
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /v3/api-docs
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+
