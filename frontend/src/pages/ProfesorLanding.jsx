@@ -235,7 +235,7 @@ export default function ProfesorLanding() {
       if (createdTopic) setSelectedTopicId(createdTopic.id)
       setMessage(`Tema ${nextLetter} agregado.`)
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo agregar el tema.')
+      handleExamRequestError(err, 'No se pudo agregar el tema.')
     } finally {
       setTopicAdding(false)
     }
@@ -261,7 +261,7 @@ export default function ProfesorLanding() {
       setSelectedTopicId((updated.topics || [])[0]?.id ?? null)
       setMessage('Tema eliminado.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo eliminar el tema.')
+      handleExamRequestError(err, 'No se pudo eliminar el tema.')
     }
   }
 async function renameTopic(topicId) {
@@ -276,7 +276,7 @@ async function renameTopic(topicId) {
     setEditingTopicName('')
     setMessage('Nombre del tema actualizado.')
   } catch (err) {
-    setMessage(err.response?.data?.message || 'No se pudo renombrar el tema.')
+    handleExamRequestError(err, 'No se pudo renombrar el tema.')
   }
 }
 
@@ -306,7 +306,7 @@ async function renameTopic(topicId) {
       replaceExam(res.data)
       setMessage('Datos del borrador actualizados.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudieron actualizar los datos del borrador.')
+      handleExamRequestError(err, 'No se pudieron actualizar los datos del borrador.')
     }
   }
 
@@ -327,7 +327,7 @@ async function renameTopic(topicId) {
       setQuestionForms((current) => ({ ...current, [topicId]: emptyQuestion }))
       setMessage('Pregunta agregada.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo agregar la pregunta.')
+      handleExamRequestError(err, 'No se pudo agregar la pregunta.')
     }
   }
 
@@ -353,7 +353,7 @@ async function renameTopic(topicId) {
       })
       setMessage('Pregunta actualizada.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo actualizar la pregunta.')
+      handleExamRequestError(err, 'No se pudo actualizar la pregunta.')
     }
   }
 
@@ -370,7 +370,7 @@ async function renameTopic(topicId) {
       replaceExam(updated)
       setMessage('Plantilla cargada: 6 teoricas vacias de 1 punto, tabla vacia de 2 puntos y arbol vacio de 2 puntos.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo cargar la plantilla.')
+      handleExamRequestError(err, 'No se pudo cargar la plantilla.')
     } finally {
       setTemplateLoading('')
     }
@@ -398,7 +398,7 @@ async function renameTopic(topicId) {
       replaceExam(res.data)
       setMessage('Pregunta eliminada.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo eliminar la pregunta.')
+      handleExamRequestError(err, 'No se pudo eliminar la pregunta.')
     }
   }
 
@@ -411,7 +411,7 @@ async function renameTopic(topicId) {
       replaceExam(res.data)
       setMessage(publishSuccessMessage(res.data))
     } catch (err) {
-      setMessage(err.response?.data?.message || err.message || 'No se pudo publicar el examen.')
+      handleExamRequestError(err, err.message || 'No se pudo publicar el examen.')
     }
   }
 
@@ -517,7 +517,7 @@ async function renameTopic(topicId) {
       replaceExam(res.data)
       setMessage('Examen cerrado. Ya no se aceptan nuevas entregas.')
     } catch (err) {
-      setMessage(err.response?.data?.message || 'No se pudo cerrar el examen.')
+      handleExamRequestError(err, 'No se pudo cerrar el examen.')
     }
   }
 
@@ -620,6 +620,26 @@ async function renameTopic(topicId) {
   function replaceExam(updated) {
     setExams((current) => current.map((exam) => exam.id === updated.id ? updated : exam))
     setSelectedId(updated.id)
+  }
+
+  function handleExamRequestError(err, fallbackMessage) {
+    const apiMessage = err.response?.data?.message
+    if (err.response?.status === 404 && apiMessage?.startsWith('Examen no encontrado')) {
+      const missingExamId = selectedExam?.id
+      if (missingExamId) {
+        setExams((current) => current.filter((exam) => exam.id !== missingExamId))
+      }
+      setSelectedId(null)
+      setSelectedTopicId(null)
+      setQuestionForms({})
+      setEditingQuestionForms({})
+      setPageMode('examList')
+      window.history.replaceState({ profe: 'examList' }, '', '/profesor')
+      setMessage('Ese examen ya no existe. Actualizamos la lista para que puedas continuar con otro borrador.')
+      fetchExams()
+      return
+    }
+    setMessage(apiMessage || fallbackMessage)
   }
 
   function updateQuestionForm(topicId, field, value) {
