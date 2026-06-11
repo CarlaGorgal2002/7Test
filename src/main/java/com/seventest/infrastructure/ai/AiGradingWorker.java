@@ -172,29 +172,69 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
                 int rows = root.path("rows").asInt();
                 int cols = root.path("cols").asInt();
                 int nonBlank = 0;
-                for (JsonNode row : root.path("cells")) for (JsonNode cell : row)
-                    if (!cell.asText("").isBlank()) nonBlank++;
-                return "Tabla normalizada: filas=" + rows + ", columnas=" + cols + ", celdasNoVacias=" + nonBlank
-                        + ", estructuraValida=" + (rows > 0 && cols > 0 && root.path("cells").isArray());
+                List<Map<String, Object>> cells = new ArrayList<>();
+                int rowIndex = 0;
+                for (JsonNode row : root.path("cells")) {
+                    int columnIndex = 0;
+                    for (JsonNode cell : row) {
+                        String text = cell.asText("");
+                        if (!text.isBlank()) {
+                            nonBlank++;
+                            cells.add(Map.of("row", rowIndex + 1, "column", columnIndex + 1, "text", text));
+                        }
+                        columnIndex++;
+                    }
+                    rowIndex++;
+                }
+                Map<String, Object> normalized = new LinkedHashMap<>();
+                normalized.put("kind", "DECISION_TABLE");
+                normalized.put("rows", rows);
+                normalized.put("columns", cols);
+                normalized.put("nonBlankCells", nonBlank);
+                normalized.put("validStructure", rows > 0 && cols > 0 && root.path("cells").isArray());
+                normalized.put("cells", cells);
+                normalized.put("mergedCells", objectMapper.convertValue(root.path("spans"), Map.class));
+                return objectMapper.writeValueAsString(normalized);
             }
             if (answer.startsWith(TREE_PREFIX)) {
                 JsonNode root = objectMapper.readTree(answer.substring(TREE_PREFIX.length()));
                 Set<String> nodes = new HashSet<>();
-                root.path("nodes").forEach(n -> nodes.add(n.path("id").asText()));
+                List<Map<String, Object>> normalizedNodes = new ArrayList<>();
+                root.path("nodes").forEach(node -> {
+                    String id = node.path("id").asText();
+                    nodes.add(id);
+                    normalizedNodes.add(Map.of(
+                            "id", id,
+                            "shape", node.path("type").asText(""),
+                            "text", node.path("text").asText("")));
+                });
                 int invalidEdges = 0;
                 Set<String> incoming = new HashSet<>();
                 Set<String> outgoing = new HashSet<>();
+                List<Map<String, Object>> normalizedEdges = new ArrayList<>();
                 for (JsonNode edge : root.path("edges")) {
                     String from = edge.path("from").path("nodeId").asText();
                     String to = edge.path("to").path("nodeId").asText();
                     if (!nodes.contains(from) || !nodes.contains(to)) invalidEdges++;
                     incoming.add(to);
                     outgoing.add(from);
+                    normalizedEdges.add(Map.of(
+                            "fromNodeId", from,
+                            "toNodeId", to,
+                            "label", edge.path("label").asText("")));
                 }
                 long roots = nodes.stream().filter(n -> !incoming.contains(n)).count();
                 long terminals = nodes.stream().filter(n -> !outgoing.contains(n)).count();
-                return "Arbol normalizado: nodos=" + nodes.size() + ", conexiones=" + root.path("edges").size()
-                        + ", raices=" + roots + ", terminales=" + terminals + ", conexionesInvalidas=" + invalidEdges;
+                Map<String, Object> normalized = new LinkedHashMap<>();
+                normalized.put("kind", "DECISION_TREE");
+                normalized.put("nodeCount", nodes.size());
+                normalized.put("edgeCount", root.path("edges").size());
+                normalized.put("rootCount", roots);
+                normalized.put("terminalCount", terminals);
+                normalized.put("invalidEdgeCount", invalidEdges);
+                normalized.put("nodes", normalizedNodes);
+                normalized.put("edges", normalizedEdges);
+                return objectMapper.writeValueAsString(normalized);
             }
             return "Respuesta de texto.";
         } catch (Exception ex) {

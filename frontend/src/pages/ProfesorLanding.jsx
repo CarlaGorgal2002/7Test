@@ -1799,10 +1799,18 @@ async function renameTopic(topicId) {
                     {q.prompt && <p style={styles.gradePrompt}>{q.prompt}</p>}
                     <div style={styles.gradeAnswerBox}>
                       <p style={styles.gradeAnswerLabel}>Respuesta del alumno:</p>
-                      {isTable || isTree ? (
-                        <p style={{ color: '#536B76', fontSize: 13, fontStyle: 'italic' }}>
-                          {isTable ? '[Tabla de decisión — ver en vista del alumno]' : '[Árbol de decisión — ver en vista del alumno]'}
-                        </p>
+                      {isTable ? (
+                        <DecisionTableEditor
+                          value={isDecisionTableValue(q.answerText) ? q.answerText : emptyDecisionTableValue()}
+                          readOnly
+                          compact
+                        />
+                      ) : isTree ? (
+                        <DecisionTreeEditor
+                          value={isDecisionTreeValue(q.answerText) ? q.answerText : emptyDecisionTreeValue()}
+                          readOnly
+                          compact
+                        />
                       ) : (
                         <pre style={styles.gradeAnswerText}>{q.answerText || '(sin respuesta)'}</pre>
                       )}
