@@ -194,7 +194,9 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
                 normalized.put("validStructure", rows > 0 && cols > 0 && root.path("cells").isArray());
                 normalized.put("cells", cells);
                 normalized.put("mergedCells", objectMapper.convertValue(root.path("spans"), Map.class));
-                return objectMapper.writeValueAsString(normalized);
+                return "Tabla normalizada: filas=" + rows + ", columnas=" + cols + ", celdasNoVacias=" + nonBlank
+                        + ", estructuraValida=" + (rows > 0 && cols > 0 && root.path("cells").isArray())
+                        + "\nContenido normalizado: " + objectMapper.writeValueAsString(normalized);
             }
             if (answer.startsWith(TREE_PREFIX)) {
                 JsonNode root = objectMapper.readTree(answer.substring(TREE_PREFIX.length()));
@@ -234,7 +236,9 @@ public class AiGradingWorker implements AiGradingJobDispatcher, ApplicationListe
                 normalized.put("invalidEdgeCount", invalidEdges);
                 normalized.put("nodes", normalizedNodes);
                 normalized.put("edges", normalizedEdges);
-                return objectMapper.writeValueAsString(normalized);
+                return "Arbol normalizado: nodos=" + nodes.size() + ", conexiones=" + root.path("edges").size()
+                        + ", raices=" + roots + ", terminales=" + terminals + ", conexionesInvalidas=" + invalidEdges
+                        + "\nContenido normalizado: " + objectMapper.writeValueAsString(normalized);
             }
             return "Respuesta de texto.";
         } catch (Exception ex) {
