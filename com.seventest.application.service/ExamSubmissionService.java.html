@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExamSubmissionService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report"></a> &gt; <a href="index.source.html" class="el_package">com.seventest.application.service</a> &gt; <span class="el_source">ExamSubmissionService.java</span></div><h1>ExamSubmissionService.java</h1><pre class="source lang-java linenums">package com.seventest.application.service;
+
+import com.seventest.domain.exception.ExamNotFoundException;
+import com.seventest.domain.exception.ExamSubmissionNotFoundException;
+import com.seventest.domain.exception.UserNotFoundException;
+import com.seventest.domain.model.Exam;
+import com.seventest.domain.model.ExamAnswer;
+import com.seventest.domain.model.ExamQuestion;
+import com.seventest.domain.model.ExamStatus;
+import com.seventest.domain.model.ExamSubmission;
+import com.seventest.domain.model.ExamTopic;
+import com.seventest.domain.model.Role;
+import com.seventest.domain.model.SubmissionStatus;
+import com.seventest.domain.model.User;
+import com.seventest.domain.port.in.ExamSubmissionUseCase;
+import com.seventest.domain.port.out.ExamRepository;
+import com.seventest.domain.port.out.ExamSubmissionRepository;
+import com.seventest.domain.port.out.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ExamSubmissionService implements ExamSubmissionUseCase {
+
+    private final ExamSubmissionRepository submissionRepository;
+    private final ExamRepository examRepository;
+    private final UserRepository userRepository;
+
+    @Override
+    public ExamSubmission start(String studentEmail, UUID examId, UUID topicId) {
+<span class="fc" id="L40">        User student = requireRole(studentEmail, Role.ALUMNO, &quot;Solo un alumno puede rendir examenes&quot;);</span>
+<span class="fc" id="L41">        Exam exam = requireExam(examId);</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (exam.getStatus() != ExamStatus.PUBLICADO) {</span>
+<span class="fc" id="L43">            throw new IllegalArgumentException(&quot;El examen no esta publicado&quot;);</span>
+        }
+<span class="fc bfc" id="L45" title="All 4 branches covered.">        if (exam.getAvailableFrom() != null &amp;&amp; Instant.now().isBefore(exam.getAvailableFrom())) {</span>
+<span class="fc" id="L46">            throw new IllegalArgumentException(&quot;El examen todavia no esta disponible&quot;);</span>
+        }
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        if (topicId == null) {</span>
+<span class="fc" id="L49">            throw new IllegalArgumentException(&quot;Debes seleccionar un tema para comenzar&quot;);</span>
+        }
+<span class="fc" id="L51">        requireAssignedTopic(exam, topicId);</span>
+
+<span class="fc" id="L53">        return submissionRepository.findByStudentIdAndExamId(student.getId(), examId)</span>
+<span class="fc" id="L54">                .orElseGet(() -&gt; createSubmission(student, exam, topicId));</span>
+    }
+
+    @Override
+    public ExamSubmission saveAnswers(String studentEmail, UUID submissionId, List&lt;AnswerUpdate&gt; updates) {
+<span class="fc" id="L59">        User student = requireRole(studentEmail, Role.ALUMNO, &quot;Solo un alumno puede guardar respuestas&quot;);</span>
+<span class="fc" id="L60">        ExamSubmission submission = requireOwnedSubmission(student, submissionId);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (submission.getStatus() != SubmissionStatus.EN_PROGRESO) {</span>
+<span class="fc" id="L62">            throw new IllegalArgumentException(&quot;No se puede modificar una entrega finalizada&quot;);</span>
+        }
+
+<span class="fc" id="L65">        ExamTopic topic = requireAssignedTopic(requireExam(submission.getExamId()), submission.getTopicId());</span>
+<span class="fc" id="L66">        Map&lt;UUID, String&gt; validQuestionIds = topic.getQuestions().stream()</span>
+<span class="fc" id="L67">                .collect(Collectors.toMap(ExamQuestion::getId, ExamQuestion::getPrompt));</span>
+
+<span class="fc" id="L69">        Instant now = Instant.now();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        Map&lt;UUID, String&gt; updateMap = updates == null ? Map.of() : updates.stream()</span>
+<span class="fc" id="L71">                .collect(Collectors.toMap(AnswerUpdate::questionId, update -&gt; cleanAnswer(update.answerText()), (a, b) -&gt; b));</span>
+
+<span class="fc" id="L73">        updateMap.keySet().forEach(questionId -&gt; {</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            if (!validQuestionIds.containsKey(questionId)) {</span>
+<span class="fc" id="L75">                throw new IllegalArgumentException(&quot;La pregunta no pertenece al tema asignado&quot;);</span>
+            }
+<span class="fc" id="L77">        });</span>
+
+<span class="fc" id="L79">        List&lt;ExamAnswer&gt; answers = submission.getAnswers().stream()</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">                .map(answer -&gt; updateMap.containsKey(answer.getQuestionId())</span>
+<span class="fc" id="L81">                        ? answer.toBuilder().answerText(updateMap.get(answer.getQuestionId())).updatedAt(now).build()</span>
+<span class="fc" id="L82">                        : answer)</span>
+<span class="fc" id="L83">                .toList();</span>
+
+<span class="fc" id="L85">        return submissionRepository.save(submission.toBuilder()</span>
+<span class="fc" id="L86">                .answers(answers)</span>
+<span class="fc" id="L87">                .updatedAt(now)</span>
+<span class="fc" id="L88">                .build());</span>
+    }
+
+    @Override
+    public ExamSubmission submit(String studentEmail, UUID submissionId) {
+<span class="fc" id="L93">        User student = requireRole(studentEmail, Role.ALUMNO, &quot;Solo un alumno puede entregar examenes&quot;);</span>
+<span class="fc" id="L94">        ExamSubmission submission = requireOwnedSubmission(student, submissionId);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (!isNotSubmitted(submission)) {</span>
+<span class="fc" id="L96">            return submission;</span>
+        }
+<span class="fc" id="L98">        Instant now = Instant.now();</span>
+<span class="fc" id="L99">        return submissionRepository.save(submission.toBuilder()</span>
+<span class="fc" id="L100">                .status(SubmissionStatus.ENTREGADO)</span>
+<span class="fc" id="L101">                .updatedAt(now)</span>
+<span class="fc" id="L102">                .submittedAt(now)</span>
+<span class="fc" id="L103">                .build());</span>
+    }
+
+    @Override
+    public List&lt;ExamSubmission&gt; listForStudent(String studentEmail) {
+<span class="fc" id="L108">        User student = requireRole(studentEmail, Role.ALUMNO, &quot;Solo un alumno puede consultar sus entregas&quot;);</span>
+<span class="fc" id="L109">        return submissionRepository.findByStudentId(student.getId());</span>
+    }
+
+    @Override
+    public ExamSubmission findForTeacher(String teacherEmail, UUID submissionId) {
+<span class="fc" id="L114">        User teacher = requireRole(teacherEmail, Role.PROFESOR, &quot;Solo un profesor puede ver esta entrega&quot;);</span>
+<span class="fc" id="L115">        ExamSubmission submission = submissionRepository.findById(submissionId)</span>
+<span class="fc" id="L116">                .orElseThrow(() -&gt; new ExamSubmissionNotFoundException(submissionId));</span>
+<span class="fc" id="L117">        Exam exam = requireExam(submission.getExamId());</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (!exam.getTeacherId().equals(teacher.getId())) {</span>
+<span class="fc" id="L119">            throw new IllegalArgumentException(&quot;El examen pertenece a otro profesor&quot;);</span>
+        }
+<span class="fc" id="L121">        return submission;</span>
+    }
+
+    @Override
+    public ExamSubmission grade(String teacherEmail, UUID submissionId, List&lt;GradeUpdate&gt; updates) {
+<span class="fc" id="L126">        User teacher = requireRole(teacherEmail, Role.PROFESOR, &quot;Solo un profesor puede calificar entregas&quot;);</span>
+<span class="fc" id="L127">        ExamSubmission submission = submissionRepository.findById(submissionId)</span>
+<span class="fc" id="L128">                .orElseThrow(() -&gt; new ExamSubmissionNotFoundException(submissionId));</span>
+<span class="fc" id="L129">        Exam exam = requireExam(submission.getExamId());</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (!exam.getTeacherId().equals(teacher.getId())) {</span>
+<span class="fc" id="L131">            throw new IllegalArgumentException(&quot;El examen pertenece a otro profesor&quot;);</span>
+        }
+<span class="fc" id="L133">        ExamTopic topic = requireAssignedTopic(exam, submission.getTopicId());</span>
+<span class="fc" id="L134">        Map&lt;UUID, BigDecimal&gt; maxPoints = topic.getQuestions().stream()</span>
+<span class="fc" id="L135">                .collect(Collectors.toMap(ExamQuestion::getId, ExamQuestion::getPoints));</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        Map&lt;UUID, GradeUpdate&gt; updateMap = updates == null ? Map.of() : updates.stream()</span>
+<span class="fc" id="L137">                .collect(Collectors.toMap(GradeUpdate::questionId, u -&gt; u, (a, b) -&gt; b));</span>
+<span class="fc" id="L138">        Instant now = Instant.now();</span>
+<span class="fc" id="L139">        List&lt;ExamAnswer&gt; answers = submission.getAnswers().stream()</span>
+<span class="fc" id="L140">                .map(answer -&gt; {</span>
+<span class="fc" id="L141">                    GradeUpdate u = updateMap.get(answer.getQuestionId());</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">                    if (u == null) return answer;</span>
+<span class="fc" id="L143">                    BigDecimal score = u.score();</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">                    if (score != null) {</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                        if (score.compareTo(BigDecimal.ZERO) &lt; 0)</span>
+<span class="fc" id="L146">                            throw new IllegalArgumentException(&quot;El puntaje no puede ser negativo&quot;);</span>
+<span class="fc" id="L147">                        BigDecimal max = maxPoints.get(answer.getQuestionId());</span>
+<span class="fc bfc" id="L148" title="All 4 branches covered.">                        if (max != null &amp;&amp; score.compareTo(max) &gt; 0)</span>
+<span class="fc" id="L149">                            throw new IllegalArgumentException(&quot;El puntaje no puede superar el valor máximo de la pregunta&quot;);</span>
+                    }
+<span class="fc" id="L151">                    return answer.toBuilder()</span>
+<span class="fc" id="L152">                            .score(score)</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">                            .comment(u.comment() == null ? null : u.comment().trim())</span>
+<span class="fc" id="L154">                            .updatedAt(now)</span>
+<span class="fc" id="L155">                            .build();</span>
+                })
+<span class="fc" id="L157">                .toList();</span>
+<span class="fc" id="L158">        return submissionRepository.save(submission.toBuilder().answers(answers).updatedAt(now).build());</span>
+    }
+
+    @Override
+    public List&lt;ExamSubmission&gt; listForTeacherExam(String teacherEmail, UUID examId) {
+<span class="fc" id="L163">        User teacher = requireRole(teacherEmail, Role.PROFESOR, &quot;Solo un profesor puede consultar entregas&quot;);</span>
+<span class="fc" id="L164">        Exam exam = requireExam(examId);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        if (!exam.getTeacherId().equals(teacher.getId())) {</span>
+<span class="fc" id="L166">            throw new IllegalArgumentException(&quot;El examen pertenece a otro profesor&quot;);</span>
+        }
+<span class="fc" id="L168">        return submissionRepository.findByExamId(examId);</span>
+    }
+
+    private ExamSubmission createSubmission(User student, Exam exam, UUID topicId) {
+<span class="fc" id="L172">        ExamTopic topic = requireAssignedTopic(exam, topicId);</span>
+<span class="fc" id="L173">        Instant now = Instant.now();</span>
+<span class="fc" id="L174">        List&lt;ExamAnswer&gt; answers = topic.getQuestions().stream()</span>
+<span class="fc" id="L175">                .sorted(Comparator.comparingInt(ExamQuestion::getDisplayOrder))</span>
+<span class="fc" id="L176">                .map(question -&gt; ExamAnswer.builder()</span>
+<span class="fc" id="L177">                        .id(UUID.randomUUID())</span>
+<span class="fc" id="L178">                        .questionId(question.getId())</span>
+<span class="fc" id="L179">                        .answerText(&quot;&quot;)</span>
+<span class="fc" id="L180">                        .updatedAt(now)</span>
+<span class="fc" id="L181">                        .build())</span>
+<span class="fc" id="L182">                .toList();</span>
+
+<span class="fc" id="L184">        return submissionRepository.save(ExamSubmission.builder()</span>
+<span class="fc" id="L185">                .id(UUID.randomUUID())</span>
+<span class="fc" id="L186">                .examId(exam.getId())</span>
+<span class="fc" id="L187">                .examTitle(exam.getTitle())</span>
+<span class="fc" id="L188">                .topicId(topic.getId())</span>
+<span class="fc" id="L189">                .topicName(topic.getName())</span>
+<span class="fc" id="L190">                .studentId(student.getId())</span>
+<span class="fc" id="L191">                .studentName(student.getFullName())</span>
+<span class="fc" id="L192">                .status(SubmissionStatus.EN_PROGRESO)</span>
+<span class="fc" id="L193">                .answers(answers)</span>
+<span class="fc" id="L194">                .startedAt(now)</span>
+<span class="fc" id="L195">                .updatedAt(now)</span>
+<span class="fc" id="L196">                .submittedAt(null)</span>
+<span class="fc" id="L197">                .build());</span>
+    }
+
+    private ExamSubmission requireOwnedSubmission(User student, UUID submissionId) {
+<span class="fc" id="L201">        ExamSubmission submission = submissionRepository.findById(submissionId)</span>
+<span class="fc" id="L202">                .orElseThrow(() -&gt; new ExamSubmissionNotFoundException(submissionId));</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">        if (!submission.getStudentId().equals(student.getId())) {</span>
+<span class="fc" id="L204">            throw new IllegalArgumentException(&quot;La entrega pertenece a otro alumno&quot;);</span>
+        }
+<span class="fc" id="L206">        return submission;</span>
+    }
+
+    private Exam requireExam(UUID examId) {
+<span class="fc" id="L210">        return examRepository.findById(examId)</span>
+<span class="fc" id="L211">                .orElseThrow(() -&gt; new ExamNotFoundException(examId));</span>
+    }
+
+    private ExamTopic requireAssignedTopic(Exam exam, UUID topicId) {
+<span class="fc" id="L215">        return exam.getTopics().stream()</span>
+<span class="fc" id="L216">                .filter(topic -&gt; topic.getId().equals(topicId))</span>
+<span class="fc" id="L217">                .findFirst()</span>
+<span class="fc" id="L218">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;El tema asignado ya no existe&quot;));</span>
+    }
+
+    private User requireRole(String email, Role role, String message) {
+<span class="fc" id="L222">        User user = userRepository.findByEmail(email)</span>
+<span class="fc" id="L223">                .orElseThrow(() -&gt; new UserNotFoundException(UUID.fromString(&quot;00000000-0000-0000-0000-000000000000&quot;)));</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">        if (user.getRole() != role) {</span>
+<span class="fc" id="L225">            throw new IllegalArgumentException(message);</span>
+        }
+<span class="fc" id="L227">        return user;</span>
+    }
+
+    /** Indica si la entrega ya fue finalizada por el alumno. */
+    private boolean isNotSubmitted(ExamSubmission submission) {
+<span class="fc bfc" id="L232" title="All 2 branches covered.">        return submission.getStatus() == SubmissionStatus.EN_PROGRESO;</span>
+    }
+
+    private String cleanAnswer(String value) {
+<span class="fc bfc" id="L236" title="All 2 branches covered.">        return value == null ? &quot;&quot; : value.trim();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

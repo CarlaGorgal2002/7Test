@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExamService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report"></a> &gt; <a href="index.source.html" class="el_package">com.seventest.application.service</a> &gt; <span class="el_source">ExamService.java</span></div><h1>ExamService.java</h1><pre class="source lang-java linenums">package com.seventest.application.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seventest.domain.exception.ExamNotFoundException;
+import com.seventest.domain.exception.UserNotFoundException;
+import com.seventest.domain.model.Exam;
+import com.seventest.domain.model.ExamQuestion;
+import com.seventest.domain.model.ExamStatus;
+import com.seventest.domain.model.ExamTopic;
+import com.seventest.domain.model.Role;
+import com.seventest.domain.model.User;
+import com.seventest.domain.port.in.ExamManagementUseCase;
+import com.seventest.domain.port.out.ExamRepository;
+import com.seventest.domain.port.out.ExamSubmissionRepository;
+import com.seventest.domain.port.out.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class ExamService implements ExamManagementUseCase {
+
+<span class="fc" id="L31">    private static final BigDecimal REQUIRED_TOPIC_TOTAL = BigDecimal.TEN;</span>
+    private static final String DEFAULT_COURSE_NAME = &quot;Testing de Aplicaciones&quot;;
+    private static final String DECISION_TREE_PREFIX = &quot;7TEST_DECISION_TREE:&quot;;
+    private static final String DECISION_TABLE_PREFIX = &quot;7TEST_DECISION_TABLE:&quot;;
+    private static final String EMPTY_DECISION_TREE = &quot;7TEST_DECISION_TREE:{\&quot;nodes\&quot;:[],\&quot;edges\&quot;:[]}&quot;;
+    private static final String EMPTY_DECISION_TABLE = &quot;7TEST_DECISION_TABLE:{\&quot;rows\&quot;:2,\&quot;cols\&quot;:2,\&quot;cells\&quot;:[[\&quot;\&quot;,\&quot;\&quot;],[\&quot;\&quot;,\&quot;\&quot;]]}&quot;;
+<span class="fc" id="L37">    private static final ObjectMapper EDITOR_JSON = new ObjectMapper();</span>
+<span class="fc" id="L38">    private static final List&lt;String&gt; TOPIC_COLORS = List.of(</span>
+            &quot;#1956D8&quot;, &quot;#16A34A&quot;, &quot;#D97706&quot;, &quot;#DC2626&quot;, &quot;#7C3AED&quot;,
+            &quot;#EA580C&quot;, &quot;#0891B2&quot;, &quot;#65A30D&quot;, &quot;#DB2777&quot;, &quot;#0D9488&quot;
+    );
+
+    private final ExamRepository examRepository;
+    private final UserRepository userRepository;
+    private final ExamSubmissionRepository submissionRepository;
+
+    @Override
+    public Exam create(String teacherEmail, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
+<span class="fc" id="L49">        User teacher = requireTeacher(teacherEmail);</span>
+<span class="fc" id="L50">        Instant now = Instant.now();</span>
+<span class="fc" id="L51">        Exam exam = Exam.builder()</span>
+<span class="fc" id="L52">                .id(UUID.randomUUID())</span>
+<span class="fc" id="L53">                .title(cleanRequired(title, &quot;El titulo del examen es obligatorio&quot;))</span>
+<span class="fc" id="L54">                .description(cleanOptional(description))</span>
+<span class="fc" id="L55">                .courseName(cleanCourseName(courseName))</span>
+<span class="fc" id="L56">                .teacherId(teacher.getId())</span>
+<span class="fc" id="L57">                .teacherName(teacher.getFullName())</span>
+<span class="fc" id="L58">                .status(ExamStatus.BORRADOR)</span>
+<span class="fc" id="L59">                .availableFrom(availableFrom)</span>
+<span class="fc" id="L60">                .durationMinutes(durationMinutes)</span>
+<span class="fc" id="L61">                .topics(List.of())</span>
+<span class="fc" id="L62">                .createdAt(now)</span>
+<span class="fc" id="L63">                .updatedAt(now)</span>
+<span class="fc" id="L64">                .publishedAt(null)</span>
+<span class="fc" id="L65">                .build();</span>
+<span class="fc" id="L66">        return examRepository.save(exam);</span>
+    }
+
+    @Override
+    public Exam update(String teacherEmail, UUID examId, String title, String description, String courseName, Instant availableFrom, Integer durationMinutes) {
+<span class="fc" id="L71">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L72">        return examRepository.save(exam.toBuilder()</span>
+<span class="fc" id="L73">                .title(cleanRequired(title, &quot;El titulo del examen es obligatorio&quot;))</span>
+<span class="fc" id="L74">                .description(cleanOptional(description))</span>
+<span class="fc" id="L75">                .courseName(cleanCourseName(courseName))</span>
+<span class="fc" id="L76">                .availableFrom(availableFrom)</span>
+<span class="fc" id="L77">                .durationMinutes(durationMinutes)</span>
+<span class="fc" id="L78">                .updatedAt(Instant.now())</span>
+<span class="fc" id="L79">                .build());</span>
+    }
+
+    @Override
+    public Exam addTopic(String teacherEmail, UUID examId, String name) {
+<span class="fc" id="L84">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L85">        List&lt;ExamTopic&gt; topics = new ArrayList&lt;&gt;(safeTopics(exam));</span>
+<span class="fc" id="L86">        topics.add(ExamTopic.builder()</span>
+<span class="fc" id="L87">                .id(UUID.randomUUID())</span>
+<span class="fc" id="L88">                .name(cleanRequired(name, &quot;El nombre del tema es obligatorio&quot;))</span>
+<span class="fc" id="L89">                .colorHex(nextTopicColor(topics.size()))</span>
+<span class="fc" id="L90">                .questions(List.of())</span>
+<span class="fc" id="L91">                .build());</span>
+<span class="fc" id="L92">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam updateTopic(String teacherEmail, UUID examId, UUID topicId, String name) {
+<span class="fc" id="L97">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L98">        List&lt;ExamTopic&gt; topics = safeTopics(exam).stream()</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">                .map(topic -&gt; topic.getId().equals(topicId)</span>
+<span class="fc" id="L100">                        ? topic.toBuilder().name(cleanRequired(name, &quot;El nombre del tema es obligatorio&quot;)).build()</span>
+<span class="fc" id="L101">                        : topic)</span>
+<span class="fc" id="L102">                .toList();</span>
+<span class="fc" id="L103">        ensureTopicExists(topics, topicId);</span>
+<span class="fc" id="L104">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam removeTopic(String teacherEmail, UUID examId, UUID topicId) {
+<span class="fc" id="L109">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L110">        List&lt;ExamTopic&gt; topics = safeTopics(exam).stream()</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                .filter(topic -&gt; !topic.getId().equals(topicId))</span>
+<span class="fc" id="L112">                .toList();</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (topics.size() == safeTopics(exam).size()) {</span>
+<span class="fc" id="L114">            throw new IllegalArgumentException(&quot;Tema no encontrado&quot;);</span>
+        }
+<span class="fc" id="L116">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam addQuestion(String teacherEmail, UUID examId, UUID topicId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
+<span class="fc" id="L121">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L122">        List&lt;ExamTopic&gt; topics = safeTopics(exam).stream()</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">                .map(topic -&gt; topic.getId().equals(topicId)</span>
+<span class="fc" id="L124">                        ? topic.toBuilder().questions(addQuestion(topic, prompt, modelAnswer, teacherCriteria, points)).build()</span>
+<span class="fc" id="L125">                        : topic)</span>
+<span class="fc" id="L126">                .toList();</span>
+<span class="fc" id="L127">        ensureTopicExists(topics, topicId);</span>
+<span class="fc" id="L128">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam updateQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
+<span class="fc" id="L133">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L134">        List&lt;ExamTopic&gt; topics = safeTopics(exam).stream()</span>
+<span class="fc" id="L135">                .map(topic -&gt; {</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">                    if (!topic.getId().equals(topicId)) {</span>
+<span class="fc" id="L137">                        return topic;</span>
+                    }
+<span class="fc" id="L139">                    List&lt;ExamQuestion&gt; questions = safeQuestions(topic).stream()</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                            .map(question -&gt; question.getId().equals(questionId)</span>
+<span class="fc" id="L141">                                    ? question.toBuilder()</span>
+<span class="fc" id="L142">                                        .prompt(cleanOptional(prompt))</span>
+<span class="fc" id="L143">                                        .modelAnswer(cleanOptional(modelAnswer))</span>
+<span class="fc" id="L144">                                        .teacherCriteria(cleanOptional(teacherCriteria))</span>
+<span class="fc" id="L145">                                        .points(validPoints(points))</span>
+<span class="fc" id="L146">                                        .build()</span>
+<span class="fc" id="L147">                                    : question)</span>
+<span class="fc" id="L148">                            .toList();</span>
+<span class="fc" id="L149">                    ensureQuestionExists(questions, questionId);</span>
+<span class="fc" id="L150">                    return topic.toBuilder().questions(questions).build();</span>
+                })
+<span class="fc" id="L152">                .toList();</span>
+<span class="fc" id="L153">        ensureTopicExists(topics, topicId);</span>
+<span class="fc" id="L154">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam removeQuestion(String teacherEmail, UUID examId, UUID topicId, UUID questionId) {
+<span class="fc" id="L159">        Exam exam = requireEditableOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L160">        List&lt;ExamTopic&gt; topics = safeTopics(exam).stream()</span>
+<span class="fc" id="L161">                .map(topic -&gt; {</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">                    if (!topic.getId().equals(topicId)) {</span>
+<span class="fc" id="L163">                        return topic;</span>
+                    }
+<span class="fc" id="L165">                    List&lt;ExamQuestion&gt; before = safeQuestions(topic);</span>
+<span class="fc" id="L166">                    List&lt;ExamQuestion&gt; after = before.stream()</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">                            .filter(question -&gt; !question.getId().equals(questionId))</span>
+<span class="fc" id="L168">                            .toList();</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">                    if (after.size() == before.size()) {</span>
+<span class="fc" id="L170">                        throw new IllegalArgumentException(&quot;Pregunta no encontrada&quot;);</span>
+                    }
+<span class="fc" id="L172">                    return topic.toBuilder().questions(reindex(after)).build();</span>
+                })
+<span class="fc" id="L174">                .toList();</span>
+<span class="fc" id="L175">        ensureTopicExists(topics, topicId);</span>
+<span class="fc" id="L176">        return saveWithTopics(exam, topics);</span>
+    }
+
+    @Override
+    public Exam publish(String teacherEmail, UUID examId) {
+<span class="fc" id="L181">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc" id="L182">        validateReadyToPublish(exam);</span>
+<span class="fc" id="L183">        Instant now = Instant.now();</span>
+<span class="fc" id="L184">        return examRepository.save(exam.toBuilder()</span>
+<span class="fc" id="L185">                .status(ExamStatus.PUBLICADO)</span>
+<span class="fc" id="L186">                .updatedAt(now)</span>
+<span class="fc" id="L187">                .publishedAt(now)</span>
+<span class="fc" id="L188">                .build());</span>
+    }
+
+    @Override
+    public Exam close(String teacherEmail, UUID examId) {
+<span class="fc" id="L193">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        if (exam.getStatus() == ExamStatus.CERRADO) {</span>
+<span class="fc" id="L195">            return exam;</span>
+        }
+<span class="fc" id="L197">        return examRepository.save(exam.toBuilder()</span>
+<span class="fc" id="L198">                .status(ExamStatus.CERRADO)</span>
+<span class="fc" id="L199">                .updatedAt(Instant.now())</span>
+<span class="fc" id="L200">                .build());</span>
+    }
+
+    @Override
+    public List&lt;Exam&gt; listForTeacher(String teacherEmail) {
+<span class="fc" id="L205">        User teacher = requireTeacher(teacherEmail);</span>
+<span class="fc" id="L206">        return examRepository.findByTeacherId(teacher.getId());</span>
+    }
+
+    @Override
+    public List&lt;Exam&gt; listForSupervision(ExamStatus status) {
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        return status == null ? examRepository.findAll() : examRepository.findByStatus(status);</span>
+    }
+
+    @Override
+    public List&lt;Exam&gt; listPublishedForStudents() {
+<span class="fc" id="L216">        List&lt;Exam&gt; result = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc" id="L217">        result.addAll(examRepository.findByStatus(ExamStatus.PUBLICADO));</span>
+<span class="fc" id="L218">        result.addAll(examRepository.findByStatus(ExamStatus.CERRADO));</span>
+<span class="fc" id="L219">        return result;</span>
+    }
+
+    @Override
+    public Exam findById(UUID examId) {
+<span class="fc" id="L224">        return examRepository.findById(examId)</span>
+<span class="fc" id="L225">                .orElseThrow(() -&gt; new ExamNotFoundException(examId));</span>
+    }
+
+    @Override
+    public Exam addExtraTime(String teacherEmail, UUID examId, int extraMinutes) {
+<span class="fc" id="L230">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">        if (exam.getStatus() != ExamStatus.PUBLICADO) {</span>
+<span class="fc" id="L232">            throw new IllegalArgumentException(&quot;Solo se puede agregar tiempo en un examen publicado&quot;);</span>
+        }
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        if (exam.isExtraTimeUsed()) {</span>
+<span class="fc" id="L235">            throw new IllegalArgumentException(&quot;El tiempo extra solo puede usarse una vez&quot;);</span>
+        }
+<span class="fc bfc" id="L237" title="All 4 branches covered.">        if (extraMinutes &lt; 1 || extraMinutes &gt; 60) {</span>
+<span class="fc" id="L238">            throw new IllegalArgumentException(&quot;El tiempo extra debe ser entre 1 y 60 minutos&quot;);</span>
+        }
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        int base = exam.getDurationMinutes() != null ? exam.getDurationMinutes() : 0;</span>
+<span class="fc" id="L241">        return examRepository.save(exam.toBuilder()</span>
+<span class="fc" id="L242">                .durationMinutes(base + extraMinutes)</span>
+<span class="fc" id="L243">                .extraTimeUsed(true)</span>
+<span class="fc" id="L244">                .updatedAt(Instant.now())</span>
+<span class="fc" id="L245">                .build());</span>
+    }
+
+    @Override
+    public Exam publishFeedback(String teacherEmail, UUID examId) {
+<span class="fc" id="L250">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">        if (exam.getStatus() == ExamStatus.BORRADOR) {</span>
+<span class="fc" id="L252">            throw new IllegalArgumentException(&quot;No se puede publicar devoluciones de un examen en borrador&quot;);</span>
+        }
+<span class="fc" id="L254">        return examRepository.save(exam.toBuilder().feedbackPublished(true).updatedAt(Instant.now()).build());</span>
+    }
+
+    @Override
+    public void deleteExam(String teacherEmail, UUID examId) {
+<span class="fc" id="L259">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">        if (exam.getStatus() == ExamStatus.PUBLICADO) {</span>
+<span class="fc" id="L261">            throw new IllegalArgumentException(&quot;No se puede eliminar un examen publicado&quot;);</span>
+        }
+<span class="fc bfc" id="L263" title="All 4 branches covered.">        if (exam.getStatus() == ExamStatus.CERRADO &amp;&amp; !submissionRepository.findByExamId(examId).isEmpty()) {</span>
+<span class="fc" id="L264">            throw new IllegalArgumentException(&quot;No se puede eliminar un examen cerrado con entregas registradas&quot;);</span>
+        }
+<span class="fc" id="L266">        examRepository.deleteById(examId);</span>
+<span class="fc" id="L267">    }</span>
+
+    private Exam requireEditableOwnedExam(String teacherEmail, UUID examId) {
+<span class="fc" id="L270">        Exam exam = requireOwnedExam(teacherEmail, examId);</span>
+<span class="fc bfc" id="L271" title="All 2 branches covered.">        if (isEligibleForEdit(exam.getStatus())) {</span>
+<span class="fc" id="L272">            throw new IllegalArgumentException(&quot;Solo se puede editar un examen en borrador&quot;);</span>
+        }
+<span class="fc" id="L274">        return exam;</span>
+    }
+
+    private Exam requireOwnedExam(String teacherEmail, UUID examId) {
+<span class="fc" id="L278">        User teacher = requireTeacher(teacherEmail);</span>
+<span class="fc" id="L279">        Exam exam = findById(examId);</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        if (!exam.getTeacherId().equals(teacher.getId())) {</span>
+<span class="fc" id="L281">            throw new IllegalArgumentException(&quot;El examen pertenece a otro profesor&quot;);</span>
+        }
+<span class="fc" id="L283">        return exam;</span>
+    }
+
+    private User requireTeacher(String email) {
+<span class="fc" id="L287">        User user = userRepository.findByEmail(email)</span>
+<span class="fc" id="L288">                .orElseThrow(() -&gt; new UserNotFoundException(UUID.fromString(&quot;00000000-0000-0000-0000-000000000000&quot;)));</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">        if (user.getRole() != Role.PROFESOR) {</span>
+<span class="fc" id="L290">            throw new IllegalArgumentException(&quot;Solo un profesor puede gestionar examenes&quot;);</span>
+        }
+<span class="fc" id="L292">        return user;</span>
+    }
+
+    private Exam saveWithTopics(Exam exam, List&lt;ExamTopic&gt; topics) {
+<span class="fc" id="L296">        return examRepository.save(exam.toBuilder()</span>
+<span class="fc" id="L297">                .topics(topics)</span>
+<span class="fc" id="L298">                .updatedAt(Instant.now())</span>
+<span class="fc" id="L299">                .build());</span>
+    }
+
+    private List&lt;ExamQuestion&gt; addQuestion(ExamTopic topic, String prompt, String modelAnswer, String teacherCriteria, BigDecimal points) {
+<span class="fc" id="L303">        List&lt;ExamQuestion&gt; questions = new ArrayList&lt;&gt;(safeQuestions(topic));</span>
+<span class="fc" id="L304">        questions.add(ExamQuestion.builder()</span>
+<span class="fc" id="L305">                .id(UUID.randomUUID())</span>
+<span class="fc" id="L306">                .prompt(cleanOptional(prompt))</span>
+<span class="fc" id="L307">                .modelAnswer(cleanOptional(modelAnswer))</span>
+<span class="fc" id="L308">                .teacherCriteria(cleanOptional(teacherCriteria))</span>
+<span class="fc" id="L309">                .points(validPoints(points))</span>
+<span class="fc" id="L310">                .displayOrder(questions.size() + 1)</span>
+<span class="fc" id="L311">                .build());</span>
+<span class="fc" id="L312">        return questions;</span>
+    }
+
+    private void validateReadyToPublish(Exam exam) {
+<span class="fc bfc" id="L316" title="All 2 branches covered.">        if (safeTopics(exam).isEmpty()) {</span>
+<span class="fc" id="L317">            throw new IllegalArgumentException(&quot;El examen debe tener al menos un tema&quot;);</span>
+        }
+<span class="fc bfc" id="L319" title="All 2 branches covered.">        for (ExamTopic topic : safeTopics(exam)) {</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            if (safeQuestions(topic).isEmpty()) {</span>
+<span class="fc" id="L321">                throw new IllegalArgumentException(&quot;Cada tema debe tener al menos una pregunta&quot;);</span>
+            }
+<span class="fc bfc" id="L323" title="All 2 branches covered.">            if (topic.totalPoints().compareTo(REQUIRED_TOPIC_TOTAL) != 0) {</span>
+<span class="fc" id="L324">                throw new IllegalArgumentException(&quot;Cada tema debe sumar exactamente 10 puntos&quot;);</span>
+            }
+<span class="fc bfc" id="L326" title="All 2 branches covered.">            for (ExamQuestion question : safeQuestions(topic)) {</span>
+<span class="fc" id="L327">                String loc = topic.getName() + &quot; · Pregunta &quot; + question.getDisplayOrder();</span>
+<span class="fc bfc" id="L328" title="All 4 branches covered.">                String hint = (question.getPrompt() != null &amp;&amp; !question.getPrompt().isBlank())</span>
+<span class="fc" id="L329">                        ? &quot;: &quot; + question.getPrompt().substring(0, Math.min(60, question.getPrompt().length()))</span>
+<span class="fc" id="L330">                        : &quot;&quot;;</span>
+<span class="fc bfc" id="L331" title="All 2 branches covered.">                if (isBlankQuestionContent(question.getPrompt())) {</span>
+<span class="fc" id="L332">                    throw new IllegalArgumentException(&quot;Falta enunciado en &quot; + loc);</span>
+                }
+<span class="fc bfc" id="L334" title="All 2 branches covered.">                if (isBlankQuestionContent(question.getModelAnswer())) {</span>
+<span class="fc" id="L335">                    throw new IllegalArgumentException(&quot;Falta respuesta modelo en &quot; + loc + hint);</span>
+                }
+<span class="fc" id="L337">            }</span>
+<span class="fc" id="L338">        }</span>
+<span class="fc" id="L339">    }</span>
+
+    private boolean isBlankQuestionContent(String value) {
+<span class="fc bfc" id="L342" title="All 4 branches covered.">        if (value == null || value.isBlank()) {</span>
+<span class="fc" id="L343">            return true;</span>
+        }
+<span class="fc" id="L345">        String clean = value.trim();</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">        return EMPTY_DECISION_TREE.equals(clean)</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">                || EMPTY_DECISION_TABLE.equals(clean)</span>
+<span class="fc bfc" id="L348" title="All 4 branches covered.">                || (clean.startsWith(DECISION_TREE_PREFIX) &amp;&amp; !hasNonBlankTreeText(clean))</span>
+<span class="fc bfc" id="L349" title="All 4 branches covered.">                || (clean.startsWith(DECISION_TABLE_PREFIX) &amp;&amp; !hasNonBlankTableCell(clean));</span>
+    }
+
+    private boolean hasNonBlankTreeText(String value) {
+        try {
+<span class="fc" id="L354">            JsonNode root = EDITOR_JSON.readTree(value.substring(DECISION_TREE_PREFIX.length()));</span>
+<span class="fc bfc" id="L355" title="All 2 branches covered.">            for (JsonNode node : root.path(&quot;nodes&quot;)) {</span>
+<span class="fc bfc" id="L356" title="All 2 branches covered.">                if (!node.path(&quot;text&quot;).asText(&quot;&quot;).isBlank()) {</span>
+<span class="fc" id="L357">                    return true;</span>
+                }
+<span class="fc" id="L359">            }</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">            for (JsonNode edge : root.path(&quot;edges&quot;)) {</span>
+<span class="fc bfc" id="L361" title="All 2 branches covered.">                if (!edge.path(&quot;label&quot;).asText(&quot;&quot;).isBlank()) {</span>
+<span class="fc" id="L362">                    return true;</span>
+                }
+<span class="fc" id="L364">            }</span>
+<span class="fc" id="L365">            return false;</span>
+<span class="fc" id="L366">        } catch (Exception ex) {</span>
+<span class="fc" id="L367">            return false;</span>
+        }
+    }
+
+    private boolean hasNonBlankTableCell(String value) {
+        try {
+<span class="fc" id="L373">            List&lt;JsonNode&gt; rows = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L374">            EDITOR_JSON.readTree(value.substring(DECISION_TABLE_PREFIX.length())).path(&quot;cells&quot;).forEach(rows::add);</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">            for (JsonNode row : rows) {</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">                for (JsonNode cell : row) {</span>
+<span class="fc bfc" id="L377" title="All 2 branches covered.">                    if (!cell.asText(&quot;&quot;).isBlank()) {</span>
+<span class="fc" id="L378">                        return true;</span>
+                    }
+<span class="fc" id="L380">                }</span>
+<span class="fc" id="L381">            }</span>
+<span class="fc" id="L382">            return false;</span>
+<span class="fc" id="L383">        } catch (Exception ex) {</span>
+<span class="fc" id="L384">            return false;</span>
+        }
+    }
+
+
+    private BigDecimal validPoints(BigDecimal points) {
+<span class="fc bfc" id="L390" title="All 4 branches covered.">        if (points == null || points.compareTo(BigDecimal.ZERO) &lt; 0) {</span>
+<span class="fc" id="L391">            throw new IllegalArgumentException(&quot;El puntaje debe ser mayor a cero&quot;);</span>
+        }
+<span class="fc bfc" id="L393" title="All 2 branches covered.">        if (points.compareTo(REQUIRED_TOPIC_TOTAL) &gt; 0) {</span>
+<span class="fc" id="L394">            throw new IllegalArgumentException(&quot;Una pregunta no puede valer mas de 10 puntos&quot;);</span>
+        }
+<span class="fc" id="L396">        return points.stripTrailingZeros();</span>
+    }
+
+    private String cleanRequired(String value, String message) {
+<span class="fc bfc" id="L400" title="All 4 branches covered.">        if (value == null || value.isBlank()) {</span>
+<span class="fc" id="L401">            throw new IllegalArgumentException(message);</span>
+        }
+<span class="fc" id="L403">        return value.trim();</span>
+    }
+
+    private String cleanOptional(String value) {
+<span class="fc bfc" id="L407" title="All 2 branches covered.">        return value == null ? &quot;&quot; : value.trim();</span>
+    }
+
+    private String cleanCourseName(String value) {
+<span class="fc" id="L411">        String clean = cleanOptional(value);</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">        return clean.isBlank() ? DEFAULT_COURSE_NAME : clean;</span>
+    }
+
+    private String nextTopicColor(int existingTopics) {
+<span class="fc" id="L416">        return TOPIC_COLORS.get(existingTopics % TOPIC_COLORS.size());</span>
+    }
+
+    private List&lt;ExamTopic&gt; safeTopics(Exam exam) {
+<span class="fc bfc" id="L420" title="All 2 branches covered.">        return exam.getTopics() == null ? List.of() : exam.getTopics();</span>
+    }
+
+    private List&lt;ExamQuestion&gt; safeQuestions(ExamTopic topic) {
+<span class="fc bfc" id="L424" title="All 2 branches covered.">        return topic.getQuestions() == null</span>
+<span class="fc" id="L425">                ? List.of()</span>
+<span class="fc" id="L426">                : topic.getQuestions().stream()</span>
+<span class="fc" id="L427">                    .sorted(Comparator.comparingInt(ExamQuestion::getDisplayOrder))</span>
+<span class="fc" id="L428">                    .toList();</span>
+    }
+
+    private List&lt;ExamQuestion&gt; reindex(List&lt;ExamQuestion&gt; questions) {
+<span class="fc" id="L432">        List&lt;ExamQuestion&gt; indexed = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L433" title="All 2 branches covered.">        for (int i = 0; i &lt; questions.size(); i++) {</span>
+<span class="fc" id="L434">            indexed.add(questions.get(i).toBuilder().displayOrder(i + 1).build());</span>
+        }
+<span class="fc" id="L436">        return indexed;</span>
+    }
+
+    /** Indica si el examen no esta disponible para recibir modificaciones. */
+    private boolean isEligibleForEdit(ExamStatus status) {
+<span class="fc bfc" id="L441" title="All 2 branches covered.">        return status != ExamStatus.BORRADOR;</span>
+    }
+
+    private void ensureTopicExists(List&lt;ExamTopic&gt; topics, UUID topicId) {
+<span class="fc bfc" id="L445" title="All 2 branches covered.">        if (topics.stream().noneMatch(topic -&gt; topic.getId().equals(topicId))) {</span>
+<span class="fc" id="L446">            throw new IllegalArgumentException(&quot;Tema no encontrado&quot;);</span>
+        }
+<span class="fc" id="L448">    }</span>
+
+    private void ensureQuestionExists(List&lt;ExamQuestion&gt; questions, UUID questionId) {
+<span class="fc bfc" id="L451" title="All 2 branches covered.">        if (questions.stream().noneMatch(question -&gt; question.getId().equals(questionId))) {</span>
+<span class="fc" id="L452">            throw new IllegalArgumentException(&quot;Pregunta no encontrada&quot;);</span>
+        }
+<span class="fc" id="L454">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
